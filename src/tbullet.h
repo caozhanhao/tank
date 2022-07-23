@@ -8,14 +8,15 @@ namespace czh::bullet
     map::Pos pos;
     map::Direction direction;
     std::size_t id;
+    bool from_auto_tank;
     int blood;
     int lethality;
     int circle;
     int remained_range;
   public:
-    Bullet(std::size_t id_, map::Pos pos_, map::Direction direction_, int lethality_, int circle_, int blood_, int range_)
-      :pos(std::move(pos_)), direction(direction_), id(id_),
-      blood(blood_), lethality(lethality_), circle(circle_), remained_range(range_ + 1) {}
+    Bullet(bool from_auto_tank_, std::size_t id_, map::Pos pos_, map::Direction direction_, int lethality_, int circle_, int blood_, int range_)
+      :from_auto_tank(from_auto_tank_), pos(std::move(pos_)), direction(direction_), id(id_),
+      blood(blood_), lethality(lethality_), circle(circle_), remained_range(range_) {}
     void move(map::Map& map, std::vector<map::Pos>& changes)
     {
       int ret = -1;
@@ -82,6 +83,10 @@ namespace czh::bullet
     bool is_alive() const 
     { 
       return blood > 0 && remained_range > 0; 
+    }
+    bool is_from_auto_tank() const
+    {
+      return from_auto_tank;
     }
     void kill()
     {

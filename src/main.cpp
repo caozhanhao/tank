@@ -1,5 +1,6 @@
 ﻿#include "tgame.h"
 #include <conio.h>
+#include <chrono>
 #include <thread>
 #include <windows.h>
 using namespace std;
@@ -18,8 +19,12 @@ int main()
 	Game game;
 	game.add_tank();
 	//game.add_auto_tank();
+	std::chrono::high_resolution_clock::time_point beg, end;
+	std::chrono::milliseconds cost(0);
+	std::chrono::milliseconds sleep(20);
 	while (true)
 	{
+		beg = std::chrono::high_resolution_clock::now();
 		if (_kbhit())
 		{
 			switch (getch())
@@ -43,15 +48,22 @@ int main()
 				game.react(0, Event::QUIT);
 				break;
 			case 'l':
-				game.add_auto_tank();
+				game.add_auto_tank(1, ::czh::map::random(1, 11));
+				break;
+			case 'p':
+				game.revive(0);
 				break;
 			default:
 				game.react(0, Event::NOTHING);
 				break;
 			}
 		}
-		game.react(0, Event::NOTHING);
-		std::this_thread::sleep_for(0.02s);
+		else
+			game.react(0, Event::NOTHING);
+		end = std::chrono::high_resolution_clock::now();
+		cost = std::chrono::duration_cast<std::chrono::milliseconds>(end - beg);
+		if (sleep > cost)
+			std::this_thread::sleep_for(sleep - cost);
 	}
 	return 0;
 }

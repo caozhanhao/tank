@@ -96,6 +96,12 @@ namespace czh::map
       return (x == pos.get_x() && y == pos.get_y());
     }
   };
+  bool operator<(const Pos& pos1, const Pos& pos2)
+  {
+    if (pos1.get_x() == pos2.get_x())
+      return pos1.get_y() < pos2.get_y();
+    return pos1.get_x() < pos2.get_x();
+  }
   class Map
   {
   private:
