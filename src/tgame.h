@@ -385,6 +385,7 @@ namespace czh::game
         }
       }
       paint();
+
       //if (all_over)
       //{
       //  logger::move_cursor(0, map.get_height() + 1);
