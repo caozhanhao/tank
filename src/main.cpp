@@ -50,6 +50,9 @@ int main()
 			case 'l':
 				game.add_auto_tank(1, ::czh::map::random(1, 11));
 				break;
+			case 'b':
+				game.add_auto_boss();
+				break;
 			case 'p':
 				game.revive(0);
 				break;
