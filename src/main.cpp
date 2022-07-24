@@ -21,7 +21,7 @@ int main()
 	//game.add_auto_tank();
 	std::chrono::high_resolution_clock::time_point beg, end;
 	std::chrono::milliseconds cost(0);
-	std::chrono::milliseconds sleep(20);
+	std::chrono::milliseconds sleep(17);
 	while (true)
 	{
 		beg = std::chrono::high_resolution_clock::now();
@@ -49,6 +49,9 @@ int main()
 				break;
 			case 'l':
 				game.add_auto_tank(1, ::czh::map::random(1, 11));
+				break;
+			case 'b':
+				game.add_auto_boss();
 				break;
 			case 'p':
 				game.revive(0);

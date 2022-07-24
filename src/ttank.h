@@ -18,10 +18,12 @@ namespace czh::tank
     map::Direction direction;
     bool hascleared;
     TankType type;
+    int last_blood;
+    int delay;
   public:
     Tank(int blood_, int lethality_, map::Map& map, std::vector<map::Pos>& changes, map::Pos pos_, std::size_t id_, TankType type_ = TankType::TANK)
       : blood(blood_), lethality(lethality_), direction(map::Direction::UP), pos(std::move(pos_)),
-      hascleared(false), id(id_), type(type_)
+      hascleared(false), id(id_), type(type_), last_blood(0), delay(0)
     {
       pos.get_point(map.get_map()).add_status(map::Status::TANK);
       changes.emplace_back(pos);
@@ -75,7 +77,7 @@ namespace czh::tank
       }
     }
     int get_blood() const { return blood; }
-    int get_lethality() const { return lethality; }
+    int get_lethality() const { return lethality * map::random(5, 16) / 10; }
     bool is_alive() const
     {
       return blood > 0;
@@ -110,6 +112,18 @@ namespace czh::tank
     {
       blood = 100;
       hascleared = false;
+    }
+    void mark_blood()
+    {
+      last_blood = get_blood();
+    }
+    bool has_been_attacked_since_marked()
+    {
+      return last_blood != get_blood();
+    }
+    int& get_delay()
+    {
+      return delay;
     }
   };
   map::AutoTankEvent get_direction(const map::Pos& from, const map::Pos& to)
@@ -198,14 +212,16 @@ namespace czh::tank
     std::vector<map::AutoTankEvent> way;
     std::size_t waypos;
     bool found;
+    bool correct_direction;
     std::size_t level;
     std::size_t count;
   public:
     AutoTank(int blood_, int lethality_, map::Map& map, std::vector<map::Pos>& changes, map::Pos pos_, std::size_t level_, std::size_t id_)
-      :Tank(blood_, lethality_, map, changes, pos_, id_, TankType::AUTO), found(false), waypos(0),
+      :Tank(blood_, lethality_, map, changes, pos_, id_, TankType::AUTO), found(false), correct_direction(false), waypos(0),
       target_id(0), target_type(TankType::AUTO), level(level_), count(0) {}
     void target(map::Map& map, TankType target_type_, std::size_t target_id_, map::Pos target_pos_)
     {
+      correct_direction = false;
       target_type = target_type_;
       target_id = target_id_;
       target_pos = target_pos_;
@@ -280,6 +296,7 @@ namespace czh::tank
             np = close_list[np.get_last()];
           }
           way.emplace_back(get_direction(around_target, target_pos));
+          way.emplace_back(get_direction(around_target, target_pos));
           found = true;
           return;
         }
@@ -300,6 +317,20 @@ namespace czh::tank
       }
       else
       {
+        if (!correct_direction)
+        {
+          correct_direction = true;
+          int x = get_pos().get_x() - target_pos.get_x();
+          int y = get_pos().get_y() - target_pos.get_y();
+          if (x > 0)
+            return map::AutoTankEvent::LEFT;
+          if (x < 0)
+            return map::AutoTankEvent::RIGHT;
+          if (y < 0)
+            return map::AutoTankEvent::UP;
+          if (y > 0)
+            return map::AutoTankEvent::DOWN;
+        }
         return map::AutoTankEvent::STOP;
       }
     }
@@ -323,6 +354,10 @@ namespace czh::tank
     bool get_found() const
     {
       return found;
+    }
+    bool get_correct() const
+    {
+      return correct_direction;
     }
     int get_level() const
     {

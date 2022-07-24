@@ -51,8 +51,8 @@ namespace czh::bullet
         }
         break;
       case map::Direction::LEFT:
-        ret = map.left (map::Status::BULLET, pos);
-        if (ret != 0) 
+        ret = map.left(map::Status::BULLET, pos);
+        if (ret != 0)
         {
           blood -= 1;
           direction = map::Direction::RIGHT;
@@ -79,6 +79,16 @@ namespace czh::bullet
         }
         break;
       }
+    }
+    std::string get_text()
+    {
+      switch (direction)
+      {
+      case map::Direction::UP:
+      case map::Direction::DOWN:
+        return "|";
+      }
+      return "-";
     }
     bool is_alive() const 
     { 
