@@ -389,7 +389,6 @@ namespace czh::game
       {
         logger::move_cursor(0, map.get_height() + 1);
         CZH_NOTICE("Game Over.");
-        //exit(0);
       }
       return *this;
     }
