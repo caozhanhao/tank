@@ -95,6 +95,10 @@ namespace czh::map
     {
       return (x == pos.get_x() && y == pos.get_y());
     }
+    bool operator!=(const Pos& pos) const
+    {
+      return !(* this == pos);
+    }
   };
   bool operator<(const Pos& pos1, const Pos& pos2)
   {

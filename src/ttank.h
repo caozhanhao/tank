@@ -110,7 +110,7 @@ namespace czh::tank
     }
     void revive()
     {
-      blood = 100;
+      blood = 999;
       hascleared = false;
     }
     void mark_blood()
@@ -290,7 +290,7 @@ namespace czh::tank
           way.clear();
           waypos = 0;
           auto& np = itt->second;
-          while (!np.is_root())
+          while (!np.is_root() && np.get_pos() != np.get_last())
           {
             way.emplace_back(get_direction(close_list[np.get_last()].get_pos(), np.get_pos()));
             np = close_list[np.get_last()];

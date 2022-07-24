@@ -104,7 +104,7 @@ namespace czh::game
     Game() : inited(false), tank_status_changed(true) {}
     Game& add_tank(std::size_t n = 1)
     {
-      tanks.insert(tanks.cend(), n, tank::Tank(100, 20, map, changes, get_random_pos(), tanks.size()));
+      tanks.insert(tanks.cend(), n, tank::Tank(999, 350, map, changes, get_random_pos(), tanks.size()));
       tank_status_changed = true;
       return *this;
     }
@@ -136,7 +136,7 @@ namespace czh::game
       int id = 0;
       if (auto_tanks.size() != 0)
         id = auto_tanks[auto_tanks.size() - 1].get_id() + 1;
-      auto_tanks.emplace_back(tank::AutoTank(999, 10, map, changes, get_random_pos(), 10, id));
+      auto_tanks.emplace_back(tank::AutoTank(999, 1, map, changes, get_random_pos(), 10, id));
       tank_status_changed = true;
       return *this;
     }
@@ -385,12 +385,11 @@ namespace czh::game
         }
       }
       paint();
-      if (all_over)
-      {
-        logger::move_cursor(0, map.get_height() + 1);
-        CZH_NOTICE("Game Over.");
-        //exit(0);
-      }
+      //if (all_over)
+      //{
+      //  logger::move_cursor(0, map.get_height() + 1);
+      //  CZH_NOTICE("Game Over.");
+      //}
       return *this;
     }
   private:
