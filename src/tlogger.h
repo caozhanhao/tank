@@ -13,9 +13,9 @@
 
 #define _CZH_LOGGER(level, msg) \
 czh::logger::output(czh::logger::Logger().get(), \
-std::to_string("[") + level + std::to_string("] ") + czh::logger::get_time()\
-+ " " + std::to_string(WS_LOCATION) \
-+ " " + std::to_string(msg));
+"[" + std::to_string(level) + "] " + czh::logger::get_time()\
++ " " + std::to_string(CZH_LOCATION) \
++ " " msg);
 
 #define CZH_WARNING(msg) do{_CZH_LOGGER("WARNING", msg);}while(0);
 #define CZH_DEBUG(msg) do{_CZH_LOGGER("DEBUG", msg);}while(0);

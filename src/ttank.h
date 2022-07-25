@@ -95,6 +95,7 @@ namespace czh::tank
     {
       blood -= lethality;
       if (blood < 0) blood = 0;
+      if (blood > 999) blood = 999;
     }
     const map::Pos& get_pos() const
     {
@@ -229,16 +230,16 @@ namespace czh::tank
       switch (map::random(0, 4))
       {
       case 0:
-        around_target.get_x() -= 9;
+        around_target.get_x() -= 1;
         break;
       case 1:
-        around_target.get_x() += 9;
+        around_target.get_x() += 1;
         break;
       case 2:
-        around_target.get_y() -= 9;
+        around_target.get_y() -= 1;
         break;
       default:
-        around_target.get_y() += 9;
+        around_target.get_y() += 1;
         break;
       }
       std::multimap<int, Node> open_list;
@@ -290,9 +291,11 @@ namespace czh::tank
           way.clear();
           waypos = 0;
           auto& np = itt->second;
+          //std::vector<map::Pos> test;
           while (!np.is_root() && np.get_pos() != np.get_last())
           {
-            way.emplace_back(get_direction(close_list[np.get_last()].get_pos(), np.get_pos()));
+            //test.emplace_back(np.get_pos());
+            way.insert(way.begin(), get_direction(close_list[np.get_last()].get_pos(), np.get_pos()));
             np = close_list[np.get_last()];
           }
           way.emplace_back(get_direction(around_target, target_pos));
@@ -305,44 +308,46 @@ namespace czh::tank
     }
     map::AutoTankEvent next()
     {
+      if (!found)
+        return  map::AutoTankEvent::FIRE;
       bool delay = ++count < 10 - level;
-      if (delay)
+      if (++count < 10 - level)
         return map::AutoTankEvent::NOTHING;
-      count = 0;
-      if (found && waypos < way.size())
+      else 
+        count = 0;
+
+      if (waypos < way.size())
       {
         auto ret = way[waypos];
         ++waypos;
         return ret;
       }
-      else
+      else if (!correct_direction)
       {
-        if (!correct_direction)
-        {
-          correct_direction = true;
-          int x = get_pos().get_x() - target_pos.get_x();
-          int y = get_pos().get_y() - target_pos.get_y();
-          if (x > 0)
-            return map::AutoTankEvent::LEFT;
-          if (x < 0)
-            return map::AutoTankEvent::RIGHT;
-          if (y < 0)
-            return map::AutoTankEvent::UP;
-          if (y > 0)
-            return map::AutoTankEvent::DOWN;
-        }
-        return map::AutoTankEvent::STOP;
+        correct_direction = true;
+        int x = get_pos().get_x() - target_pos.get_x();
+        int y = get_pos().get_y() - target_pos.get_y();
+        if (x > 0)
+          return map::AutoTankEvent::LEFT;
+        if (x < 0)
+          return map::AutoTankEvent::RIGHT;
+        if (y < 0)
+          return map::AutoTankEvent::UP;
+        if (y > 0)
+          return map::AutoTankEvent::DOWN;
       }
+      else
+        return map::AutoTankEvent::FIRE;
     }
-    map::Pos get_target_pos() const
+    map::Pos& get_target_pos()
     {
       return target_pos;
     }
-    std::size_t get_target_id() const
+    std::size_t& get_target_id() 
     {
       return target_id;
     }   
-    map::Pos get_around_target_pos() const
+    map::Pos& get_around_target_pos()
     {
       return around_target;
     }
@@ -355,7 +360,7 @@ namespace czh::tank
     {
       return found;
     }
-    bool get_correct() const
+    bool& get_correct()
     {
       return correct_direction;
     }

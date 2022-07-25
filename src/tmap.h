@@ -22,7 +22,7 @@ namespace czh::map
   };
   enum class AutoTankEvent
   {
-    UP, DOWN, LEFT, RIGHT, STOP, NOTHING
+    UP, DOWN, LEFT, RIGHT, FIRE, NOTHING
   };
   class Point
   {
@@ -128,6 +128,15 @@ namespace czh::map
       {
         map[0][i].add_status(map::Status::WALL);
         map[width - 1][i].add_status(map::Status::WALL);
+      }
+
+      for (auto& r : map)
+      {
+        for (auto& k : r)
+        {
+          if (random(0, 15) == 1)
+            k.add_status(Status::WALL);
+        }
       }
     }
     auto get_width() const { return width; }
