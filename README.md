@@ -1,7 +1,7 @@
 # tank
 一个Windows/Linux C++小游戏
 ## 示例
-![server](https://gitee.com/cmvy2020/tank/raw/master/examples/tank.png)
+![server](https://gitee.com/cmvy2020/tank/raw/master/examples/tank-example.png)
 ## 规则
 - 玩家使用WSAD控制蓝色Tank
 - 按l键生成随机Level的Auto Tank
