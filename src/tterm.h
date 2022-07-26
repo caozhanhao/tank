@@ -21,8 +21,8 @@ namespace czh::term
 	public:
 		TermPos(std::size_t x_, std::size_t y_)
 			:x(x_), y(y_) { }
-		std::size_t get_x() const { return x; }
-		std::size_t get_y() const { return y; }
+        [[nodiscard]]std::size_t get_x() const { return x; }
+        [[nodiscard]]std::size_t get_y() const { return y; }
 	};
 #if defined(__linux__)
 	class KeyBoard
@@ -79,7 +79,7 @@ namespace czh::term
 	};
 	KeyBoard keyboard;
 #endif
-	char getch()
+	int getch()
 	{
 #if defined(_WIN32) || defined(_WIN64)
 		return _getch();
@@ -99,23 +99,11 @@ namespace czh::term
 	{
 		std::cout << str << std::flush;
 	}
-	void disable_cursor()
-	{
-#if defined(_WIN32) || defined(_WIN64)
-		HANDLE handle = GetStdHandle(STD_OUTPUT_HANDLE);
-		CONSOLE_CURSOR_INFO cci;
-		GetConsoleCursorInfo(handle, &cci);
-		cci.bVisible = FALSE;
-		SetConsoleCursorInfo(handle, &cci);
-#elif defined(__linux__)
-		printf("\033[?25l");
-#endif
-	}
 	void move_cursor(const TermPos& pos)
 	{
 #if defined(_WIN32) || defined(_WIN64)
 		HANDLE handle = GetStdHandle(STD_OUTPUT_HANDLE);
-		COORD coord{ pos.get_x(), pos.get_y() };
+		COORD coord{ (SHORT)pos.get_x(), (SHORT)pos.get_y() };
 		SetConsoleCursorPosition(handle, coord);
 #elif defined(__linux__)
 		printf("%c[%d;%df", 0x1b, pos.get_y() + 1, pos.get_x() + 1);
