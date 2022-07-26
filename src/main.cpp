@@ -1,33 +1,22 @@
 ﻿#include "tgame.h"
-#include <conio.h>
 #include <chrono>
 #include <thread>
-#include <windows.h>
 using namespace std;
 using namespace czh::game;
-void init()
-{
-	HANDLE handle = GetStdHandle(STD_OUTPUT_HANDLE);
-	CONSOLE_CURSOR_INFO cci;
-	GetConsoleCursorInfo(handle, &cci);
-	cci.bVisible = FALSE;
-	SetConsoleCursorInfo(handle, &cci);
-}
+
 int main()
 {
-	init();
 	Game game;
 	game.add_tank();
-	//game.add_auto_tank();
 	std::chrono::high_resolution_clock::time_point beg, end;
 	std::chrono::milliseconds cost(0);
 	std::chrono::milliseconds sleep(17);
 	while (true)
 	{
 		beg = std::chrono::high_resolution_clock::now();
-		if (_kbhit())
+		if (czh::term::kbhit())
 		{
-			switch (getch())
+			switch (czh::term::getch())
 			{
 			case 'w':
 				game.react(0, Event::TANK_UP);
@@ -70,3 +59,4 @@ int main()
 	}
 	return 0;
 }
+

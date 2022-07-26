@@ -21,12 +21,12 @@ namespace czh::tank
     int last_blood;
     int delay;
   public:
-    Tank(int blood_, int lethality_, map::Map& map, std::vector<map::Pos>& changes, map::Pos pos_, std::size_t id_, TankType type_ = TankType::TANK)
+    Tank(int blood_, int lethality_, map::Map& map, std::vector<map::Change>& changes, map::Pos pos_, std::size_t id_, TankType type_ = TankType::TANK)
       : blood(blood_), lethality(lethality_), direction(map::Direction::UP), pos(std::move(pos_)),
       hascleared(false), id(id_), type(type_), last_blood(0), delay(0)
     {
       pos.get_point(map.get_map()).add_status(map::Status::TANK);
-      changes.emplace_back(pos);
+      changes.emplace_back(map::Change(pos));
     }
     bool is_auto() const
     {
@@ -36,44 +36,44 @@ namespace czh::tank
     {
       return id;
     }
-    void up(map::Map& map, std::vector<map::Pos>& changes)
+    void up(map::Map& map, std::vector<map::Change>& changes)
     {
       int a = map.up(map::Status::TANK, pos);
       direction = map::Direction::UP;
       if (a == 0)
       {
-        changes.emplace_back(pos);
-        changes.emplace_back(map::Pos(pos.get_x(), pos.get_y() - 1));
+        changes.emplace_back(map::Change(pos));
+        changes.emplace_back(map::Change(map::Pos(pos.get_x(), pos.get_y() - 1)));
       }
     }
-    void down(map::Map& map, std::vector<map::Pos>& changes)
+    void down(map::Map& map, std::vector<map::Change>& changes)
     {
       int a = map.down(map::Status::TANK, pos);
       direction = map::Direction::DOWN;
       if (a == 0)
       {
-        changes.emplace_back(pos);
-        changes.emplace_back(map::Pos(pos.get_x(), pos.get_y() + 1));
+        changes.emplace_back(map::Change(pos));
+        changes.emplace_back(map::Change(map::Pos(pos.get_x(), pos.get_y() + 1)));
       }
     }
-    void left(map::Map& map, std::vector<map::Pos>& changes)
+    void left(map::Map& map, std::vector<map::Change>& changes)
     {
       int a = map.left(map::Status::TANK, pos);
       direction = map::Direction::LEFT;
       if (a == 0)
       {
-        changes.emplace_back(pos);
-        changes.emplace_back(map::Pos(pos.get_x() + 1, pos.get_y()));
+        changes.emplace_back(map::Change(pos));
+        changes.emplace_back(map::Change(map::Pos(pos.get_x() + 1, pos.get_y())));
       }
     }
-    void right(map::Map& map, std::vector<map::Pos>& changes)
+    void right(map::Map& map, std::vector<map::Change>& changes)
     {
       int a = map.right(map::Status::TANK, pos);
       direction = map::Direction::RIGHT;
       if (a == 0)
       {
-        changes.emplace_back(pos);
-        changes.emplace_back(map::Pos(pos.get_x() - 1, pos.get_y()));
+        changes.emplace_back(map::Change(pos));
+        changes.emplace_back(map::Change(map::Pos(pos.get_x() - 1, pos.get_y())));
       }
     }
     int get_blood() const { return blood; }
@@ -139,10 +139,6 @@ namespace czh::tank
       return map::AutoTankEvent::DOWN;
     return map::AutoTankEvent::UP;
   }
-  std::size_t get_distance(const map::Pos& from, const map::Pos& to)
-  {
-    return std::abs(int(from.get_x() - to.get_x())) + std::abs(int(from.get_y() - to.get_y()));
-  }
   class Node
   {
   private:
@@ -158,7 +154,7 @@ namespace czh::tank
       : pos(node.pos), G(node.G), root(node.root), last(node.last) {}
     int get_F(const map::Pos& dest) const
     {
-      return G + get_distance(dest, pos) * 10;
+      return G + map::get_distance(dest, pos) * 10;
     }
     int& get_G()
     {
@@ -196,13 +192,16 @@ namespace czh::tank
   private:
     bool check(map::Map& map, map::Pos& pos) const
     {
-      return !pos.get_point(map.get_map()).has(map::Status::WALL) && !pos.get_point(map.get_map()).has(map::Status::TANK);
+      return map.check_pos(pos)
+        && !pos.get_point(map.get_map()).has(map::Status::WALL)
+        && !pos.get_point(map.get_map()).has(map::Status::TANK);
     }
   };
   bool operator<(const Node& n1, const Node& n2)
   {
     return n1.get_pos() < n2.get_pos();
   }
+
   class AutoTank : public Tank
   {
   private:
@@ -217,7 +216,7 @@ namespace czh::tank
     std::size_t level;
     std::size_t count;
   public:
-    AutoTank(int blood_, int lethality_, map::Map& map, std::vector<map::Pos>& changes, map::Pos pos_, std::size_t level_, std::size_t id_)
+    AutoTank(int blood_, int lethality_, map::Map& map, std::vector<map::Change>& changes, map::Pos pos_, std::size_t level_, std::size_t id_)
       :Tank(blood_, lethality_, map, changes, pos_, id_, TankType::AUTO), found(false), correct_direction(false), waypos(0),
       target_id(0), target_type(TankType::AUTO), level(level_), count(0) {}
     void target(map::Map& map, TankType target_type_, std::size_t target_id_, map::Pos target_pos_)
@@ -291,7 +290,7 @@ namespace czh::tank
           way.clear();
           waypos = 0;
           auto& np = itt->second;
-          //std::vector<map::Pos> test;
+          //std::vector<map::Change> test;
           while (!np.is_root() && np.get_pos() != np.get_last())
           {
             //test.emplace_back(np.get_pos());

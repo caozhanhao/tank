@@ -17,7 +17,7 @@ namespace czh::bullet
     Bullet(bool from_auto_tank_, std::size_t id_, map::Pos pos_, map::Direction direction_, int lethality_, int circle_, int blood_, int range_)
       :from_auto_tank(from_auto_tank_), pos(std::move(pos_)), direction(direction_), id(id_),
       blood(blood_), lethality(lethality_), circle(circle_), remained_range(range_) {}
-    void move(map::Map& map, std::vector<map::Pos>& changes)
+    void move(map::Map& map, std::vector<map::Change>& changes)
     {
       int ret = -1;
       switch (direction)
@@ -32,8 +32,8 @@ namespace czh::bullet
         else
         {
           remained_range -= 1;
-          changes.emplace_back(pos);
-          changes.emplace_back(map::Pos(pos.get_x(), pos.get_y() - 1));
+          changes.emplace_back(map::Change(pos));
+          changes.emplace_back(map::Change(map::Pos(pos.get_x(), pos.get_y() - 1)));
         }
         break;
       case map::Direction::DOWN:
@@ -46,8 +46,8 @@ namespace czh::bullet
         else
         {
           remained_range -= 1;
-          changes.emplace_back(pos);
-          changes.emplace_back(map::Pos(pos.get_x(), pos.get_y() + 1));
+          changes.emplace_back(map::Change(pos));
+          changes.emplace_back(map::Change(map::Pos(pos.get_x(), pos.get_y() + 1)));
         }
         break;
       case map::Direction::LEFT:
@@ -60,8 +60,8 @@ namespace czh::bullet
         else
         {
           remained_range -= 1;
-          changes.emplace_back(pos);
-          changes.emplace_back(map::Pos(pos.get_x() + 1, pos.get_y()));
+          changes.emplace_back(map::Change(pos));
+          changes.emplace_back(map::Change(map::Pos(pos.get_x() + 1, pos.get_y())));
         }
         break;
       case map::Direction::RIGHT:
@@ -74,8 +74,8 @@ namespace czh::bullet
         else
         {
           remained_range -= 1;
-          changes.emplace_back(pos);
-          changes.emplace_back(map::Pos(pos.get_x() - 1, pos.get_y()));
+          changes.emplace_back(map::Change(pos));
+          changes.emplace_back(map::Change(map::Pos(pos.get_x() - 1, pos.get_y())));
         }
         break;
       }
