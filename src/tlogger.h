@@ -7,8 +7,7 @@
 #include <ctime>
 #include <cstdio>
 
-#define CZH_NOTICE(msg) do{czh::logger::output("[NOTICE] " + czh::logger::get_time()\
-+ std::string(" ") + msg); }while(0);
+#define CZH_NOTICE(msg) czh::logger::output(std::string("N: ") + msg);
 namespace czh::logger
 {
   void output(const std::string &str)

@@ -290,7 +290,7 @@ namespace czh::game
         if (it->is_alive())
         {
           CZH_NOTICE("Tank " + std::to_string(it - tanks.begin())
-                     + " was attacked.Blood :" + std::to_string(it->get_blood()));
+                     + " was attacked.Blood: " + std::to_string(it->get_blood()));
         }
         else
         {
@@ -305,7 +305,7 @@ namespace czh::game
         if (it->is_alive())
         {
           CZH_NOTICE("Auto Tank " + std::to_string(it - auto_tanks.begin())
-                     + " was attacked.Blood :" + std::to_string(it->get_blood()));
+                     + " was attacked.Blood: " + std::to_string(it->get_blood()));
         }
         else
         {
