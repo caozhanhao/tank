@@ -269,6 +269,7 @@ namespace czh::map
       {
         for (std::size_t i = 0; i < n; ++i)
         {
+          if(avail.empty()) return;
           Pos left_bottom(avail[random(0, (int)avail.size())]);
           avail.erase(std::remove_if(avail.begin(), avail.end(),
                                      [&left_bottom, &space_width, &space_height](const Pos& pos)
