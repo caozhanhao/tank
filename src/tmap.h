@@ -3,7 +3,6 @@
 #include <algorithm>
 #include <functional>
 #include <random>
-#include <ctime>
 namespace czh::map
 {
   int random(int a, int b)
@@ -21,10 +20,6 @@ namespace czh::map
   enum class Direction
   {
     UP, DOWN, LEFT, RIGHT
-  };
-  enum class AutoTankEvent
-  {
-    UP, DOWN, LEFT, RIGHT, FIRE, NOTHING
   };
   
   class Point
@@ -146,17 +141,6 @@ namespace czh::map
     { return pos; }
   };
   
-  void make_space(std::vector<std::vector<Point>> &map, const Pos &center, std::size_t radius)
-  {
-    for (std::size_t i = center.get_x() - radius; i < center.get_x() + radius; ++i)
-    {
-      for (std::size_t j = center.get_y() - radius; j < center.get_y() + radius; ++j)
-      {
-        map[i][j].remove_status(Status::WALL);
-      }
-    }
-  }
-  
   class Map
   {
   private:
@@ -164,7 +148,8 @@ namespace czh::map
     std::size_t width;
     std::vector<std::vector<Point>> map;
   public:
-    Map() : height(29), width(59), map(width)
+    Map(std::size_t height_, std::size_t width_)
+    : height(height_), width(width_), map(width)
     {
       for (auto &r: map)
       {
@@ -276,67 +261,50 @@ namespace czh::map
             break;
         }
       }
-      //center_space();
-      random_space();
+      add_random_space();
     }
-    
-    void center_space()
+    void add_random_space()
     {
-      const std::size_t radius = 7;
-      Pos center((width + 1) / 2, (height + 1) / 2);
-      make_space(map, center, radius);
-    }
-    
-    void random_space()
-    {
+      auto add = [this](std::vector<Pos>& avail,std::size_t n, std::size_t space_height, std::size_t space_width)
+      {
+        for (std::size_t i = 0; i < n; ++i)
+        {
+          Pos left_bottom(avail[random(0, (int)avail.size())]);
+          avail.erase(std::remove_if(avail.begin(), avail.end(),
+                                     [&left_bottom, &space_width, &space_height](const Pos& pos)
+                                     {
+                                       return std::abs((int) left_bottom.get_x() - (int) pos.get_x()) < space_width + 1
+                                              && std::abs((int) left_bottom.get_y() - (int) pos.get_y()) < space_height + 1;
+                                     }
+                                     ), avail.end());
+          for (std::size_t j = left_bottom.get_x(); j < left_bottom.get_x() + space_width; ++j)
+          {
+            for (std::size_t k = left_bottom.get_y(); k < left_bottom.get_y() + space_height; ++k)
+            {
+              map[j][k].remove_status(Status::WALL);
+            }
+          }
+        }
+      };
       std::vector<Pos> large;
       std::vector<Pos> small;
-      const std::size_t nlarge = 2;
-      const std::size_t nsmall = 6;
-      const std::size_t large_radius = 5;
-      const std::size_t small_radius = 3;
-      while (large.size() < nlarge)
+      std::size_t large_height = height / 3;
+      std::size_t large_width = width / 3;
+      std::size_t small_height = height / 6;
+      std::size_t small_width = width / 6;
+      std::size_t nlarge = 2;
+      std::size_t nsmall = 2;
+      
+      std::vector<Pos> avail;
+      for (std::size_t i = 1; i < width - large_width - 1; ++i)
       {
-        Pos tmp((std::size_t) random((int) large_radius + 1, (int) width - (int) large_radius),
-                (std::size_t) random((int) large_radius + 1, (int) height - (int) large_radius));
-        
-        bool ok = true;
-        for (int i = 0; i < large.size() && ok; ++i)
+        for (std::size_t j = 1; j < height - large_height - 1; ++j)
         {
-          if (get_distance(large[i], tmp) <= large_radius * 2 + 1)
-            ok = false;
+          avail.emplace_back(Pos(i, j));
         }
-        for (int i = 0; i < small.size() && ok; ++i)
-        {
-          if (get_distance(small[i], tmp) <= large_radius + small_radius + 1)
-            ok = false;
-        }
-        if (ok)
-          large.emplace_back(tmp);
       }
-      while (small.size() < nsmall)
-      {
-        Pos tmp((std::size_t) random((int) small_radius + 1, (int) width - (int) small_radius),
-                (std::size_t) random((int) small_radius + 1, (int) height - (int) small_radius));
-        
-        bool ok = true;
-        for (int i = 0; i < large.size() && ok; ++i)
-        {
-          if (get_distance(large[i], tmp) <= large_radius + small_radius + 1)
-            ok = false;
-        }
-        for (int i = 0; i < small.size() && ok; ++i)
-        {
-          if (get_distance(small[i], tmp) <= small_radius * 2 + 1)
-            ok = false;
-        }
-        if (ok)
-          small.emplace_back(tmp);
-      }
-      for (auto &l: large)
-        make_space(map, l, large_radius);
-      for (auto &s: small)
-        make_space(map, s, small_radius);
+      add(avail, nlarge, large_height, large_width);
+      add(avail, nsmall, small_height, small_width);
     }
     
     int move(const Status &status, Pos &pos, const std::function<void(Pos &pos)> &func)

@@ -95,20 +95,25 @@ namespace czh::term
 		return keyboard.kbhit();
 #endif
 	}
+  void move_cursor(const TermPos& pos)
+  {
+#if defined(_WIN32) || defined(_WIN64)
+    HANDLE handle = GetStdHandle(STD_OUTPUT_HANDLE);
+    COORD coord{ (SHORT)pos.get_x(), (SHORT)pos.get_y() };
+    SetConsoleCursorPosition(handle, coord);
+#elif defined(__linux__)
+    printf("%c[%d;%df", 0x1b, pos.get_y() + 1, pos.get_x() + 1);
+#endif
+  }
 	void output(const std::string& str)
 	{
 		std::cout << str << std::flush;
 	}
-	void move_cursor(const TermPos& pos)
-	{
-#if defined(_WIN32) || defined(_WIN64)
-		HANDLE handle = GetStdHandle(STD_OUTPUT_HANDLE);
-		COORD coord{ (SHORT)pos.get_x(), (SHORT)pos.get_y() };
-		SetConsoleCursorPosition(handle, coord);
-#elif defined(__linux__)
-		printf("%c[%d;%df", 0x1b, pos.get_y() + 1, pos.get_x() + 1);
-#endif
-	}
+  void mvoutput(const TermPos& pos, const std::string& str)
+  {
+    move_cursor(pos);
+    output(str);
+  }
 	std::size_t get_height()
 	{
 #if defined(_WIN32) || defined(_WIN64)

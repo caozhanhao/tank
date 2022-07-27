@@ -8,10 +8,18 @@ namespace czh::tank
   {
     AUTO, TANK
   };
-  
+  enum class TankEvent
+  {
+    UP, DOWN, LEFT, RIGHT, FIRE
+  };
+  enum class AutoTankEvent
+  {
+    UP, DOWN, LEFT, RIGHT, FIRE, NOTHING
+  };
   class Tank
   {
   private:
+    int max_blood;
     int blood;
     int lethality;
     map::Pos pos;
@@ -24,7 +32,7 @@ namespace czh::tank
   public:
     Tank(int blood_, int lethality_, map::Map &map, std::vector<map::Change> &changes, map::Pos pos_, std::size_t id_,
          TankType type_ = TankType::TANK)
-        : blood(blood_), lethality(lethality_), direction(map::Direction::UP), pos(pos_),
+        : max_blood(blood_), blood(blood_), lethality(lethality_), direction(map::Direction::UP), pos(pos_),
           hascleared(false), id(id_), type(type_), last_blood(0), delay(0)
     {
       pos.get_point(map.get_map()).add_status(map::Status::TANK);
@@ -113,7 +121,7 @@ namespace czh::tank
     {
       blood -= lethality_;
       if (blood < 0) blood = 0;
-      if (blood > 999) blood = 999;
+      if (blood > max_blood) blood = max_blood;
     }
     
     [[nodiscard]]const map::Pos &get_pos() const
@@ -133,7 +141,7 @@ namespace czh::tank
     
     void revive()
     {
-      blood = 999;
+      blood = max_blood;
       hascleared = false;
     }
     
@@ -153,17 +161,17 @@ namespace czh::tank
     }
   };
   
-  map::AutoTankEvent get_direction(const map::Pos &from, const map::Pos &to)
+  AutoTankEvent get_direction(const map::Pos &from, const map::Pos &to)
   {
     int x = (int) from.get_x() - (int) to.get_x();
     int y = (int) from.get_y() - (int) to.get_y();
     if (x > 0)
-      return map::AutoTankEvent::LEFT;
+      return AutoTankEvent::LEFT;
     else if (x < 0)
-      return map::AutoTankEvent::RIGHT;
+      return AutoTankEvent::RIGHT;
     else if (y > 0)
-      return map::AutoTankEvent::DOWN;
-    return map::AutoTankEvent::UP;
+      return AutoTankEvent::DOWN;
+    return AutoTankEvent::UP;
   }
   
   class Node
@@ -247,7 +255,7 @@ namespace czh::tank
     std::size_t target_id;
     TankType target_type;
     map::Pos target_pos;
-    std::vector<map::AutoTankEvent> way;
+    std::vector<AutoTankEvent> way;
     std::size_t waypos;
     bool found;
     bool correct_direction;
@@ -346,12 +354,12 @@ namespace czh::tank
       }
     }
     
-    map::AutoTankEvent next()
+    AutoTankEvent next()
     {
       if (!found)
-        return map::AutoTankEvent::FIRE;
+        return AutoTankEvent::FIRE;
       if (++count < 10 - level)
-        return map::AutoTankEvent::NOTHING;
+        return AutoTankEvent::NOTHING;
       else
         count = 0;
       
@@ -366,16 +374,16 @@ namespace czh::tank
         int x = (int) get_pos().get_x() - (int) target_pos.get_x();
         int y = (int) get_pos().get_y() - (int) target_pos.get_y();
         if (x > 0)
-          return map::AutoTankEvent::LEFT;
+          return AutoTankEvent::LEFT;
         if (x < 0)
-          return map::AutoTankEvent::RIGHT;
+          return AutoTankEvent::RIGHT;
         if (y < 0)
-          return map::AutoTankEvent::UP;
+          return AutoTankEvent::UP;
         if (y > 0)
-          return map::AutoTankEvent::DOWN;
+          return AutoTankEvent::DOWN;
       }
       
-      return map::AutoTankEvent::FIRE;
+      return AutoTankEvent::FIRE;
     }
     
     std::size_t &get_target_id()

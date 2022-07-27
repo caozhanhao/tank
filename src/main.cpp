@@ -3,7 +3,7 @@
 #include <thread>
 using namespace std;
 using namespace czh::game;
-
+using namespace czh::tank;
 int main()
 {
   Game game;
@@ -11,7 +11,7 @@ int main()
   std::chrono::high_resolution_clock::time_point beg, end;
   std::chrono::milliseconds cost(0);
   std::chrono::milliseconds sleep(17);
-  while (game.is_running())
+  while (true)
   {
     beg = std::chrono::high_resolution_clock::now();
     if (czh::term::kbhit())
@@ -19,22 +19,33 @@ int main()
       switch (czh::term::getch())
       {
         case 'w':
-          game.react(0, Event::TANK_UP);
+        case 72:
+          game.tank_react(0, TankEvent::UP);
           break;
         case 's':
-          game.react(0, Event::TANK_DOWN);
+        case 80:
+          game.tank_react(0, TankEvent::DOWN);
           break;
         case 'a':
-          game.react(0, Event::TANK_LEFT);
+        case 75:
+          game.tank_react(0, TankEvent::LEFT);
           break;
         case 'd':
-          game.react(0, Event::TANK_RIGHT);
+        case 77:
+          game.tank_react(0, TankEvent::RIGHT);
           break;
-        case 'f':
-          game.react(0, Event::TANK_FIRE);
+        case ' ':
+          game.tank_react(0, TankEvent::FIRE);
           break;
         case 'q':
-          game.react(0, Event::QUIT);
+          game.react(Event::QUIT);
+          return 0;
+          break;
+        case 27://ESC
+        if(game.is_running())
+          game.react(Event::PAUSE);
+        else
+          game.react(Event::CONTINUE);
           break;
         case 'l':
           game.add_auto_tank(1, ::czh::map::random(1, 11));
@@ -46,11 +57,11 @@ int main()
           game.revive(0);
           break;
         default:
-          game.react(0, Event::NOTHING);
+          game.react(Event::NOTHING);
           break;
       }
     } else
-      game.react(0, Event::NOTHING);
+      game.react(Event::NOTHING);
     end = std::chrono::high_resolution_clock::now();
     cost = std::chrono::duration_cast<std::chrono::milliseconds>(end - beg);
     if (sleep > cost)

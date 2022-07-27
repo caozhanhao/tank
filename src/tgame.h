@@ -10,27 +10,13 @@
 #include <string>
 namespace czh::game
 {
-  static void out(std::size_t x, std::size_t y, const std::string &str)
+  enum class Event
   {
-    term::move_cursor({x, y});
-    auto a = term::get_width() - str.size() - x;
-    if (a <= 0)
-      a = 1;
-    term::output(str + std::string(a, ' '));
-  }
-  
-  static void clear_tank_status(std::size_t x, std::size_t y)
-  {
-    term::move_cursor({x, y});
-    std::size_t a = term::get_width() - x - 1;
-    std::size_t b = term::get_height() - y;
-    for (int i = 0; i < b; ++i)
-    {
-      term::output(" " + std::string(a, ' '));
-      term::move_cursor({x, y++});
-    }
-  }
-  
+    NOTHING,
+    PAUSE,
+    CONTINUE,
+    QUIT
+  };
   std::string colorify_tank(std::size_t w)
   {
     w = w % 2;
@@ -84,35 +70,27 @@ namespace czh::game
     return " ";
   }
   
-  enum class Event
-  {
-    TANK_UP, TANK_DOWN, TANK_LEFT, TANK_RIGHT,
-    TANK_FIRE,
-    NOTHING,
-    QUIT
-  };
-  
   class Game
   {
   private:
-    map::Map map;
     std::vector<tank::Tank> tanks;
     std::vector<tank::AutoTank> auto_tanks;
     std::vector<bullet::Bullet> bullets;
     std::vector<map::Change> changes;
-    bool inited;
+    bool output_inited;
     std::size_t screen_height;
     std::size_t screen_width;
-    bool tank_status_changed;
+    map::Map map;
     bool running;
   public:
-    Game() : inited(false), tank_status_changed(true), running(true),
-             screen_height(term::get_height()), screen_width(term::get_width()) {}
+    Game() : output_inited(false), running(true),
+             screen_height(term::get_height()), screen_width(term::get_width()),
+             map((screen_height - 1) % 2 == 0 ? screen_height - 2 : screen_height - 1,
+                 screen_width % 2 == 0 ? screen_width - 1 : screen_width){}
     
     Game &add_tank(std::size_t n = 1)
     {
       tanks.insert(tanks.cend(), n, tank::Tank(100, 30, map, changes, get_random_pos(), tanks.size()));
-      tank_status_changed = true;
       return *this;
     }
     
@@ -135,7 +113,6 @@ namespace czh::game
         auto_tanks.emplace_back(
             tank::AutoTank((int) (11 - level) * 10, (int) (11 - level), map, changes, get_random_pos(), level, id + i));
       
-      tank_status_changed = true;
       return *this;
     }
     
@@ -150,56 +127,67 @@ namespace czh::game
       auto_tanks.emplace_back(
           tank::AutoTank(map::random(300, 500), map::random(10, 20), map, changes, get_random_pos(), map::random(1, 4),
                          id));
-      tank_status_changed = true;
       return *this;
     }
-    
-    Game &react(std::size_t tankid, Event event)
+    Game &tank_react(std::size_t tankid, tank::TankEvent event)
     {
-      //bullet move
-      for (auto it = bullets.begin(); it < bullets.end(); ++it)
+      if(!running) return *this;
+      switch(event)
       {
-        if (it->is_alive())
-          it->move(map, changes);
+        case tank::TankEvent::UP:
+          if (!check_tank_alive(tankid)) break;
+          tanks[tankid].up(map, changes);
+          break;
+        case tank::TankEvent::DOWN:
+          if (!check_tank_alive(tankid)) break;
+          tanks[tankid].down(map, changes);
+          break;
+        case tank::TankEvent::LEFT:
+          if (!check_tank_alive(tankid)) break;
+          tanks[tankid].left(map, changes);
+          break;
+        case tank::TankEvent::RIGHT:
+          if (!check_tank_alive(tankid)) break;
+          tanks[tankid].right(map, changes);
+          break;
+        case tank::TankEvent::FIRE:
+          if (!check_tank_alive(tankid)) break;
+          fire(tanks[tankid], 0, 2);
+          break;
       }
-      //tank
-      auto &tank = tanks[tankid];
+      react(Event::NOTHING);
+      return *this;
+    }
+    Game &react(Event event)
+    {
       switch (event)
       {
-        case Event::TANK_UP:
-          if (!check_tank_alive(tankid)) break;
-          tank.up(map, changes);
-          tank_status_changed = true;
-          break;
-        case Event::TANK_DOWN:
-          if (!check_tank_alive(tankid)) break;
-          tank.down(map, changes);
-          tank_status_changed = true;
-          break;
-        case Event::TANK_LEFT:
-          if (!check_tank_alive(tankid)) break;
-          tank.left(map, changes);
-          tank_status_changed = true;
-          break;
-        case Event::TANK_RIGHT:
-          if (!check_tank_alive(tankid)) break;
-          tank.right(map, changes);
-          tank_status_changed = true;
-          break;
-        case Event::TANK_FIRE:
-          if (!check_tank_alive(tankid)) break;
-          fire(tank, 0, 2);
-          tank_status_changed = true;
-          break;
         case Event::NOTHING:
+          break;
+        case Event::PAUSE:
+          running = false;
+          output_inited = false;
+          break;
+        case Event::CONTINUE:
+          running = true;
+          output_inited = false;
           break;
         case Event::QUIT:
           term::move_cursor({0, map.get_height() + 1});
           CZH_NOTICE("Quitting.");
           running = false;
           break;
-        default:
-          break;
+      }
+      if(!running)
+      {
+        paint();
+        return *this;
+      }
+      //bullet move
+      for (auto it = bullets.begin(); it < bullets.end(); ++it)
+      {
+        if (it->is_alive())
+          it->move(map, changes);
       }
       //auto tank
       for (auto it = auto_tanks.begin(); it < auto_tanks.end() && !all_over(); ++it)
@@ -218,7 +206,6 @@ namespace czh::game
             auto t = alive[map::random(0, (int)alive.size())];
             it->target(map, t.first, t.second, get_pos(t));
           }while(!it->get_found());
-          tank_status_changed = true;
         }
         
         //correct its way
@@ -260,31 +247,25 @@ namespace czh::game
         {
           it->target(map, get_target(*it).get_type(), get_target(*it).get_id(), get_target(*it).get_pos());
           get_target(*it).get_delay() = 0;
-          tank_status_changed = true;
         }
         switch (it->next())
         {
-          case map::AutoTankEvent::UP:
+          case tank::AutoTankEvent::UP:
             it->up(map, changes);
-            tank_status_changed = true;
             break;
-          case map::AutoTankEvent::DOWN:
+          case tank::AutoTankEvent::DOWN:
             it->down(map, changes);
-            tank_status_changed = true;
             break;
-          case map::AutoTankEvent::LEFT:
+          case tank::AutoTankEvent::LEFT:
             it->left(map, changes);
-            tank_status_changed = true;
             break;
-          case map::AutoTankEvent::RIGHT:
+          case tank::AutoTankEvent::RIGHT:
             it->right(map, changes);
-            tank_status_changed = true;
             break;
-          case map::AutoTankEvent::FIRE:
+          case tank::AutoTankEvent::FIRE:
             fire(*it);
-            tank_status_changed = true;
             break;
-          case map::AutoTankEvent::NOTHING:
+          case tank::AutoTankEvent::NOTHING:
             break;
         }
         
@@ -318,12 +299,12 @@ namespace czh::game
         it->attacked(lethality);
         if (it->is_alive())
         {
-          CZH_NOTICE("Tank " + std::to_string(it - tanks.begin()) + " was attacked.");
+          CZH_NOTICE("Tank " + std::to_string(it - tanks.begin())
+                     + " was attacked.Blood :" + std::to_string(it->get_blood()));
         } else
         {
           CZH_NOTICE("Tank " + std::to_string(it - tanks.begin()) + " was killed.");
         }
-        tank_status_changed = true;
       }
       for (auto it = auto_tanks.begin(); it < auto_tanks.end(); ++it)
       {
@@ -332,12 +313,12 @@ namespace czh::game
         it->attacked(lethality);
         if (it->is_alive())
         {
-          CZH_NOTICE("Auto Tank " + std::to_string(it - auto_tanks.begin()) + " was attacked.");
+          CZH_NOTICE("Auto Tank " + std::to_string(it - auto_tanks.begin())
+                                    + " was attacked.Blood :" + std::to_string(it->get_blood()));
         } else
         {
           CZH_NOTICE("Auto Tank " + std::to_string(it - auto_tanks.begin()) + " was killed.");
         }
-        tank_status_changed = true;
       }
       for (auto it = bullets.begin(); it < bullets.end(); ++it)
       {
@@ -388,17 +369,9 @@ namespace czh::game
         }
       }
       paint();
-      
-      //if (all_over)
-      //{
-      //  logger::move_cursor(0, map.get_height() + 1);
-      //  CZH_NOTICE("Game Over.");
-      //}
       return *this;
     }
-    
-    [[nodiscard]]bool is_running() const { return running; }
-  
+    bool is_running() const{return running;}
   private:
     [[nodiscard]]std::vector<std::pair<tank::TankType, std::size_t>> get_alive(std::size_t except) const
     {
@@ -488,79 +461,80 @@ namespace czh::game
       if (screen_height != term::get_height() || screen_width != term::get_width())
       {
         term::clear();
-        inited = false;
+        output_inited = false;
         screen_height = term::get_height();
         screen_width = term::get_width();
       }
-      if (!inited)
+      if (running)
       {
-        term::clear();
-        term::move_cursor({map.get_width() + 1, 0});
-        term::output("Tank - by caozhanhao");
-        term::move_cursor({0, 0});
-        for (int j = map.get_height() - 1; j >= 0; --j)
+        if (!output_inited)
         {
-          for (int i = 0; i < map.get_width(); ++i)
+          term::clear();
+          term::move_cursor({0, 0});
+          for (int j = map.get_height() - 1; j >= 0; --j)
           {
-            update(map::Pos(i, j));
+            for (int i = 0; i < map.get_width(); ++i)
+            {
+              update(map::Pos(i, j));
+            }
+            term::output("\n");
           }
-          term::output("\n");
+          output_inited = true;
+        } else
+        {
+          for (auto &p: changes)
+            update(p.get_pos());
+          changes.clear();
         }
-        inited = true;
-      } else
-      {
-        for (auto &p: changes)
-          update(p.get_pos());
-        changes.clear();
       }
-      //tank status
-      if (tank_status_changed)
+        //tank status
+      else
       {
-        std::size_t cursor_x = map.get_width();
-        std::size_t cursor_y = 0;
-        for (int i = 0; i < tanks.size(); ++i)
+        if (!output_inited)
         {
-          if (!tanks[i].is_alive())continue;
-          std::string sout = colorify_tank_text(i, "Tank " + std::to_string(tanks[i].get_id()));
-          out(cursor_x, ++cursor_y, sout);
-          std::string blood = std::to_string(tanks[i].get_blood());
-          blood.insert(blood.end(), 3 - blood.size(), ' ');
-          std::string x = std::to_string(tanks[i].get_pos().get_x());
-          x.insert(x.begin(), 2 - x.size(), '0');
-          std::string y = std::to_string(tanks[i].get_pos().get_y());
-          y.insert(y.begin(), 2 - y.size(), '0');
-          sout.clear();
-          sout.append("HP: ").append(blood);
-          out(cursor_x, ++cursor_y, sout);
+          term::clear();
+          std::size_t cursor_x = 0;
+          std::size_t cursor_y = 0;
+          term::mvoutput({cursor_x, cursor_y++}, "Tank - by caozhanhao");
+          for (int i = 0; i < tanks.size(); ++i)
+          {
+            if (!tanks[i].is_alive())continue;
+            std::string sout = colorify_tank_text(i, "Tank " + std::to_string(tanks[i].get_id()));
+            term::mvoutput({cursor_x, cursor_y++}, sout);
+            std::string blood = std::to_string(tanks[i].get_blood());
+            std::string x = std::to_string(tanks[i].get_pos().get_x());
+            std::string y = std::to_string(tanks[i].get_pos().get_y());
+            sout.clear();
+            sout.append("HP: ").append(blood)
+            .append(" Pos: (").append(x).append(",").append(y).append(")");
+            term::mvoutput({cursor_x, cursor_y++}, sout);
+          }
+          term::mvoutput({cursor_x, cursor_y++}, " ");
+          for (int i = 0; i < auto_tanks.size(); ++i)
+          {
+            if (!auto_tanks[i].is_alive()) continue;
+            std::string sout = colorify_auto_tank_text(i, "Auto Tank " + std::to_string(auto_tanks[i].get_id()));
+            term::mvoutput({cursor_x, cursor_y++}, sout);
+        
+            std::string blood = std::to_string(auto_tanks[i].get_blood());
+            std::string x = std::to_string(auto_tanks[i].get_pos().get_x());
+            std::string y = std::to_string(auto_tanks[i].get_pos().get_y());
+            std::string level = std::to_string(auto_tanks[i].get_level());
+            level.insert(level.begin(), 2 - level.size(), '0');
+            sout.clear();
+            sout.append("HP: ").append(blood)
+                .append(" Pos: (").append(x).append(",").append(y).append(")")
+                .append(" Level: ").append(level);
+        
+            auto id = auto_tanks[i].get_target_id();
+            if (auto_tanks[i].target_is_auto())
+              sout += " Target: " + colorify_auto_tank_text(id, "Auto Tank " + std::to_string(id));
+            else
+              sout += " Target: " + colorify_tank_text(id, "Tank " + std::to_string(id));
+            term::mvoutput({cursor_x, cursor_y++}, sout);
+          }
+          output_inited = true;
         }
-        out(cursor_x, ++cursor_y, " ");
-        for (int i = 0; i < auto_tanks.size(); ++i)
-        {
-          if (!auto_tanks[i].is_alive()) continue;
-          std::string sout = colorify_auto_tank_text(i, "Auto Tank " + std::to_string(auto_tanks[i].get_id()));
-          out(cursor_x, ++cursor_y, sout);
-          
-          std::string blood = std::to_string(auto_tanks[i].get_blood());
-          blood.insert(blood.end(), 3 - blood.size(), ' ');
-          std::string x = std::to_string(auto_tanks[i].get_pos().get_x());
-          x.insert(x.begin(), 2 - x.size(), '0');
-          std::string y = std::to_string(auto_tanks[i].get_pos().get_y());
-          y.insert(y.begin(), 2 - y.size(), '0');
-          std::string level = std::to_string(auto_tanks[i].get_level());
-          level.insert(level.begin(), 2 - level.size(), '0');
-          sout.clear();
-          sout.append("HP: ").append(blood)
-              .append(" Level: ").append(level);
-          
-          auto id = auto_tanks[i].get_target_id();
-          if (auto_tanks[i].target_is_auto())
-            sout += " Target: " + colorify_auto_tank_text(id, "Auto Tank " + std::to_string(id));
-          else
-            sout += " Target: " + colorify_tank_text(id, "Tank " + std::to_string(id));
-          out(cursor_x, ++cursor_y, sout);
-        }
-        clear_tank_status(cursor_x, ++cursor_y);
-        tank_status_changed = false;
       }
     }
     
