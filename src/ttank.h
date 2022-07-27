@@ -131,11 +131,14 @@ namespace czh::tank
       return pos;
     }
     
-    [[nodiscard]]map::Direction get_Direction() const
+    [[nodiscard]]map::Direction& get_direction()
     {
       return direction;
     }
-    
+    [[nodiscard]]const map::Direction& get_direction() const
+    {
+      return direction;
+    }
     [[nodiscard]]TankType get_type() const
     {
       return type;
@@ -169,7 +172,7 @@ namespace czh::tank
     }
   };
   
-  AutoTankEvent get_direction(const map::Pos &from, const map::Pos &to)
+  AutoTankEvent get_pos_direction(const map::Pos &from, const map::Pos &to)
   {
     int x = (int) from.get_x() - (int) to.get_x();
     int y = (int) from.get_y() - (int) to.get_y();
@@ -363,7 +366,7 @@ namespace czh::tank
           auto &np = itt->second;
           while (!np.is_root() && np.get_pos() != np.get_last())
           {
-            way.insert(way.begin(), get_direction(close_list[np.get_last()].get_pos(), np.get_pos()));
+            way.insert(way.begin(), get_pos_direction(close_list[np.get_last()].get_pos(), np.get_pos()));
             np = close_list[np.get_last()];
           }
           found = true;
@@ -392,13 +395,13 @@ namespace czh::tank
         int x = (int) get_pos().get_x() - (int) target_pos.get_x();
         int y = (int) get_pos().get_y() - (int) target_pos.get_y();
         if (x > 0)
-          return AutoTankEvent::LEFT;
+          get_direction() =  map::Direction::LEFT;
         else if (x < 0)
-          return AutoTankEvent::RIGHT;
+          get_direction() =  map::Direction::RIGHT;
         else if (y < 0)
-          return AutoTankEvent::UP;
+          get_direction() = map::Direction::UP;
         else if (y > 0)
-          return AutoTankEvent::DOWN;
+          get_direction() =  map::Direction::DOWN;
       }
       
       return AutoTankEvent::FIRE;

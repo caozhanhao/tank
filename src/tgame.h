@@ -226,10 +226,10 @@ namespace czh::game
           
           if (!tank::is_in_firing_line(map, it->get_pos(), get_target(*it).get_pos())// not in firing line
               || it->has_been_attacked_since_marked()// be attacked
-              || (x > 0 && it->get_Direction() != map::Direction::LEFT)
-              || (x < 0 && it->get_Direction() != map::Direction::RIGHT)
-              || (y > 0 && it->get_Direction() != map::Direction::DOWN)
-              || (y < 0 && it->get_Direction() != map::Direction::UP))
+              || (x > 0 && it->get_direction() != map::Direction::LEFT)
+              || (x < 0 && it->get_direction() != map::Direction::RIGHT)
+              || (y > 0 && it->get_direction() != map::Direction::DOWN)
+              || (y < 0 && it->get_direction() != map::Direction::UP))
             should_correct = true;
           else if (get_target(*it).get_delay() >= map::get_distance(it->get_pos(), get_target(*it).get_pos()) + 20)
           {
@@ -550,7 +550,7 @@ namespace czh::game
     {
       auto &point = tank.get_pos().get_point(map.get_map());
       map::Pos pos = tank.get_pos();
-      switch (tank.get_Direction())
+      switch (tank.get_direction())
       {
         case map::Direction::UP:
           pos.get_y()++;
@@ -569,7 +569,7 @@ namespace czh::game
       if (bullet_point.has(map::Status::WALL)) return;
       bullet_point.add_status(map::Status::BULLET);
       bullets.emplace_back(
-          bullet::Bullet(tank.is_auto(), tank.get_id(), pos, tank.get_Direction(), tank.get_lethality(), circle, blood,
+          bullet::Bullet(tank.is_auto(), tank.get_id(), pos, tank.get_direction(), tank.get_lethality(), circle, blood,
                          range));
     }
     
