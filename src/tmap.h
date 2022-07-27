@@ -38,11 +38,6 @@ namespace czh::map
       statuses.erase(std::remove(statuses.begin(), statuses.end(), status), statuses.end());
     }
     
-    [[nodiscard]]const std::vector<Status> &get_statuses() const
-    {
-      return statuses;
-    }
-    
     [[nodiscard]] bool has(const Status &status) const
     {
       return (std::find(statuses.cbegin(), statuses.cend(), status) != statuses.cend());
@@ -149,7 +144,7 @@ namespace czh::map
     std::vector<std::vector<Point>> map;
   public:
     Map(std::size_t height_, std::size_t width_)
-    : height(height_), width(width_), map(width)
+        : height(height_), width(width_), map(width)
     {
       for (auto &r: map)
       {
@@ -263,21 +258,23 @@ namespace czh::map
       }
       add_random_space();
     }
+    
     void add_random_space()
     {
-      auto add = [this](std::vector<Pos>& avail,std::size_t n, std::size_t space_height, std::size_t space_width)
+      auto add = [this](std::vector<Pos> &avail, std::size_t n, std::size_t space_height, std::size_t space_width)
       {
         for (std::size_t i = 0; i < n; ++i)
         {
-          if(avail.empty()) return;
-          Pos left_bottom(avail[random(0, (int)avail.size())]);
+          if (avail.empty()) return;
+          Pos left_bottom(avail[random(0, (int) avail.size())]);
           avail.erase(std::remove_if(avail.begin(), avail.end(),
-                                     [&left_bottom, &space_width, &space_height](const Pos& pos)
+                                     [&left_bottom, &space_width, &space_height](const Pos &pos)
                                      {
                                        return std::abs((int) left_bottom.get_x() - (int) pos.get_x()) < space_width + 1
-                                              && std::abs((int) left_bottom.get_y() - (int) pos.get_y()) < space_height + 1;
+                                              && std::abs((int) left_bottom.get_y() - (int) pos.get_y()) <
+                                                 space_height + 1;
                                      }
-                                     ), avail.end());
+          ), avail.end());
           for (std::size_t j = left_bottom.get_x(); j < left_bottom.get_x() + space_width; ++j)
           {
             for (std::size_t k = left_bottom.get_y(); k < left_bottom.get_y() + space_height; ++k)
@@ -319,14 +316,11 @@ namespace czh::map
       auto &pointbak = posbak.get_point(map);
       switch (status)
       {
-        case Status::BULLET:
-          if (pointbak.has(Status::WALL)) return -1;
+        case Status::BULLET:if (pointbak.has(Status::WALL)) return -1;
           break;
-        case Status::TANK:
-          if (pointbak.has(Status::WALL) || pointbak.has(Status::TANK)) return -1;
+        case Status::TANK:if (pointbak.has(Status::WALL) || pointbak.has(Status::TANK)) return -1;
           break;
-        default:
-          break;
+        default:break;
       }
       auto &point = pos.get_point(map);
       point.remove_status(status);

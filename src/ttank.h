@@ -16,6 +16,7 @@ namespace czh::tank
   {
     UP, DOWN, LEFT, RIGHT, FIRE, NOTHING
   };
+  
   class Tank
   {
   private:

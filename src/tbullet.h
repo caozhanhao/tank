@@ -17,59 +17,60 @@ namespace czh::bullet
     Bullet(bool from_auto_tank_, std::size_t id_, map::Pos pos_, map::Direction direction_, int lethality_, int circle_,
            int blood_, int range_)
         : from_auto_tank(from_auto_tank_), pos(pos_), direction(direction_), id(id_),
-          blood(blood_), lethality(lethality_), circle(circle_), remained_range(range_) {}
+          blood(blood_), lethality(lethality_), circle(circle_), remained_range(range_)
+    {}
     
     void move(map::Map &map, std::vector<map::Change> &changes)
     {
       int ret = -1;
       switch (direction)
       {
-        case map::Direction::UP:
-          ret = map.up(map::Status::BULLET, pos);
+        case map::Direction::UP:ret = map.up(map::Status::BULLET, pos);
           if (ret != 0)
           {
             blood -= 1;
             direction = map::Direction::DOWN;
-          } else
+          }
+          else
           {
             remained_range -= 1;
             changes.emplace_back(map::Change(pos));
             changes.emplace_back(map::Change(map::Pos(pos.get_x(), pos.get_y() - 1)));
           }
           break;
-        case map::Direction::DOWN:
-          ret = map.down(map::Status::BULLET, pos);
+        case map::Direction::DOWN:ret = map.down(map::Status::BULLET, pos);
           if (ret != 0)
           {
             blood -= 1;
             direction = map::Direction::UP;
-          } else
+          }
+          else
           {
             remained_range -= 1;
             changes.emplace_back(map::Change(pos));
             changes.emplace_back(map::Change(map::Pos(pos.get_x(), pos.get_y() + 1)));
           }
           break;
-        case map::Direction::LEFT:
-          ret = map.left(map::Status::BULLET, pos);
+        case map::Direction::LEFT:ret = map.left(map::Status::BULLET, pos);
           if (ret != 0)
           {
             blood -= 1;
             direction = map::Direction::RIGHT;
-          } else
+          }
+          else
           {
             remained_range -= 1;
             changes.emplace_back(map::Change(pos));
             changes.emplace_back(map::Change(map::Pos(pos.get_x() + 1, pos.get_y())));
           }
           break;
-        case map::Direction::RIGHT:
-          ret = map.right(map::Status::BULLET, pos);
+        case map::Direction::RIGHT:ret = map.right(map::Status::BULLET, pos);
           if (ret != 0)
           {
             blood -= 1;
             direction = map::Direction::LEFT;
-          } else
+          }
+          else
           {
             remained_range -= 1;
             changes.emplace_back(map::Change(pos));
@@ -84,11 +85,9 @@ namespace czh::bullet
       switch (direction)
       {
         case map::Direction::UP:
-        case map::Direction::DOWN:
-          return "|";
+        case map::Direction::DOWN:return "|";
           break;
-        default:
-          break;
+        default:break;
       }
       return "-";
     }

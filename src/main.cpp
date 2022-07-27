@@ -19,48 +19,39 @@ int main()
       switch (czh::term::getch())
       {
         case 'w':
-        case 72:
-          game.tank_react(0, TankEvent::UP);
+        case 72:game.tank_react(0, TankEvent::UP);
           break;
         case 's':
-        case 80:
-          game.tank_react(0, TankEvent::DOWN);
+        case 80:game.tank_react(0, TankEvent::DOWN);
           break;
         case 'a':
-        case 75:
-          game.tank_react(0, TankEvent::LEFT);
+        case 75:game.tank_react(0, TankEvent::LEFT);
           break;
         case 'd':
-        case 77:
-          game.tank_react(0, TankEvent::RIGHT);
+        case 77:game.tank_react(0, TankEvent::RIGHT);
           break;
-        case ' ':
-          game.tank_react(0, TankEvent::FIRE);
+        case ' ':game.tank_react(0, TankEvent::FIRE);
           break;
-        case 'q':
-          game.react(Event::QUIT);
+        case 'q':game.react(Event::QUIT);
           return 0;
           break;
         case 27://ESC
-        if(game.is_running())
-          game.react(Event::PAUSE);
-        else
-          game.react(Event::CONTINUE);
+          if (game.is_running())
+            game.react(Event::PAUSE);
+          else
+            game.react(Event::CONTINUE);
           break;
-        case 'l':
-          game.add_auto_tank(1, ::czh::map::random(1, 11));
+        case 'l':game.add_auto_tank(1, ::czh::map::random(1, 11));
           break;
-        case 'b':
-          game.add_auto_boss();
+        case 'b':game.add_auto_boss();
           break;
-        case 'p':
-          game.revive(0);
+        case 'p':game.revive(0);
           break;
-        default:
-          game.react(Event::NOTHING);
+        default:game.react(Event::NOTHING);
           break;
       }
-    } else
+    }
+    else
       game.react(Event::NOTHING);
     end = std::chrono::high_resolution_clock::now();
     cost = std::chrono::duration_cast<std::chrono::milliseconds>(end - beg);
