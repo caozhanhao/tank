@@ -30,11 +30,12 @@ namespace czh::tank
     TankType type;
     int last_blood;
     int delay;
+    bool revived;
   public:
     Tank(int blood_, int lethality_, map::Map &map, std::vector<map::Change> &changes, map::Pos pos_, std::size_t id_,
          TankType type_ = TankType::TANK)
         : max_blood(blood_), blood(blood_), lethality(lethality_), direction(map::Direction::UP), pos(pos_),
-          hascleared(false), id(id_), type(type_), last_blood(0), delay(0)
+          hascleared(false), id(id_), type(type_), last_blood(0), delay(0), revived(false)
     {
       pos.get_point(map.get_map()).add_status(map::Status::TANK);
       changes.emplace_back(map::Change(pos));
@@ -140,9 +141,15 @@ namespace czh::tank
       return type;
     }
     
+    bool& get_revived()
+    {
+      return revived;
+    }
     void revive()
     {
+      if(is_alive()) return;
       blood = max_blood;
+      revived = true;
       hascleared = false;
     }
     
@@ -249,10 +256,41 @@ namespace czh::tank
     return n1.get_pos() < n2.get_pos();
   }
   
+  bool is_in_firing_line(map::Map &map, const map::Pos& pos, const map::Pos& target_pos)
+  {
+    int x = (int)target_pos.get_x() - (int)pos.get_x();
+    int y = (int)target_pos.get_y() - (int)pos.get_y();
+    if(x == 0 && std::abs(y) > 1)
+    {
+      std::size_t small =  y > 0 ? pos.get_y():target_pos.get_y();
+      std::size_t big =  y < 0 ? pos.get_y():target_pos.get_y();
+      for (std::size_t i = small + 1; i < big; ++i)
+      {
+        if(map.get_map()[pos.get_x()][i].has(map::Status::WALL)
+           || map.get_map()[pos.get_x()][i].has(map::Status::TANK))
+          return false;
+      }
+    }
+    else if(y == 0 && std::abs(x) > 1)
+    {
+      std::size_t small =  x > 0 ? pos.get_x() : target_pos.get_x();
+      std::size_t big = x < 0 ? pos.get_x():target_pos.get_x();
+      for (std::size_t i = small + 1; i < big; ++i)
+      {
+        if(map.get_map()[i][pos.get_y()].has(map::Status::WALL)
+           || map.get_map()[i][pos.get_y()].has(map::Status::TANK))
+          return false;
+      }
+    }
+    else if(std::abs(x) <=1 && std::abs(y) <= 1)
+      return true;
+    else
+      return false;
+    return true;
+  }
   class AutoTank : public Tank
   {
   private:
-    map::Pos around_target;
     std::size_t target_id;
     TankType target_type;
     map::Pos target_pos;
@@ -269,33 +307,16 @@ namespace czh::tank
           waypos(0),
           target_id(0), target_type(TankType::AUTO), level(level_), count(0)
     {}
-    
-    void target(map::Map &map, TankType target_type_, std::size_t target_id_, map::Pos target_pos_)
+    void target(map::Map &map, TankType target_type_, std::size_t target_id_, const map::Pos& target_pos_)
     {
       correct_direction = false;
       target_type = target_type_;
       target_id = target_id_;
       target_pos = target_pos_;
-      around_target = target_pos;
-      switch (map::random(0, 4))
-      {
-        case 0:
-          around_target.get_x() -= 1;
-          break;
-        case 1:
-          around_target.get_x() += 1;
-          break;
-        case 2:
-          around_target.get_y() -= 1;
-          break;
-        default:
-          around_target.get_y() += 1;
-          break;
-      }
       std::multimap<int, Node> open_list;
       std::map<map::Pos, Node> close_list;
       Node beg(get_pos(), 0, {0, 0}, true);
-      open_list.insert({beg.get_F(around_target), beg});
+      open_list.insert({beg.get_F(target_pos), beg});
       while (!open_list.empty())
       {
         auto it = open_list.begin();
@@ -315,14 +336,14 @@ namespace czh::tank
           {
             if (oit == open_list.end())
             {
-              open_list.insert({node.get_F(around_target), node});
+              open_list.insert({node.get_F(target_pos), node});
             } else
             {
               if (oit->second.get_G() > node.get_G() + 10) //less G
               {
                 oit->second.get_G() = node.get_G() + 10;
                 oit->second.get_last() = node.get_pos();
-                int F = oit->second.get_F(around_target);
+                int F = oit->second.get_F(target_pos);
                 auto n = open_list.extract(oit);
                 n.key() = F;
                 open_list.insert(std::move(n));
@@ -331,24 +352,20 @@ namespace czh::tank
           }
         }
         auto itt = std::find_if(open_list.begin(), open_list.end(),
-                                [this](const std::pair<int, Node> &p)
+                                [this, &map](const std::pair<int, Node> &p)
                                 {
-                                  return p.second.get_pos() == around_target;
+                                  return tank::is_in_firing_line(map, p.second.get_pos(), target_pos);
                                 });
         if (itt != open_list.end())//found
         {
           way.clear();
           waypos = 0;
           auto &np = itt->second;
-          //std::vector<map::Change> test;
           while (!np.is_root() && np.get_pos() != np.get_last())
           {
-            //test.emplace_back(np.get_pos());
             way.insert(way.begin(), get_direction(close_list[np.get_last()].get_pos(), np.get_pos()));
             np = close_list[np.get_last()];
           }
-          way.emplace_back(get_direction(around_target, target_pos));
-          way.emplace_back(get_direction(around_target, target_pos));
           found = true;
           return;
         }
@@ -376,11 +393,11 @@ namespace czh::tank
         int y = (int) get_pos().get_y() - (int) target_pos.get_y();
         if (x > 0)
           return AutoTankEvent::LEFT;
-        if (x < 0)
+        else if (x < 0)
           return AutoTankEvent::RIGHT;
-        if (y < 0)
+        else if (y < 0)
           return AutoTankEvent::UP;
-        if (y > 0)
+        else if (y > 0)
           return AutoTankEvent::DOWN;
       }
       
@@ -392,9 +409,9 @@ namespace czh::tank
       return target_id;
     }
     
-    map::Pos &get_around_target_pos()
+    map::Pos &get_target_pos()
     {
-      return around_target;
+      return target_pos;
     }
     
     [[nodiscard]]std::size_t target_is_auto() const
@@ -407,7 +424,7 @@ namespace czh::tank
       return found;
     }
     
-    bool &get_correct()
+    bool &has_arrived()
     {
       return correct_direction;
     }
