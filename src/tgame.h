@@ -8,6 +8,7 @@
 #include <algorithm>
 #include <functional>
 #include <string>
+#include <memory>
 namespace czh::game
 {
   enum class Event
@@ -18,64 +19,10 @@ namespace czh::game
     QUIT
   };
   
-  std::string colorify_tank(std::size_t w)
-  {
-    w = w % 2;
-    std::string ret = "\033[";
-    ret += std::to_string(w + 46);
-    ret += ";36m";
-    ret += " \033[0m\033[?25l";
-    return ret;
-  }
-  
-  std::string colorify_tank_text(std::size_t w, const std::string &str)
-  {
-    w = w % 2;
-    std::string ret = "\033[";
-    ret += std::to_string(w + 36);
-    ret += "m";
-    ret += str;
-    ret += "\033[0m\033[?25l";
-    return ret;
-  }
-  
-  std::string colorify_auto_tank(std::size_t w)
-  {
-    w = w % 4;
-    std::string ret = "\033[";
-    ret += std::to_string(w + 42);
-    ret += ";31m";
-    ret += " \033[0m\033[?25l";
-    return ret;
-  }
-  
-  std::string colorify_auto_tank_text(std::size_t w, const std::string &str)
-  {
-    w = w % 4;
-    std::string ret = "\033[";
-    ret += std::to_string(w + 32);
-    ret += "m";
-    ret += str;
-    ret += "\033[0m\033[?25l";
-    return ret;
-  }
-  
-  std::string colorify_wall()
-  {
-    std::string ret = "\033[0;41;37m \033[0m\033[?25l";
-    return ret;
-  }
-  
-  std::string colorify_space()
-  {
-    return " ";
-  }
-  
   class Game
   {
   private:
-    std::vector<tank::Tank> tanks;
-    std::vector<tank::AutoTank> auto_tanks;
+    std::vector<std::shared_ptr<tank::Tank>> tanks;
     std::vector<bullet::Bullet> bullets;
     std::vector<map::Change> changes;
     bool output_inited;
@@ -92,68 +39,79 @@ namespace czh::game
     
     Game &add_tank(std::size_t n = 1)
     {
-      tanks.insert(tanks.cend(), n, tank::Tank(300, 30, map, changes, get_random_pos(), tanks.size()));
+      std::size_t id = 0;
+      auto it = std::find_if(tanks.rbegin(), tanks.rend(), [](const std::shared_ptr<tank::Tank> &ptr)
+      { return !ptr->is_auto(); });
+      if (it != tanks.rend())
+        id = (*it)->get_id() + 1;
+      for (int i = 0; i < n; i++)
+      tanks.insert(tanks.cend(), n, std::make_shared<tank::NormalTank>
+      (300, 30, map, changes, get_random_pos(),  id + i));
       return *this;
     }
     
     Game &revive(std::size_t id)
     {
-      tanks[id].revive();
+      std::dynamic_pointer_cast<tank::NormalTank>(tanks[id])->
+          revive(map, changes, get_random_pos());
       return *this;
     }
     
     Game &add_auto_tank(std::size_t n = 1, std::size_t level = 1)
     {
-      std::size_t alive = std::count_if(auto_tanks.begin(), auto_tanks.end(),
-                                        [](const tank::AutoTank &at)
-                                        { return at.is_alive(); });
+      std::size_t alive = std::count_if(tanks.begin(), tanks.end(),
+                                        [](const std::shared_ptr<tank::Tank> &ptr)
+                                        { return ptr->is_auto() && ptr->is_alive(); });
       if (alive == 12)return *this;
       std::size_t id = 0;
-      if (!auto_tanks.empty())
-        id = auto_tanks[auto_tanks.size() - 1].get_id() + 1;
-      
+      auto it = std::find_if(tanks.rbegin(), tanks.rend(), [](const std::shared_ptr<tank::Tank> &ptr)
+      { return ptr->is_auto(); });
+      if (it != tanks.rend())
+        id = (*it)->get_id() + 1;
       for (int i = 0; i < n; i++)
-        auto_tanks.emplace_back(
-            tank::AutoTank((int) (11 - level) * 10, (int) (11 - level),
-                           map, changes, get_random_pos(), level, id + i));
-      
+        tanks.emplace_back(
+            std::make_shared<tank::AutoTank>((int) (11 - level) * 10, (int) (11 - level),
+                                             map, changes, get_random_pos(), level, id + i));
       return *this;
     }
     
     Game &add_auto_boss()
     {
-      std::size_t alive = std::count_if(auto_tanks.begin(), auto_tanks.end(),
-                                        [](const tank::AutoTank &at)
-                                        { return at.is_alive(); });
-      if (alive == 12) return *this;
+      std::size_t alive = std::count_if(tanks.begin(), tanks.end(),
+                                        [](const std::shared_ptr<tank::Tank> &ptr)
+                                        { return ptr->is_auto() && ptr->is_alive(); });
+      if (alive == 12)return *this;
       std::size_t id = 0;
-      if (!auto_tanks.empty())
-        id = auto_tanks[auto_tanks.size() - 1].get_id() + 1;
-      auto_tanks.emplace_back(
-          tank::AutoTank(map::random(300, 500), map::random(10, 20),
-                         map, changes, get_random_pos(), map::random(0, 4), id));
+      auto it = std::find_if(tanks.rbegin(), tanks.rend(), [](const std::shared_ptr<tank::Tank> &ptr)
+      { return ptr->is_auto(); });
+      if (it != tanks.rend())
+        id = (*it)->get_id() + 1;
+      tanks.emplace_back(
+          std::make_shared<tank::AutoTank>(map::random(300, 500), map::random(10, 20),
+                                           map, changes, get_random_pos(), map::random(0, 4), id));
       return *this;
     }
     
-    Game &tank_react(std::size_t tankid, tank::TankEvent event)
+    Game &tank_react(std::size_t tankid, tank::NormalTankEvent event)
     {
-      if (!running || !check_tank_alive(tankid)) return *this;
+      if (!running || !tanks[tankid]->is_alive()) return *this;
+      auto tank = std::dynamic_pointer_cast<tank::NormalTank>(tanks[tankid]);
       switch (event)
       {
-        case tank::TankEvent::UP:
-          tanks[tankid].up(map, changes);
+        case tank::NormalTankEvent::UP:
+          tank->up(map, changes);
           break;
-        case tank::TankEvent::DOWN:
-          tanks[tankid].down(map, changes);
+        case tank::NormalTankEvent::DOWN:
+          tank->down(map, changes);
           break;
-        case tank::TankEvent::LEFT:
-          tanks[tankid].left(map, changes);
+        case tank::NormalTankEvent::LEFT:
+          tank->left(map, changes);
           break;
-        case tank::TankEvent::RIGHT:
-          tanks[tankid].right(map, changes);
+        case tank::NormalTankEvent::RIGHT:
+          tank->right(map, changes);
           break;
-        case tank::TankEvent::FIRE:
-          fire(tanks[tankid], 0, 2);
+        case tank::NormalTankEvent::FIRE:
+          fire(tank, 0, 2);
           break;
       }
       react(Event::NOTHING);
@@ -192,78 +150,80 @@ namespace czh::game
           it->move(map, changes);
       }
       //auto tank
-      for (auto it = auto_tanks.begin(); it < auto_tanks.end() && !all_over(); ++it)
+      for (auto it = tanks.begin(); it < tanks.end() && !all_over(); ++it)
       {
-        if (!it->is_alive()) continue;
+        if (!(*it)->is_alive() || !(*it)->is_auto()) continue;
+        auto tank = std::dynamic_pointer_cast<tank::AutoTank>(*it);
+        auto target = tanks[tank->get_target_pos_in_vec()];
         //have not been found or target is not alive should target/retarget
-        if (!it->get_found() || !get_target(*it).is_alive())
+        if (!tank->get_found() || !target->is_alive())
         {
           map::Pos target_pos;
           std::size_t target_id = 0;
-          tank::TankType target_type = tank::TankType::TANK;
-          auto alive = get_alive(it->get_id());
-          
+          tank::TankType target_type = tank::TankType::NORMAL;
+          auto alive = get_alive(it - tanks.begin());
           do
           {
             auto t = alive[map::random(0, (int) alive.size())];
-            it->target(map, t.first, t.second, get_pos(t));
-          } while (!it->get_found());
+            auto p = tanks[t];
+            tank->target(map, t, p->get_pos());
+          } while (!tank->get_found());
+          target = tanks[tank->get_target_pos_in_vec()];
         }
         
         //correct its way
         bool should_correct = false;
-        if (it->has_arrived())
+        if (tank->has_arrived())
         {
-          if (get_target(*it).get_delay() == 0)
+          if (target->get_delay() == 0)
           {
-            get_target(*it).mark_blood();
-            it->mark_blood();
+            target->mark_blood();
+            tank->mark_blood();
           }
-          ++get_target(*it).get_delay();
+          ++target->get_delay();
           
-          int x = (int) it->get_pos().get_x() - (int) get_target(*it).get_pos().get_x();
-          int y = (int) it->get_pos().get_y() - (int) get_target(*it).get_pos().get_y();
+          int x = (int) tank->get_pos().get_x() - (int) target->get_pos().get_x();
+          int y = (int) tank->get_pos().get_y() - (int) target->get_pos().get_y();
           
-          if (!tank::is_in_firing_line(map, it->get_pos(), get_target(*it).get_pos())// not in firing line
-              || it->has_been_attacked_since_marked()// be attacked
-              || (x > 0 && it->get_direction() != map::Direction::LEFT)
-              || (x < 0 && it->get_direction() != map::Direction::RIGHT)
-              || (y > 0 && it->get_direction() != map::Direction::DOWN)
-              || (y < 0 && it->get_direction() != map::Direction::UP))
+          if (!tank::is_in_firing_line(map, tank->get_pos(), target->get_pos())// not in firing line
+              || tank->has_been_attacked_since_marked()// be attacked
+              || (x > 0 && tank->get_direction() != map::Direction::LEFT)
+              || (x < 0 && tank->get_direction() != map::Direction::RIGHT)
+              || (y > 0 && tank->get_direction() != map::Direction::DOWN)
+              || (y < 0 && tank->get_direction() != map::Direction::UP))
             should_correct = true;
-          else if (get_target(*it).get_delay() >= map::get_distance(it->get_pos(), get_target(*it).get_pos()) + 20)
+          else if (target->get_delay() >= map::get_distance(tank->get_pos(), target->get_pos()) + 20)
           {
-            if (!get_target(*it).has_been_attacked_since_marked())//not shot
+            if (!target->has_been_attacked_since_marked())//not shot
               should_correct = true;
-            get_target(*it).get_delay() = 0;
+            target->get_delay() = 0;
           }
         }
-        else if (!tank::is_in_firing_line(map, it->get_target_pos(),
-                                          get_target(*it).get_pos()))//target is not in firing line
+        else if (!tank::is_in_firing_line(map, tank->get_target_pos(),
+                                          target->get_pos()))//target is not in firing line
           should_correct = true;
         
         if (should_correct)
         {
-          it->target(map, get_target(*it).get_type(), get_target(*it).get_id(),
-                     get_target(*it).get_pos());
-          get_target(*it).get_delay() = 0;
+          tank->target(map, tank->get_target_pos_in_vec(),  target->get_pos());
+          target->get_delay() = 0;
         }
-        switch (it->next())
+        switch (tank->next())
         {
           case tank::AutoTankEvent::UP:
-            it->up(map, changes);
+            tank->up(map, changes);
             break;
           case tank::AutoTankEvent::DOWN:
-            it->down(map, changes);
+            tank->down(map, changes);
             break;
           case tank::AutoTankEvent::LEFT:
-            it->left(map, changes);
+            tank->left(map, changes);
             break;
           case tank::AutoTankEvent::RIGHT:
-            it->right(map, changes);
+            tank->right(map, changes);
             break;
           case tank::AutoTankEvent::FIRE:
-            fire(*it);
+            fire(tank);
             break;
           case tank::AutoTankEvent::NOTHING:
             break;
@@ -293,32 +253,17 @@ namespace czh::game
       }
       for (auto it = tanks.begin(); it < tanks.end(); ++it)
       {
-        int lethality = it->get_pos().get_point(map.get_map()).get_lethality();
+        auto tank = *it;
+        int lethality = tank->get_pos().get_point(map.get_map()).get_lethality();
         if (lethality == 0) continue;
-        it->attacked(lethality);
-        if (it->is_alive())
+        tank->attacked(lethality);
+        if (tank->is_alive())
         {
-          CZH_NOTICE("Tank " + std::to_string(it - tanks.begin())
-                     + " was attacked.Blood: " + std::to_string(it->get_blood()));
+          CZH_NOTICE(tank->get_name() + " was attacked.Blood: " + std::to_string(tank->get_blood()));
         }
         else
         {
-          CZH_NOTICE("Tank " + std::to_string(it - tanks.begin()) + " was killed.");
-        }
-      }
-      for (auto it = auto_tanks.begin(); it < auto_tanks.end(); ++it)
-      {
-        int lethality = it->get_pos().get_point(map.get_map()).get_lethality();
-        if (lethality == 0) continue;
-        it->attacked(lethality);
-        if (it->is_alive())
-        {
-          CZH_NOTICE("Auto Tank " + std::to_string(it - auto_tanks.begin())
-                     + " was attacked.Blood: " + std::to_string(it->get_blood()));
-        }
-        else
-        {
-          CZH_NOTICE("Auto Tank " + std::to_string(it - auto_tanks.begin()) + " was killed.");
+          CZH_NOTICE(tank->get_name() + " was killed.");
         }
       }
       for (auto it = bullets.begin(); it < bullets.end(); ++it)
@@ -345,25 +290,12 @@ namespace czh::game
                                    }), bullets.end());
       for (auto it = tanks.begin(); it < tanks.end(); ++it)
       {
-        if (!it->is_alive() && !it->has_cleared())
+        auto tank = *it;
+        if (!tank->is_alive() && !tank->has_cleared())
         {
-          it->get_pos().get_point(map.get_map()).remove_status(map::Status::TANK);
-          changes.emplace_back(it->get_pos());
-          it->clear();
-        }
-        if (it->get_revived())
-        {
-          it->get_pos() = get_random_pos();
-          it->get_revived() = false;
-        }
-      }
-      for (auto it = auto_tanks.begin(); it < auto_tanks.end(); ++it)
-      {
-        if (!it->is_alive() && !it->has_cleared())
-        {
-          it->get_pos().get_point(map.get_map()).remove_status(map::Status::TANK);
-          changes.emplace_back(it->get_pos());
-          it->clear();
+          tank->get_pos().get_point(map.get_map()).remove_status(map::Status::TANK);
+          changes.emplace_back(tank->get_pos());
+          tank->clear();
         }
       }
       paint();
@@ -374,18 +306,13 @@ namespace czh::game
     { return running; }
   
   private:
-    [[nodiscard]]std::vector<std::pair<tank::TankType, std::size_t>> get_alive(std::size_t except) const
+    [[nodiscard]]std::vector<std::size_t> get_alive(std::size_t except) const
     {
-      std::vector<std::pair<tank::TankType, std::size_t>> ret;
+      std::vector<std::size_t> ret;
       for (std::size_t i = 0; i < tanks.size(); ++i)
       {
-        if (tanks[i].is_alive())
-          ret.emplace_back(std::make_pair(tank::TankType::TANK, i));
-      }
-      for (std::size_t i = 0; i < auto_tanks.size(); ++i)
-      {
-        if (auto_tanks[i].is_alive() && i != except)
-          ret.emplace_back(std::make_pair(tank::TankType::AUTO, i));
+        if (tanks[i]->is_alive() && i != except)
+          ret.emplace_back(i);
       }
       return ret;
     }
@@ -395,22 +322,20 @@ namespace czh::game
       std::size_t alive = 0;
       for (auto &t: tanks)
       {
-        if (t.is_alive())
+        if (t->is_alive())
           ++alive;
       }
-      for (auto &t: auto_tanks)
-      {
-        if (t.is_alive())
-          ++alive;
-      }
+      
       return alive <= 1;
     }
     
-    map::Pos get_pos(const std::pair<tank::TankType, std::size_t> &p)
+    auto find_tank(std::size_t i, std::size_t j)
     {
-      if (p.first == tank::TankType::AUTO)
-        return auto_tanks[p.second].get_pos();
-      return tanks[p.second].get_pos();
+      return std::find_if(tanks.begin(), tanks.end(),
+                          [i, j](const std::shared_ptr<tank::Tank> &b)
+                          {
+                            return (b->is_alive() && b->get_pos().get_x() == i && b->get_pos().get_y() == j);
+                          });
     }
     
     map::Pos get_random_pos()
@@ -420,7 +345,6 @@ namespace czh::game
       {
         pos = map::Pos(map::random(1, (int) map.get_width() - 1), map::random(1, (int) map.get_height() - 1));
       } while (find_tank(pos.get_x(), pos.get_y()) != tanks.end()
-               || find_auto_tank(pos.get_x(), pos.get_y()) != auto_tanks.end()
                || pos.get_point(map.get_map()).has(map::Status::WALL));
       return pos;
     }
@@ -432,34 +356,20 @@ namespace czh::game
       if (point.has(map::Status::TANK))
       {
         auto it = find_tank(pos.get_x(), pos.get_y());
-        int w = 0;
-        if (it == tanks.end())
-        {
-          auto ita = find_auto_tank(pos.get_x(), pos.get_y());
-          w = (int) (ita - auto_tanks.begin());
-          term::output(colorify_auto_tank(w));
-        }
-        else
-        {
-          w = (int) (it - tanks.begin());
-          term::output(colorify_tank(w));
-        }
+        term::output((*it)->colorify_tank());
       }
       else if (point.has(map::Status::BULLET))
       {
         auto w = find_bullet(pos.get_x(), pos.get_y());
-        if (w->is_from_auto_tank())
-          term::output(colorify_auto_tank_text(w->get_id(), w->get_text()));
-        else
-          term::output(colorify_tank_text(w->get_id(), w->get_text()));
+        term::output(w->get_from()->colorify_text(w->get_text()));
       }
       else if (point.has(map::Status::WALL))
       {
-        term::output(colorify_wall());
+        term::output("\033[0;41;37m \033[0m\033[?25l");
       }
       else
       {
-        term::output(colorify_space());
+        term::output(" ");
       }
     }
     
@@ -506,51 +416,38 @@ namespace czh::game
           term::mvoutput({cursor_x, cursor_y++}, "Tank - by caozhanhao");
           for (int i = 0; i < tanks.size(); ++i)
           {
-            if (!tanks[i].is_alive())continue;
-            std::string sout = colorify_tank_text(i, "Tank " + std::to_string(tanks[i].get_id()));
+            auto tank = tanks[i];
+            if (!tank->is_alive())continue;
+            std::string sout = tank->colorify_text(tank->get_name());
             term::mvoutput({cursor_x, cursor_y++}, sout);
-            std::string blood = std::to_string(tanks[i].get_blood());
-            std::string x = std::to_string(tanks[i].get_pos().get_x());
-            std::string y = std::to_string(tanks[i].get_pos().get_y());
+            std::string blood = std::to_string(tank->get_blood());
+            std::string x = std::to_string(tank->get_pos().get_x());
+            std::string y = std::to_string(tank->get_pos().get_y());
             sout.clear();
             sout.append("HP: ").append(blood)
                 .append(" Pos: (").append(x).append(",").append(y).append(")");
+            if (tank->is_auto())
+            {
+              auto at = std::dynamic_pointer_cast<tank::AutoTank>(tank);
+              auto target = tanks[at->get_target_pos_in_vec()];
+              std::string level = std::to_string(at->get_level());
+              level.insert(level.begin(), 2 - level.size(), '0');
+              sout.append(" Level: ").append(level).append(" Target: ")
+                  .append(target->colorify_text(target->get_name()));
+            }
             term::mvoutput({cursor_x, cursor_y++}, sout);
           }
           term::mvoutput({cursor_x, cursor_y++}, " ");
-          for (int i = 0; i < auto_tanks.size(); ++i)
-          {
-            if (!auto_tanks[i].is_alive()) continue;
-            std::string sout = colorify_auto_tank_text(i, "Auto Tank " + std::to_string(auto_tanks[i].get_id()));
-            term::mvoutput({cursor_x, cursor_y++}, sout);
-            
-            std::string blood = std::to_string(auto_tanks[i].get_blood());
-            std::string x = std::to_string(auto_tanks[i].get_pos().get_x());
-            std::string y = std::to_string(auto_tanks[i].get_pos().get_y());
-            std::string level = std::to_string(auto_tanks[i].get_level());
-            level.insert(level.begin(), 2 - level.size(), '0');
-            sout.clear();
-            sout.append("HP: ").append(blood)
-                .append(" Pos: (").append(x).append(",").append(y).append(")")
-                .append(" Level: ").append(level);
-            
-            auto id = auto_tanks[i].get_target_id();
-            if (auto_tanks[i].target_is_auto())
-              sout += " Target: " + colorify_auto_tank_text(id, "Auto Tank " + std::to_string(id));
-            else
-              sout += " Target: " + colorify_tank_text(id, "Tank " + std::to_string(id));
-            term::mvoutput({cursor_x, cursor_y++}, sout);
-          }
           output_inited = true;
         }
       }
     }
     
-    void fire(const tank::Tank &tank, int circle = 0, int blood = 1, int range = 1000)
+    void fire(std::shared_ptr<tank::Tank> tank, int circle = 0, int blood = 1, int range = 1000)
     {
-      auto &point = tank.get_pos().get_point(map.get_map());
-      map::Pos pos = tank.get_pos();
-      switch (tank.get_direction())
+      auto &point = tank->get_pos().get_point(map.get_map());
+      map::Pos pos = tank->get_pos();
+      switch (tank->get_direction())
       {
         case map::Direction::UP:
           pos.get_y()++;
@@ -569,26 +466,10 @@ namespace czh::game
       if (bullet_point.has(map::Status::WALL)) return;
       bullet_point.add_status(map::Status::BULLET);
       bullets.emplace_back(
-          bullet::Bullet(tank.is_auto(), tank.get_id(), pos, tank.get_direction(), tank.get_lethality(), circle, blood,
-                         range));
+          bullet::Bullet(tank, pos, tank->get_direction(),
+                         tank->get_lethality(), circle, blood, range));
     }
     
-    bool check_tank_alive(const std::size_t tankid)
-    {
-      if (!tanks[tankid].is_alive())
-      {
-        CZH_NOTICE("Tank " + std::to_string(tankid) + " is not alive.");
-        return false;
-      }
-      return true;
-    }
-    
-    tank::Tank &get_target(tank::AutoTank &tank)
-    {
-      if (tank.target_is_auto())
-        return auto_tanks[tank.get_target_id()];
-      return tanks[tank.get_target_id()];
-    }
     
     std::vector<bullet::Bullet>::iterator find_bullet(std::size_t i, std::size_t j)
     {
@@ -596,24 +477,6 @@ namespace czh::game
                           [i, j](const bullet::Bullet &b)
                           {
                             return (b.get_pos().get_x() == i && b.get_pos().get_y() == j);
-                          });
-    }
-    
-    std::vector<tank::Tank>::iterator find_tank(std::size_t i, std::size_t j)
-    {
-      return std::find_if(tanks.begin(), tanks.end(),
-                          [i, j](const tank::Tank &b)
-                          {
-                            return (b.is_alive() && b.get_pos().get_x() == i && b.get_pos().get_y() == j);
-                          });
-    }
-    
-    std::vector<tank::AutoTank>::iterator find_auto_tank(std::size_t i, std::size_t j)
-    {
-      return std::find_if(auto_tanks.begin(), auto_tanks.end(),
-                          [i, j](const tank::AutoTank &b)
-                          {
-                            return (b.is_alive() && b.get_pos().get_x() == i && b.get_pos().get_y() == j);
                           });
     }
     

@@ -6,9 +6,9 @@ namespace czh::tank
 {
   enum class TankType
   {
-    AUTO, TANK
+    AUTO, NORMAL
   };
-  enum class TankEvent
+  enum class NormalTankEvent
   {
     UP, DOWN, LEFT, RIGHT, FIRE
   };
@@ -16,10 +16,9 @@ namespace czh::tank
   {
     UP, DOWN, LEFT, RIGHT, FIRE, NOTHING
   };
-  
   class Tank
   {
-  private:
+  protected:
     int max_blood;
     int blood;
     int lethality;
@@ -28,29 +27,20 @@ namespace czh::tank
     map::Direction direction;
     bool hascleared;
     TankType type;
+    std::string name;
     int last_blood;
     int delay;
-    bool revived;
   public:
-    Tank(int blood_, int lethality_, map::Map &map, std::vector<map::Change> &changes, map::Pos pos_, std::size_t id_,
-         TankType type_ = TankType::TANK)
+    Tank(int blood_, int lethality_, map::Map &map, std::vector<map::Change> &changes,
+           map::Pos pos_, std::size_t id_,TankType type_, const std::string& name_)
         : max_blood(blood_), blood(blood_), lethality(lethality_), direction(map::Direction::UP), pos(pos_),
-          hascleared(false), id(id_), type(type_), last_blood(0), delay(0), revived(false)
+          hascleared(false), id(id_), type(type_), last_blood(0), delay(0),
+          name(name_)
     {
       pos.get_point(map.get_map()).add_status(map::Status::TANK);
       changes.emplace_back(map::Change(pos));
     }
-    
-    [[nodiscard]]bool is_auto() const
-    {
-      return type == TankType::AUTO;
-    }
-    
-    [[nodiscard]]std::size_t get_id() const
-    {
-      return id;
-    }
-    
+  
     void up(map::Map &map, std::vector<map::Change> &changes)
     {
       int a = map.up(map::Status::TANK, pos);
@@ -61,7 +51,7 @@ namespace czh::tank
         changes.emplace_back(map::Change(map::Pos(pos.get_x(), pos.get_y() - 1)));
       }
     }
-    
+  
     void down(map::Map &map, std::vector<map::Change> &changes)
     {
       int a = map.down(map::Status::TANK, pos);
@@ -72,7 +62,7 @@ namespace czh::tank
         changes.emplace_back(map::Change(map::Pos(pos.get_x(), pos.get_y() + 1)));
       }
     }
-    
+  
     void left(map::Map &map, std::vector<map::Change> &changes)
     {
       int a = map.left(map::Status::TANK, pos);
@@ -83,7 +73,7 @@ namespace czh::tank
         changes.emplace_back(map::Change(map::Pos(pos.get_x() + 1, pos.get_y())));
       }
     }
-    
+  
     void right(map::Map &map, std::vector<map::Change> &changes)
     {
       int a = map.right(map::Status::TANK, pos);
@@ -94,43 +84,60 @@ namespace czh::tank
         changes.emplace_back(map::Change(map::Pos(pos.get_x() - 1, pos.get_y())));
       }
     }
-    
+  
+    [[nodiscard]]bool is_auto() const
+    {
+      return type == TankType::AUTO;
+    }
+  
+    [[nodiscard]]std::size_t get_id() const
+    {
+      return id;
+    }
+    std::string& get_name()
+    {
+      return name;
+    }
+    const std::string& get_name() const
+    {
+      return name;
+    }
     [[nodiscard]]int get_blood() const
     { return blood; }
-    
+  
     [[nodiscard]]int get_lethality() const
     { return lethality * map::random(5, 16) / 10; }
-    
+  
     [[nodiscard]]bool is_alive() const
     {
       return blood > 0;
     }
-    
+  
     [[nodiscard]]bool has_cleared() const
     {
       return hascleared;
     }
-    
+  
     void clear()
     { hascleared = true; }
-    
+  
     map::Pos &get_pos()
     {
       return pos;
     }
-    
+  
     void attacked(int lethality_)
     {
       blood -= lethality_;
       if (blood < 0) blood = 0;
       if (blood > max_blood) blood = max_blood;
     }
-    
+  
     [[nodiscard]]const map::Pos &get_pos() const
     {
       return pos;
     }
-    
+  
     [[nodiscard]]map::Direction& get_direction()
     {
       return direction;
@@ -143,32 +150,59 @@ namespace czh::tank
     {
       return type;
     }
-    
-    bool& get_revived()
-    {
-      return revived;
-    }
-    void revive()
-    {
-      if(is_alive()) return;
-      blood = max_blood;
-      revived = true;
-      hascleared = false;
-    }
-    
+  
     void mark_blood()
     {
       last_blood = get_blood();
     }
-    
+  
     [[nodiscard]]bool has_been_attacked_since_marked() const
     {
       return last_blood != get_blood();
     }
-    
+  
     int &get_delay()
     {
       return delay;
+    }
+    virtual std::string colorify_text(const std::string& str) = 0;
+    virtual std::string colorify_tank() = 0;
+  };
+  class NormalTank : public Tank
+  {
+  public:
+    NormalTank(int blood_, int lethality_, map::Map &map, std::vector<map::Change> &changes,
+         map::Pos pos_, std::size_t id_)
+         :Tank(blood_, lethality_, map, changes, pos_, id_, TankType::NORMAL,
+               "Tank " + std::to_string(id_)){}
+
+    void revive(map::Map &map, std::vector<map::Change> &changes, const map::Pos& newpos)
+    {
+      if(is_alive() && !hascleared) return;
+      blood = max_blood;
+      hascleared = false;
+      pos = newpos;
+      pos.get_point(map.get_map()).add_status(map::Status::TANK);
+      changes.emplace_back(map::Change(newpos));
+    }
+    std::string colorify_text(const std::string& str) override
+    {
+      int w = id % 2;
+      std::string ret = "\033[";
+      ret += std::to_string(w + 36);
+      ret += "m";
+      ret += str;
+      ret += "\033[0m\033[?25l";
+      return ret;
+    }
+    std::string colorify_tank() override
+    {
+      int w = id % 2;
+      std::string ret = "\033[";
+      ret += std::to_string(w + 46);
+      ret += ";36m";
+      ret += " \033[0m\033[?25l";
+      return ret;
     }
   };
   
@@ -294,8 +328,7 @@ namespace czh::tank
   class AutoTank : public Tank
   {
   private:
-    std::size_t target_id;
-    TankType target_type;
+    std::size_t target_pos_in_vec;
     map::Pos target_pos;
     std::vector<AutoTankEvent> way;
     std::size_t waypos;
@@ -306,15 +339,15 @@ namespace czh::tank
   public:
     AutoTank(int blood_, int lethality_, map::Map &map, std::vector<map::Change> &changes, map::Pos pos_,
              std::size_t level_, std::size_t id_)
-        : Tank(blood_, lethality_, map, changes, pos_, id_, TankType::AUTO), found(false), correct_direction(false),
-          waypos(0),
-          target_id(0), target_type(TankType::AUTO), level(level_), count(0)
+        : Tank(blood_, lethality_, map, changes, pos_, id_,
+               TankType::AUTO, "Auto Tank " + std::to_string(id_)),
+          found(false), correct_direction(false),
+          waypos(0), target_pos_in_vec(0), level(level_), count(0)
     {}
-    void target(map::Map &map, TankType target_type_, std::size_t target_id_, const map::Pos& target_pos_)
+    void target(map::Map &map, std::size_t target_pos_in_vec_, const map::Pos& target_pos_)
     {
       correct_direction = false;
-      target_type = target_type_;
-      target_id = target_id_;
+      target_pos_in_vec = target_pos_in_vec_;
       target_pos = target_pos_;
       std::multimap<int, Node> open_list;
       std::map<map::Pos, Node> close_list;
@@ -407,19 +440,14 @@ namespace czh::tank
       return AutoTankEvent::FIRE;
     }
     
-    std::size_t &get_target_id()
+    std::size_t &get_target_pos_in_vec()
     {
-      return target_id;
+      return target_pos_in_vec;
     }
     
     map::Pos &get_target_pos()
     {
       return target_pos;
-    }
-    
-    [[nodiscard]]std::size_t target_is_auto() const
-    {
-      return target_type == TankType::AUTO;
     }
     
     [[nodiscard]]bool get_found() const
@@ -435,6 +463,26 @@ namespace czh::tank
     [[nodiscard]]std::size_t get_level() const
     {
       return level;
+    }
+  
+    std::string colorify_text(const std::string& str) override
+    {
+      int w = id % 4;
+      std::string ret = "\033[";
+      ret += std::to_string(w + 32);
+      ret += "m";
+      ret += str;
+      ret += "\033[0m\033[?25l";
+      return ret;
+    }
+    std::string colorify_tank() override
+    {
+      int w = id % 4;
+      std::string ret = "\033[";
+      ret += std::to_string(w + 42);
+      ret += ";31m";
+      ret += " \033[0m\033[?25l";
+      return ret;
     }
   };
 }

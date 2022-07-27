@@ -10,7 +10,7 @@ int main()
   game.add_tank();
   std::chrono::high_resolution_clock::time_point beg, end;
   std::chrono::milliseconds cost(0);
-  std::chrono::milliseconds sleep(17);
+  std::chrono::milliseconds sleep(30);
   while (true)
   {
     beg = std::chrono::high_resolution_clock::now();
@@ -21,25 +21,25 @@ int main()
         case 'w':
         case 28:
         case 72:
-          game.tank_react(0, TankEvent::UP);
+          game.tank_react(0, NormalTankEvent::UP);
           break;
         case 's':
         case 40:
         case 80:
-          game.tank_react(0, TankEvent::DOWN);
+          game.tank_react(0, NormalTankEvent::DOWN);
           break;
         case 'a':
         case 37:
         case 75:
-          game.tank_react(0, TankEvent::LEFT);
+          game.tank_react(0, NormalTankEvent::LEFT);
           break;
         case 'd':
         case 39:
         case 77:
-          game.tank_react(0, TankEvent::RIGHT);
+          game.tank_react(0, NormalTankEvent::RIGHT);
           break;
         case ' ':
-          game.tank_react(0, TankEvent::FIRE);
+          game.tank_react(0, NormalTankEvent::FIRE);
           break;
         case 'q':
           game.react(Event::QUIT);

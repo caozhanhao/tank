@@ -12,7 +12,6 @@ namespace czh::map
     std::uniform_int_distribution<int> u(a, b - 1);
     return u(e);
   }
-  
   enum class Status
   {
     WALL, TANK, BULLET
