@@ -14,7 +14,11 @@ namespace czh::logger
   void output(const std::string &str)
   {
     term::move_cursor(term::TermPos(0, term::get_height() - 1));
-    term::output(str + std::string(term::get_width() - str.size(), ' '));
+    int a = term::get_width() - str.size();
+    if (a > 0)
+      term::output(str + std::string(a, ' '));
+    else
+      term::output(str);
   }
   
   std::string get_time()
