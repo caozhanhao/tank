@@ -102,7 +102,7 @@ namespace czh::term
     COORD coord{ (SHORT)pos.get_x(), (SHORT)pos.get_y() };
     SetConsoleCursorPosition(handle, coord);
 #elif defined(__linux__)
-    printf("%c[%d;%df", 0x1b, pos.get_y() + 1, pos.get_x() + 1);
+    printf("%c[%d;%df", 0x1b, (int)pos.get_y() + 1, (int)pos.get_x() + 1);
 #endif
   }
 	void output(const std::string& str)
