@@ -211,22 +211,13 @@ namespace czh::game
           map::Pos target_pos;
           std::size_t target_id = 0;
           tank::TankType target_type = tank::TankType::TANK;
+          auto alive = get_alive(it->get_id());
+          
           do
           {
-            target_id = map::random((int) 0, (int) tanks.size() + (int) auto_tanks.size());
-            //target_id = map::random(0, tanks.size());
-            if (target_id < tanks.size())
-            {
-              target_pos = tanks[target_id].get_pos();
-              target_type = tank::TankType::TANK;
-            } else if (target_id - tanks.size() < auto_tanks.size())
-            {
-              target_id -= tanks.size();
-              target_pos = auto_tanks[target_id].get_pos();
-              target_type = tank::TankType::AUTO;
-            }
-          } while (target_type == tank::TankType::AUTO && target_id == it->get_id());
-          it->target(map, target_type, target_id, target_pos);
+            auto t = alive[map::random(0, (int)alive.size())];
+            it->target(map, t.first, t.second, get_pos(t));
+          }while(!it->get_found());
           tank_status_changed = true;
         }
         
@@ -409,6 +400,22 @@ namespace czh::game
     [[nodiscard]]bool is_running() const { return running; }
   
   private:
+    [[nodiscard]]std::vector<std::pair<tank::TankType, std::size_t>> get_alive(std::size_t except) const
+    {
+      std::vector<std::pair<tank::TankType, std::size_t>> ret;
+      for(std::size_t i = 0; i< tanks.size();++i)
+      {
+        if(tanks[i].is_alive())
+          ret.emplace_back(std::make_pair(tank::TankType::TANK, i));
+      }
+      for(std::size_t i = 0; i< auto_tanks.size();++i)
+      {
+        if(auto_tanks[i].is_alive() && i != except)
+          ret.emplace_back(std::make_pair(tank::TankType::AUTO, i));
+      }
+      return ret;
+    }
+  
     [[nodiscard]]bool all_over() const
     {
       std::size_t alive = 0;
@@ -424,7 +431,12 @@ namespace czh::game
       }
       return alive <= 1;
     }
-    
+    map::Pos get_pos(const std::pair<tank::TankType, std::size_t>& p)
+    {
+      if(p.first == tank::TankType::AUTO)
+        return auto_tanks[p.second].get_pos();
+      return tanks[p.second].get_pos();
+    }
     map::Pos get_random_pos()
     {
       map::Pos pos;
