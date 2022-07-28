@@ -1,4 +1,4 @@
-﻿﻿#pragma once
+﻿#pragma once
 #include "tmap.h"
 #include <map>
 #include <algorithm>
