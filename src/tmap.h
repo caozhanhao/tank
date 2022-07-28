@@ -14,6 +14,7 @@ namespace czh::map
     std::uniform_int_distribution<int> u(a, b - 1);
     return u(e);
   }
+  
   enum class Status
   {
     WALL, TANK, BULLET
@@ -206,7 +207,7 @@ namespace czh::map
         }
       }
       std::list<Pos> way{Pos((std::size_t) random(0, (int) width / 2) * 2 - 1,
-                               (std::size_t) random(0, (int) height / 2) * 2 - 1)};
+                             (std::size_t) random(0, (int) height / 2) * 2 - 1)};
       std::set<Pos> index{*way.begin()};
       auto it = way.begin();
       auto is_available = [this, &index](const Pos &pos)
@@ -309,11 +310,14 @@ namespace czh::map
       auto &pointbak = posbak.get_point(map);
       switch (status)
       {
-        case Status::BULLET:if (pointbak.has(Status::WALL)) return -1;
+        case Status::BULLET:
+          if (pointbak.has(Status::WALL)) return -1;
           break;
-        case Status::TANK:if (pointbak.has(Status::WALL) || pointbak.has(Status::TANK)) return -1;
+        case Status::TANK:
+          if (pointbak.has(Status::WALL) || pointbak.has(Status::TANK)) return -1;
           break;
-        default:break;
+        default:
+          break;
       }
       auto &point = pos.get_point(map);
       point.remove_status(status);

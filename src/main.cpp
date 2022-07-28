@@ -67,7 +67,7 @@ int main()
           break;
       }
     }
-      game.react(Event::NOTHING);
+    game.react(Event::NOTHING);
     end = std::chrono::high_resolution_clock::now();
     cost = std::chrono::duration_cast<std::chrono::milliseconds>(end - beg);
     if (sleep > cost)

@@ -37,6 +37,7 @@ namespace czh::game
              map((screen_height - 1) % 2 == 0 ? screen_height - 2 : screen_height - 1,
                  screen_width % 2 == 0 ? screen_width - 1 : screen_width)
     {}
+  
     Game &add_tank(std::size_t n = 1)
     {
       std::size_t id = 0;
@@ -45,8 +46,10 @@ namespace czh::game
       if (it != tanks.rend())
         id = (*it)->get_id() + 1;
       for (int i = 0; i < n; i++)
-      tanks.insert(tanks.cend(), n, std::make_shared<tank::NormalTank>
-      (300, 30, map, changes, get_random_pos(),  id + i));
+      {
+        tanks.insert(tanks.cend(), n, std::make_shared<tank::NormalTank>
+            (300, 30, map, changes, get_random_pos(), id + i));
+      }
       return *this;
     }
     
@@ -59,33 +62,39 @@ namespace czh::game
     
     Game &add_auto_tank(std::size_t n = 1, std::size_t level = 1)
     {
-      int alive = (int)std::count_if(tanks.begin(), tanks.end(),
-                                        [](const std::shared_ptr<tank::Tank> &ptr)
-                                        { return ptr->is_auto() && ptr->is_alive(); });
+      int alive = (int) std::count_if(tanks.begin(), tanks.end(),
+                                      [](const std::shared_ptr<tank::Tank> &ptr)
+                                      { return ptr->is_auto() && ptr->is_alive(); });
       if (alive == CZH_MAX_AUTO_TANK)return *this;
       std::size_t id = 0;
       auto it = std::find_if(tanks.rbegin(), tanks.rend(), [](const std::shared_ptr<tank::Tank> &ptr)
       { return ptr->is_auto(); });
       if (it != tanks.rend())
+      {
         id = (*it)->get_id() + 1;
+      }
       for (int i = 0; i < n; i++)
+      {
         tanks.emplace_back(
             std::make_shared<tank::AutoTank>((int) (11 - level) * 10, (int) (11 - level),
                                              map, changes, get_random_pos(), level, id + i));
+      }
       return *this;
     }
     
     Game &add_auto_boss()
     {
-      int alive = (int)std::count_if(tanks.begin(), tanks.end(),
-                                        [](const std::shared_ptr<tank::Tank> &ptr)
-                                        { return ptr->is_auto() && ptr->is_alive(); });
+      int alive = (int) std::count_if(tanks.begin(), tanks.end(),
+                                      [](const std::shared_ptr<tank::Tank> &ptr)
+                                      { return ptr->is_auto() && ptr->is_alive(); });
       if (alive == CZH_MAX_AUTO_TANK)return *this;
       std::size_t id = 0;
       auto it = std::find_if(tanks.rbegin(), tanks.rend(), [](const std::shared_ptr<tank::Tank> &ptr)
       { return ptr->is_auto(); });
       if (it != tanks.rend())
+      {
         id = (*it)->get_id() + 1;
+      }
       tanks.emplace_back(
           std::make_shared<tank::AutoTank>(map::random(300, 500), map::random(10, 20),
                                            map, changes, get_random_pos(), map::random(0, 4), id));
@@ -137,7 +146,7 @@ namespace czh::game
           conflict = true;
       }
       //tank
-      for(auto& event : normal_tank_events)
+      for (auto &event: normal_tank_events)
       {
         auto tank = std::dynamic_pointer_cast<tank::NormalTank>(tanks[event.first]);
         switch (event.second)
@@ -216,7 +225,7 @@ namespace czh::game
         
         if (should_correct)
         {
-          tank->target(map, tank->get_target_pos_in_vec(),  target->get_pos());
+          tank->target(map, tank->get_target_pos_in_vec(), target->get_pos());
           target->get_delay() = 0;
         }
         switch (tank->next())
@@ -263,7 +272,7 @@ namespace czh::game
                           });
         }
       }
-      if(conflict)
+      if (conflict)
       {
         for (auto it = tanks.begin(); it < tanks.end(); ++it)
         {
@@ -428,7 +437,7 @@ namespace czh::game
           term::clear();
           std::size_t cursor_x = 0;
           std::size_t cursor_y = 0;
-          term::mvoutput({screen_width / 2 -  10, cursor_y++}, "Tank - by caozhanhao");
+          term::mvoutput({screen_width / 2 - 10, cursor_y++}, "Tank - by caozhanhao");
           std::vector<std::size_t> max_x{0};
           std::size_t colpos = 0;
           for (int i = 0; i < tanks.size(); ++i)
@@ -468,7 +477,6 @@ namespace czh::game
         }
       }
     }
-    
     
     
     std::vector<bullet::Bullet>::iterator find_bullet(std::size_t i, std::size_t j)
