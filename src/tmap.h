@@ -149,17 +149,6 @@ namespace czh::map
       {
         r.resize(height);
       }
-      //for (int i = 0; i < width; ++i)
-      //{
-      //  map[i][0].add_status(map::Status::WALL);
-      //  map[i][height - 1].add_status(map::Status::WALL);
-      //}
-      //for (int i = 1; i < height - 1; ++i)
-      //{
-      //  map[0][i].add_status(map::Status::WALL);
-      //  map[width - 1][i].add_status(map::Status::WALL);
-      //}
-      
       make_maze();
     }
     

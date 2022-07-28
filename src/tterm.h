@@ -152,7 +152,7 @@ namespace czh::term
 		FillConsoleOutputAttribute(handle, 0, cinfo.dwSize.X * cinfo.dwSize.Y, coord, &recnum);
 		SetConsoleCursorPosition(handle, coord);
 #elif defined(__linux__)
-		printf("\033c");
+		printf("\033[2J");
 #endif
 	}
 }
