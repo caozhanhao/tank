@@ -1,4 +1,6 @@
-﻿#include "tgame.h"
+﻿#include "tterm.h"
+const int CZH_MAX_AUTO_TANK = (czh::term::get_height() - 2) - 1;
+#include "tgame.h"
 #include <chrono>
 #include <thread>
 using namespace std;
@@ -10,7 +12,7 @@ int main()
   game.add_tank();
   std::chrono::high_resolution_clock::time_point beg, end;
   std::chrono::milliseconds cost(0);
-  std::chrono::milliseconds sleep(30);
+  std::chrono::milliseconds sleep(20);
   while (true)
   {
     beg = std::chrono::high_resolution_clock::now();
@@ -65,7 +67,6 @@ int main()
           break;
       }
     }
-    else
       game.react(Event::NOTHING);
     end = std::chrono::high_resolution_clock::now();
     cost = std::chrono::duration_cast<std::chrono::milliseconds>(end - beg);

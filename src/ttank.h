@@ -1,5 +1,6 @@
 ﻿#pragma once
 #include "tmap.h"
+#include "tbullet.h"
 #include <map>
 #include <list>
 #include <algorithm>
@@ -86,7 +87,33 @@ namespace czh::tank
         changes.emplace_back(map::Change(map::Pos(pos.get_x() - 1, pos.get_y())));
       }
     }
-    
+    void fire(map::Map &map, std::vector<map::Change> &changes, std::vector<bullet::Bullet>& bullets, int circle = 0, int blood = 1, int range = 1000)
+    {
+      auto &point = get_pos().get_point(map.get_map());
+      map::Pos pos = get_pos();
+      switch (get_direction())
+      {
+        case map::Direction::UP:
+          pos.get_y()++;
+          break;
+        case map::Direction::DOWN:
+          pos.get_y()--;
+          break;
+        case map::Direction::LEFT:
+          pos.get_x()--;
+          break;
+        case map::Direction::RIGHT:
+          pos.get_x()++;
+          break;
+      }
+      auto &bullet_point = pos.get_point(map.get_map());
+      if (bullet_point.has(map::Status::WALL)) return;
+      bullet_point.add_status(map::Status::BULLET);
+      bullets.emplace_back(
+          bullet::Bullet(this, changes, pos, get_direction(),
+                         get_lethality(), circle, blood, range));
+    }
+  
     [[nodiscard]]bool is_auto() const
     {
       return type == TankType::AUTO;
@@ -434,8 +461,8 @@ namespace czh::tank
               auto bp = open_list.findB(*oit);
               if (bp->get_G() > node.get_G() + 10) //less G
               {
-                open_list.eraseA(*bp);
                 Node tmp(bp->get_pos(), node.get_G() + 10, node.get_pos());
+                open_list.eraseA(*bp);
                 open_list.insert(tmp.get_F(target_pos), tmp);
               }
             }
@@ -465,7 +492,7 @@ namespace czh::tank
     AutoTankEvent next()
     {
       if (!found)
-        return AutoTankEvent::FIRE;
+        return AutoTankEvent::NOTHING;
       if (++count < 10 - level)
         return AutoTankEvent::NOTHING;
       else
@@ -490,7 +517,6 @@ namespace czh::tank
         else if (y > 0)
           get_direction() =  map::Direction::DOWN;
       }
-      
       return AutoTankEvent::FIRE;
     }
     

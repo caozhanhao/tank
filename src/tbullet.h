@@ -1,6 +1,5 @@
 #pragma once
 #include "tmap.h"
-#include <memory>
 namespace czh::tank
 {
   class Tank;
@@ -12,19 +11,21 @@ namespace czh::bullet
   private:
     map::Pos pos;
     map::Direction direction;
-    std::shared_ptr<tank::Tank> from;
+    tank::Tank* from;
     int blood;
     int lethality;
     int circle;
     int remained_range;
   public:
-    Bullet(std::shared_ptr<tank::Tank> from_, map::Pos pos_, map::Direction direction_, int lethality_, int circle_,
-           int blood_, int range_)
+    Bullet(tank::Tank* from_, std::vector<map::Change> &changes, map::Pos pos_,
+           map::Direction direction_, int lethality_, int circle_,int blood_, int range_)
         : from(from_), pos(pos_), direction(direction_),
           blood(blood_), lethality(lethality_), circle(circle_), remained_range(range_)
-    {}
+    {
+      changes.emplace_back(pos);
+    }
     
-    void move(map::Map &map, std::vector<map::Change> &changes)
+    int move(map::Map &map, std::vector<map::Change> &changes)
     {
       int ret = -1;
       switch (direction)
@@ -86,6 +87,7 @@ namespace czh::bullet
           }
           break;
       }
+      return ret;
     }
     
     std::string get_text()
@@ -107,7 +109,7 @@ namespace czh::bullet
       return blood > 0 && remained_range > 0;
     }
     
-    [[nodiscard]] auto get_from() const
+    [[nodiscard]] tank::Tank* get_from() const
     {
       return from;
     }
