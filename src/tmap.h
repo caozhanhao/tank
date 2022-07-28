@@ -1,5 +1,7 @@
 #pragma once
 #include <vector>
+#include <list>
+#include <set>
 #include <algorithm>
 #include <functional>
 #include <random>
@@ -203,23 +205,23 @@ namespace czh::map
             map[i][j].add_status(map::Status::WALL);
         }
       }
-      std::vector<Pos> way{Pos((std::size_t) random(0, (int) width / 2) * 2 - 1,
+      std::list<Pos> way{Pos((std::size_t) random(0, (int) width / 2) * 2 - 1,
                                (std::size_t) random(0, (int) height / 2) * 2 - 1)};
+      std::set<Pos> index{*way.begin()};
       auto it = way.begin();
-      auto is_available = [this, &way](const Pos &pos)
+      auto is_available = [this, &index](const Pos &pos)
       {
         return check_pos(pos)
                && !pos.get_point(map).has(Status::WALL)
-               && std::find(way.begin(), way.end(), pos) == way.end();
+               && index.find(pos) == index.end();
       };
-      auto next = [&is_available, &way, &it, this]() -> bool
+      auto next = [&is_available, &way, &it, this, &index]() -> bool
       {
         std::vector<Pos> avail;
-        auto &pos = *it;
-        Pos up(pos.get_x(), pos.get_y() + 2);
-        Pos down(pos.get_x(), pos.get_y() - 2);
-        Pos left(pos.get_x() - 2, pos.get_y());
-        Pos right(pos.get_x() + 2, pos.get_y());
+        Pos up(it->get_x(), it->get_y() + 2);
+        Pos down(it->get_x(), it->get_y() - 2);
+        Pos left(it->get_x() - 2, it->get_y());
+        Pos right(it->get_x() + 2, it->get_y());
         if (is_available(up)) avail.emplace_back(up);
         if (is_available(down)) avail.emplace_back(down);
         if (is_available(left)) avail.emplace_back(left);
@@ -227,11 +229,14 @@ namespace czh::map
         if (avail.empty()) return false;
         
         auto &result = avail[(std::size_t) random(0, (int) avail.size())];
-        Pos midpos((result.get_x() + pos.get_x()) / 2, (result.get_y() + pos.get_y()) / 2);
+        Pos midpos((result.get_x() + it->get_x()) / 2, (result.get_y() + it->get_y()) / 2);
         midpos.get_point(map).remove_status(Status::WALL);
-        way.emplace_back(midpos);
-        way.emplace_back(result);
-        it = way.end() - 1;
+        
+        it = way.insert(way.end(), midpos);
+        index.insert(*it);
+        it = way.insert(way.end(), result);
+        index.insert(*it);
+        bool a = index.size() == way.size();
         return true;
       };
       while (true)
