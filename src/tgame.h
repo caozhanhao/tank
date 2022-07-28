@@ -231,11 +231,13 @@ namespace czh::game
         }
       }
       //conflict
+      bool conflict = false;
       for (auto it = bullets.begin(); it < bullets.end(); ++it)
       {
         if (it->get_pos().get_point(map.get_map()).count(map::Status::BULLET) > 1
             || (it->get_pos().get_point(map.get_map()).has(map::Status::TANK)))
         {
+          conflict = true;
           for_all_bullets(it->get_pos().get_x(), it->get_pos().get_y(),
                           [this](std::vector<bullet::Bullet>::iterator &it)
                           {
@@ -252,51 +254,54 @@ namespace czh::game
                           });
         }
       }
-      for (auto it = tanks.begin(); it < tanks.end(); ++it)
+      if(conflict)
       {
-        auto tank = *it;
-        int lethality = tank->get_pos().get_point(map.get_map()).get_lethality();
-        if (lethality == 0) continue;
-        tank->attacked(lethality);
-        if (tank->is_alive())
+        for (auto it = tanks.begin(); it < tanks.end(); ++it)
         {
-          CZH_NOTICE(tank->get_name() + " was attacked.Blood: " + std::to_string(tank->get_blood()));
+          auto tank = *it;
+          int lethality = tank->get_pos().get_point(map.get_map()).get_lethality();
+          if (lethality == 0) continue;
+          tank->attacked(lethality);
+          if (tank->is_alive())
+          {
+            CZH_NOTICE(tank->get_name() + " was attacked.Blood: " + std::to_string(tank->get_blood()));
+          }
+          else
+          {
+            CZH_NOTICE(tank->get_name() + " was killed.");
+          }
         }
-        else
+        for (auto it = bullets.begin(); it < bullets.end(); ++it)
         {
-          CZH_NOTICE(tank->get_name() + " was killed.");
+          int lethality = it->get_pos().get_point(map.get_map()).get_lethality();
+          it->attacked(lethality);
         }
-      }
-      for (auto it = bullets.begin(); it < bullets.end(); ++it)
-      {
-        int lethality = it->get_pos().get_point(map.get_map()).get_lethality();
-        it->attacked(lethality);
-      }
-      for (int i = 0; i < map.get_width(); ++i)
-      {
-        for (int j = 0; j < map.get_height(); ++j)
-          map.get_map()[i][j].remove_lethality();
-      }
-      //clear death
-      bullets.erase(std::remove_if(bullets.begin(), bullets.end(),
-                                   [this](bullet::Bullet &bullet)
-                                   {
-                                     if (!bullet.is_alive())
+        for (int i = 0; i < map.get_width(); ++i)
+        {
+          for (int j = 0; j < map.get_height(); ++j)
+            map.get_map()[i][j].remove_lethality();
+        }
+        //clear death
+        bullets.erase(std::remove_if(bullets.begin(), bullets.end(),
+                                     [this](bullet::Bullet &bullet)
                                      {
-                                       bullet.get_pos().get_point(map.get_map()).remove_status(map::Status::BULLET);
-                                       changes.emplace_back(bullet.get_pos());
-                                       return true;
-                                     }
-                                     return false;
-                                   }), bullets.end());
-      for (auto it = tanks.begin(); it < tanks.end(); ++it)
-      {
-        auto tank = *it;
-        if (!tank->is_alive() && !tank->has_cleared())
+                                       if (!bullet.is_alive())
+                                       {
+                                         bullet.get_pos().get_point(map.get_map()).remove_status(map::Status::BULLET);
+                                         changes.emplace_back(bullet.get_pos());
+                                         return true;
+                                       }
+                                       return false;
+                                     }), bullets.end());
+        for (auto it = tanks.begin(); it < tanks.end(); ++it)
         {
-          tank->get_pos().get_point(map.get_map()).remove_status(map::Status::TANK);
-          changes.emplace_back(tank->get_pos());
-          tank->clear();
+          auto tank = *it;
+          if (!tank->is_alive() && !tank->has_cleared())
+          {
+            tank->get_pos().get_point(map.get_map()).remove_status(map::Status::TANK);
+            changes.emplace_back(tank->get_pos());
+            tank->clear();
+          }
         }
       }
       paint();

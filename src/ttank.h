@@ -1,7 +1,9 @@
 ﻿#pragma once
 #include "tmap.h"
 #include <map>
+#include <list>
 #include <algorithm>
+#include <functional>
 namespace czh::tank
 {
   enum class TankType
@@ -325,6 +327,64 @@ namespace czh::tank
       return false;
     return true;
   }
+  template<typename A, typename B>
+  class BimapComp
+  {
+  public:
+    bool operator()(const std::pair<B, A *> &p1, const std::pair<B, A *> &p2) const
+    {
+      return p1.first < p2.first;
+    }
+  };
+  template<typename A, typename B>
+  class MultiBimap
+  {
+  private:
+    std::multimap<B, A*> Amap;
+    std::multimap<A, B*> Bmap;
+    std::list<A> Alist;
+    std::list<B> Blist;
+  public:
+    void insert(const A &a, const B &b)
+    {
+      Alist.emplace_back(a);
+      Blist.emplace_back(b);
+      Amap.insert({*Blist.rbegin(), &*Alist.rbegin()});
+      Bmap.insert({*Alist.rbegin(), &*Blist.rbegin()});
+    }
+    A* findA(const B& b)
+    {
+      auto it = Amap.find(b);
+      if(it == Amap.end()) return nullptr;
+      return it->second;
+    }
+    B* findB(const A&a)
+    {
+      auto it = Bmap.find(a);
+      if(it == Bmap.end()) return nullptr;
+      return it->second;
+    }
+    void eraseA(const B& b)
+    {
+      auto ait = Amap.find(b);
+      auto bit = Bmap.find(*ait->second);
+      Amap.erase(ait);
+      Bmap.erase(bit);
+    }
+    B smallestB() {return *Bmap.begin()->second;}
+    bool empty()
+    {
+      return Amap.empty();
+    }
+    B* find_ifB(std::function<bool(const B&)> p)
+    {
+      for (auto &b: Amap)
+      {
+        if (p(b.first)) return const_cast<B *>(&b.first);
+      }
+      return nullptr;
+    }
+  };
   class AutoTank : public Tank
   {
   private:
@@ -349,54 +409,48 @@ namespace czh::tank
       correct_direction = false;
       target_pos_in_vec = target_pos_in_vec_;
       target_pos = target_pos_;
-      std::multimap<int, Node> open_list;
+      MultiBimap<int, Node> open_list;
       std::map<map::Pos, Node> close_list;
       Node beg(get_pos(), 0, {0, 0}, true);
-      open_list.insert({beg.get_F(target_pos), beg});
+      open_list.insert(beg.get_F(target_pos), beg);
       while (!open_list.empty())
       {
-        auto it = open_list.begin();
-        auto curr = close_list.insert({it->second.get_pos(), it->second});
-        open_list.erase(it);
+        auto it = open_list.smallestB();
+        auto curr = close_list.insert({it.get_pos(), it});
+        open_list.eraseA(it);
         auto nodes = curr.first->second.get_neighbors(map);
         //open_list.clear();
         for (auto &node: nodes)
         {
           auto cit = close_list.find(node.get_pos());
-          auto oit = std::find_if(open_list.begin(), open_list.end(),
-                                  [&node](const std::pair<int, Node> &p)
-                                  {
-                                    return p.second.get_pos() == node.get_pos();
-                                  });
+          auto oit = open_list.findA(node);
           if (cit == close_list.end())
           {
-            if (oit == open_list.end())
+            if (oit == nullptr)
             {
-              open_list.insert({node.get_F(target_pos), node});
+              open_list.insert(node.get_F(target_pos), node);
             } else
             {
-              if (oit->second.get_G() > node.get_G() + 10) //less G
+              auto bp = open_list.findB(*oit);
+              if (bp->get_G() > node.get_G() + 10) //less G
               {
-                oit->second.get_G() = node.get_G() + 10;
-                oit->second.get_last() = node.get_pos();
-                int F = oit->second.get_F(target_pos);
-                auto n = open_list.extract(oit);
-                n.key() = F;
-                open_list.insert(std::move(n));
+                open_list.eraseA(*bp);
+                Node tmp(bp->get_pos(), node.get_G() + 10, node.get_pos());
+                open_list.insert(tmp.get_F(target_pos), tmp);
               }
             }
           }
         }
-        auto itt = std::find_if(open_list.begin(), open_list.end(),
-                                [this, &map](const std::pair<int, Node> &p)
+        auto itt = open_list.find_ifB(
+                                [this, &map](const Node&p)
                                 {
-                                  return tank::is_in_firing_line(map, p.second.get_pos(), target_pos);
+                                  return tank::is_in_firing_line(map, p.get_pos(), target_pos);
                                 });
-        if (itt != open_list.end())//found
+        if (itt != nullptr)//found
         {
           way.clear();
           waypos = 0;
-          auto &np = itt->second;
+          auto &np = *itt;
           while (!np.is_root() && np.get_pos() != np.get_last())
           {
             way.insert(way.begin(), get_pos_direction(close_list[np.get_last()].get_pos(), np.get_pos()));
