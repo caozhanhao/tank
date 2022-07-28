@@ -1,9 +1,7 @@
-﻿#pragma once
+﻿﻿#pragma once
 #include "tmap.h"
 #include <map>
-#include <list>
 #include <algorithm>
-#include <functional>
 namespace czh::tank
 {
   enum class TankType
@@ -34,7 +32,7 @@ namespace czh::tank
     int delay;
   public:
     Tank(int blood_, int lethality_, map::Map &map, std::vector<map::Change> &changes,
-           map::Pos pos_, std::size_t id_,TankType type_, const std::string& name_)
+         map::Pos pos_, std::size_t id_,TankType type_, const std::string& name_)
         : max_blood(blood_), blood(blood_), lethality(lethality_), direction(map::Direction::UP), pos(pos_),
           hascleared(false), id(id_), type(type_), last_blood(0), delay(0),
           name(name_)
@@ -42,7 +40,7 @@ namespace czh::tank
       pos.get_point(map.get_map()).add_status(map::Status::TANK);
       changes.emplace_back(map::Change(pos));
     }
-  
+    
     void up(map::Map &map, std::vector<map::Change> &changes)
     {
       int a = map.up(map::Status::TANK, pos);
@@ -53,7 +51,7 @@ namespace czh::tank
         changes.emplace_back(map::Change(map::Pos(pos.get_x(), pos.get_y() - 1)));
       }
     }
-  
+    
     void down(map::Map &map, std::vector<map::Change> &changes)
     {
       int a = map.down(map::Status::TANK, pos);
@@ -64,7 +62,7 @@ namespace czh::tank
         changes.emplace_back(map::Change(map::Pos(pos.get_x(), pos.get_y() + 1)));
       }
     }
-  
+    
     void left(map::Map &map, std::vector<map::Change> &changes)
     {
       int a = map.left(map::Status::TANK, pos);
@@ -75,7 +73,7 @@ namespace czh::tank
         changes.emplace_back(map::Change(map::Pos(pos.get_x() + 1, pos.get_y())));
       }
     }
-  
+    
     void right(map::Map &map, std::vector<map::Change> &changes)
     {
       int a = map.right(map::Status::TANK, pos);
@@ -86,12 +84,12 @@ namespace czh::tank
         changes.emplace_back(map::Change(map::Pos(pos.get_x() - 1, pos.get_y())));
       }
     }
-  
+    
     [[nodiscard]]bool is_auto() const
     {
       return type == TankType::AUTO;
     }
-  
+    
     [[nodiscard]]std::size_t get_id() const
     {
       return id;
@@ -106,40 +104,40 @@ namespace czh::tank
     }
     [[nodiscard]]int get_blood() const
     { return blood; }
-  
+    
     [[nodiscard]]int get_lethality() const
     { return lethality * map::random(5, 16) / 10; }
-  
+    
     [[nodiscard]]bool is_alive() const
     {
       return blood > 0;
     }
-  
+    
     [[nodiscard]]bool has_cleared() const
     {
       return hascleared;
     }
-  
+    
     void clear()
     { hascleared = true; }
-  
+    
     map::Pos &get_pos()
     {
       return pos;
     }
-  
+    
     void attacked(int lethality_)
     {
       blood -= lethality_;
       if (blood < 0) blood = 0;
       if (blood > max_blood) blood = max_blood;
     }
-  
+    
     [[nodiscard]]const map::Pos &get_pos() const
     {
       return pos;
     }
-  
+    
     [[nodiscard]]map::Direction& get_direction()
     {
       return direction;
@@ -152,17 +150,17 @@ namespace czh::tank
     {
       return type;
     }
-  
+    
     void mark_blood()
     {
       last_blood = get_blood();
     }
-  
+    
     [[nodiscard]]bool has_been_attacked_since_marked() const
     {
       return last_blood != get_blood();
     }
-  
+    
     int &get_delay()
     {
       return delay;
@@ -174,10 +172,10 @@ namespace czh::tank
   {
   public:
     NormalTank(int blood_, int lethality_, map::Map &map, std::vector<map::Change> &changes,
-         map::Pos pos_, std::size_t id_)
-         :Tank(blood_, lethality_, map, changes, pos_, id_, TankType::NORMAL,
-               "Tank " + std::to_string(id_)){}
-
+               map::Pos pos_, std::size_t id_)
+        :Tank(blood_, lethality_, map, changes, pos_, id_, TankType::NORMAL,
+              "Tank " + std::to_string(id_)){}
+    
     void revive(map::Map &map, std::vector<map::Change> &changes, const map::Pos& newpos)
     {
       if(is_alive() && !hascleared) return;
@@ -327,64 +325,6 @@ namespace czh::tank
       return false;
     return true;
   }
-  template<typename A, typename B>
-  class BimapComp
-  {
-  public:
-    bool operator()(const std::pair<B, A *> &p1, const std::pair<B, A *> &p2) const
-    {
-      return p1.first < p2.first;
-    }
-  };
-  template<typename A, typename B>
-  class MultiBimap
-  {
-  private:
-    std::multimap<B, A*> Amap;
-    std::multimap<A, B*> Bmap;
-    std::list<A> Alist;
-    std::list<B> Blist;
-  public:
-    void insert(const A &a, const B &b)
-    {
-      Alist.emplace_back(a);
-      Blist.emplace_back(b);
-      Amap.insert({*Blist.rbegin(), &*Alist.rbegin()});
-      Bmap.insert({*Alist.rbegin(), &*Blist.rbegin()});
-    }
-    A* findA(const B& b)
-    {
-      auto it = Amap.find(b);
-      if(it == Amap.end()) return nullptr;
-      return it->second;
-    }
-    B* findB(const A&a)
-    {
-      auto it = Bmap.find(a);
-      if(it == Bmap.end()) return nullptr;
-      return it->second;
-    }
-    void eraseA(const B& b)
-    {
-      auto ait = Amap.find(b);
-      auto bit = Bmap.find(*ait->second);
-      Amap.erase(ait);
-      Bmap.erase(bit);
-    }
-    B smallestB() {return *Bmap.begin()->second;}
-    bool empty()
-    {
-      return Amap.empty();
-    }
-    B* find_ifB(std::function<bool(const B&)> p)
-    {
-      for (auto &b: Amap)
-      {
-        if (p(b.first)) return const_cast<B *>(&b.first);
-      }
-      return nullptr;
-    }
-  };
   class AutoTank : public Tank
   {
   private:
@@ -409,48 +349,54 @@ namespace czh::tank
       correct_direction = false;
       target_pos_in_vec = target_pos_in_vec_;
       target_pos = target_pos_;
-      MultiBimap<int, Node> open_list;
+      std::multimap<int, Node> open_list;
       std::map<map::Pos, Node> close_list;
       Node beg(get_pos(), 0, {0, 0}, true);
-      open_list.insert(beg.get_F(target_pos), beg);
+      open_list.insert({beg.get_F(target_pos), beg});
       while (!open_list.empty())
       {
-        auto it = open_list.smallestB();
-        auto curr = close_list.insert({it.get_pos(), it});
-        open_list.eraseA(it);
+        auto it = open_list.begin();
+        auto curr = close_list.insert({it->second.get_pos(), it->second});
+        open_list.erase(it);
         auto nodes = curr.first->second.get_neighbors(map);
         //open_list.clear();
         for (auto &node: nodes)
         {
           auto cit = close_list.find(node.get_pos());
-          auto oit = open_list.findA(node);
+          auto oit = std::find_if(open_list.begin(), open_list.end(),
+                                  [&node](const std::pair<int, Node> &p)
+                                  {
+                                    return p.second.get_pos() == node.get_pos();
+                                  });
           if (cit == close_list.end())
           {
-            if (oit == nullptr)
+            if (oit == open_list.end())
             {
-              open_list.insert(node.get_F(target_pos), node);
+              open_list.insert({node.get_F(target_pos), node});
             } else
             {
-              auto bp = open_list.findB(*oit);
-              if (bp->get_G() > node.get_G() + 10) //less G
+              if (oit->second.get_G() > node.get_G() + 10) //less G
               {
-                open_list.eraseA(*bp);
-                Node tmp(bp->get_pos(), node.get_G() + 10, node.get_pos());
-                open_list.insert(tmp.get_F(target_pos), tmp);
+                oit->second.get_G() = node.get_G() + 10;
+                oit->second.get_last() = node.get_pos();
+                int F = oit->second.get_F(target_pos);
+                auto n = open_list.extract(oit);
+                n.key() = F;
+                open_list.insert(std::move(n));
               }
             }
           }
         }
-        auto itt = open_list.find_ifB(
-                                [this, &map](const Node&p)
+        auto itt = std::find_if(open_list.begin(), open_list.end(),
+                                [this, &map](const std::pair<int, Node> &p)
                                 {
-                                  return tank::is_in_firing_line(map, p.get_pos(), target_pos);
+                                  return tank::is_in_firing_line(map, p.second.get_pos(), target_pos);
                                 });
-        if (itt != nullptr)//found
+        if (itt != open_list.end())//found
         {
           way.clear();
           waypos = 0;
-          auto &np = *itt;
+          auto &np = itt->second;
           while (!np.is_root() && np.get_pos() != np.get_last())
           {
             way.insert(way.begin(), get_pos_direction(close_list[np.get_last()].get_pos(), np.get_pos()));
@@ -518,7 +464,7 @@ namespace czh::tank
     {
       return level;
     }
-  
+    
     std::string colorify_text(const std::string& str) override
     {
       int w = id % 4;
