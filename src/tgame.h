@@ -134,6 +134,7 @@ namespace czh::game
           break;
         case Event::QUIT:
           term::move_cursor({0, map.get_height() + 1});
+          term::output("\033[0m");
           CZH_NOTICE("Quitting.");
           running = false;
           break;
