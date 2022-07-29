@@ -1,5 +1,6 @@
 #pragma once
 #include "tmap.h"
+#include <memory>
 namespace czh::tank
 {
   class Tank;
@@ -16,22 +17,25 @@ namespace czh::bullet
     int lethality;
     int circle;
     int remained_range;
+    std::shared_ptr<std::vector<map::Change>> changes;
+    std::shared_ptr<map::Map> map;
   public:
-    Bullet(tank::Tank *from_, std::vector<map::Change> &changes, map::Pos pos_,
-           map::Direction direction_, int lethality_, int circle_, int blood_, int range_)
-        : from(from_), pos(pos_), direction(direction_),
+    Bullet(std::shared_ptr<map::Map> map_, std::shared_ptr<std::vector<map::Change>> changes_,
+           tank::Tank *from_, map::Pos pos_, map::Direction direction_, int lethality_, int circle_,
+           int blood_, int range_)
+        : map(std::move(map_)), changes(std::move(changes_)), from(from_), pos(pos_), direction(direction_),
           blood(blood_), lethality(lethality_), circle(circle_), remained_range(range_)
     {
-      changes.emplace_back(pos);
+      changes->emplace_back(pos);
     }
-  
-    int move(map::Map &map, std::vector<map::Change> &changes)
+    
+    int move()
     {
       int ret = -1;
       switch (direction)
       {
         case map::Direction::UP:
-          ret = map.up(map::Status::BULLET, pos);
+          ret = map->up(map::Status::BULLET, pos);
           if (ret != 0)
           {
             blood -= 1;
@@ -40,12 +44,12 @@ namespace czh::bullet
           else
           {
             remained_range -= 1;
-            changes.emplace_back(map::Change(pos));
-            changes.emplace_back(map::Change(map::Pos(pos.get_x(), pos.get_y() - 1)));
+            changes->emplace_back(map::Change(pos));
+            changes->emplace_back(map::Change(map::Pos(pos.get_x(), pos.get_y() - 1)));
           }
           break;
         case map::Direction::DOWN:
-          ret = map.down(map::Status::BULLET, pos);
+          ret = map->down(map::Status::BULLET, pos);
           if (ret != 0)
           {
             blood -= 1;
@@ -54,12 +58,12 @@ namespace czh::bullet
           else
           {
             remained_range -= 1;
-            changes.emplace_back(map::Change(pos));
-            changes.emplace_back(map::Change(map::Pos(pos.get_x(), pos.get_y() + 1)));
+            changes->emplace_back(map::Change(pos));
+            changes->emplace_back(map::Change(map::Pos(pos.get_x(), pos.get_y() + 1)));
           }
           break;
         case map::Direction::LEFT:
-          ret = map.left(map::Status::BULLET, pos);
+          ret = map->left(map::Status::BULLET, pos);
           if (ret != 0)
           {
             blood -= 1;
@@ -68,12 +72,12 @@ namespace czh::bullet
           else
           {
             remained_range -= 1;
-            changes.emplace_back(map::Change(pos));
-            changes.emplace_back(map::Change(map::Pos(pos.get_x() + 1, pos.get_y())));
+            changes->emplace_back(map::Change(pos));
+            changes->emplace_back(map::Change(map::Pos(pos.get_x() + 1, pos.get_y())));
           }
           break;
         case map::Direction::RIGHT:
-          ret = map.right(map::Status::BULLET, pos);
+          ret = map->right(map::Status::BULLET, pos);
           if (ret != 0)
           {
             blood -= 1;
@@ -82,8 +86,8 @@ namespace czh::bullet
           else
           {
             remained_range -= 1;
-            changes.emplace_back(map::Change(pos));
-            changes.emplace_back(map::Change(map::Pos(pos.get_x() - 1, pos.get_y())));
+            changes->emplace_back(map::Change(pos));
+            changes->emplace_back(map::Change(map::Pos(pos.get_x() - 1, pos.get_y())));
           }
           break;
       }
@@ -97,7 +101,6 @@ namespace czh::bullet
         case map::Direction::UP:
         case map::Direction::DOWN:
           return "|";
-          break;
         default:
           break;
       }

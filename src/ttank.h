@@ -5,6 +5,7 @@
 #include <list>
 #include <algorithm>
 #include <functional>
+#include <memory>
 namespace czh::tank
 {
   enum class TankType
@@ -34,65 +35,69 @@ namespace czh::tank
     std::string name;
     int last_blood;
     int delay;
+    std::shared_ptr<std::vector<map::Change>> changes;
+    std::shared_ptr<map::Map> map;
+    std::shared_ptr<std::vector<bullet::Bullet>> bullets;
   public:
-    Tank(int blood_, int lethality_, map::Map &map, std::vector<map::Change> &changes,
-         map::Pos pos_, std::size_t id_, TankType type_, const std::string &name_)
-        : max_blood(blood_), blood(blood_), lethality(lethality_), direction(map::Direction::UP), pos(pos_),
+    Tank(std::shared_ptr<map::Map> map_, std::shared_ptr<std::vector<map::Change>> changes_,
+         std::shared_ptr<std::vector<bullet::Bullet>> bullets_,
+         int blood_, int lethality_, map::Pos pos_, std::size_t id_, TankType type_, const std::string &name_)
+        : map(std::move(map_)), changes(std::move(changes_)), bullets(std::move(bullets_)),
+          max_blood(blood_), blood(blood_), lethality(lethality_), direction(map::Direction::UP), pos(pos_),
           hascleared(false), id(id_), type(type_), last_blood(0), delay(0),
           name(name_)
     {
-      pos.get_point(map.get_map()).add_status(map::Status::TANK);
-      changes.emplace_back(map::Change(pos));
+      pos.get_point(map->get_map()).add_status(map::Status::TANK);
+      changes->emplace_back(map::Change(pos));
     }
-    
-    void up(map::Map &map, std::vector<map::Change> &changes)
+  
+    void up()
     {
-      int a = map.up(map::Status::TANK, pos);
+      int a = map->up(map::Status::TANK, pos);
       direction = map::Direction::UP;
       if (a == 0)
       {
-        changes.emplace_back(map::Change(pos));
-        changes.emplace_back(map::Change(map::Pos(pos.get_x(), pos.get_y() - 1)));
+        changes->emplace_back(map::Change(pos));
+        changes->emplace_back(map::Change(map::Pos(pos.get_x(), pos.get_y() - 1)));
       }
     }
-    
-    void down(map::Map &map, std::vector<map::Change> &changes)
+  
+    void down()
     {
-      int a = map.down(map::Status::TANK, pos);
+      int a = map->down(map::Status::TANK, pos);
       direction = map::Direction::DOWN;
       if (a == 0)
       {
-        changes.emplace_back(map::Change(pos));
-        changes.emplace_back(map::Change(map::Pos(pos.get_x(), pos.get_y() + 1)));
+        changes->emplace_back(map::Change(pos));
+        changes->emplace_back(map::Change(map::Pos(pos.get_x(), pos.get_y() + 1)));
       }
     }
-    
-    void left(map::Map &map, std::vector<map::Change> &changes)
+  
+    void left()
     {
-      int a = map.left(map::Status::TANK, pos);
+      int a = map->left(map::Status::TANK, pos);
       direction = map::Direction::LEFT;
       if (a == 0)
       {
-        changes.emplace_back(map::Change(pos));
-        changes.emplace_back(map::Change(map::Pos(pos.get_x() + 1, pos.get_y())));
+        changes->emplace_back(map::Change(pos));
+        changes->emplace_back(map::Change(map::Pos(pos.get_x() + 1, pos.get_y())));
       }
     }
-    
-    void right(map::Map &map, std::vector<map::Change> &changes)
+  
+    void right()
     {
-      int a = map.right(map::Status::TANK, pos);
+      int a = map->right(map::Status::TANK, pos);
       direction = map::Direction::RIGHT;
       if (a == 0)
       {
-        changes.emplace_back(map::Change(pos));
-        changes.emplace_back(map::Change(map::Pos(pos.get_x() - 1, pos.get_y())));
+        changes->emplace_back(map::Change(pos));
+        changes->emplace_back(map::Change(map::Pos(pos.get_x() - 1, pos.get_y())));
       }
     }
-    
-    void fire(map::Map &map, std::vector<map::Change> &changes, std::vector<bullet::Bullet> &bullets, int circle = 0,
-              int blood = 1, int range = 1000)
+  
+    void fire(int circle = 0, int blood = 1, int range = 1000)
     {
-      auto &point = get_pos().get_point(map.get_map());
+      auto &point = get_pos().get_point(map->get_map());
       map::Pos pos = get_pos();
       switch (get_direction())
       {
@@ -109,11 +114,11 @@ namespace czh::tank
           pos.get_x()++;
           break;
       }
-      auto &bullet_point = pos.get_point(map.get_map());
+      auto &bullet_point = pos.get_point(map->get_map());
       if (bullet_point.has(map::Status::WALL)) return;
       bullet_point.add_status(map::Status::BULLET);
-      bullets.emplace_back(
-          bullet::Bullet(this, changes, pos, get_direction(),
+      bullets->emplace_back(
+          bullet::Bullet(map, changes, this, pos, get_direction(),
                          get_lethality(), circle, blood, range));
     }
     
@@ -211,20 +216,22 @@ namespace czh::tank
   class NormalTank : public Tank
   {
   public:
-    NormalTank(int blood_, int lethality_, map::Map &map, std::vector<map::Change> &changes,
-               map::Pos pos_, std::size_t id_)
-        : Tank(blood_, lethality_, map, changes, pos_, id_, TankType::NORMAL,
+    NormalTank(std::shared_ptr<map::Map> map_, std::shared_ptr<std::vector<map::Change>> changes_,
+               const std::shared_ptr<std::vector<bullet::Bullet>> &bullets_,
+               int blood_, int lethality_, map::Pos pos_, std::size_t id_)
+        : Tank(std::move(map_), std::move(changes_), std::move(bullets_), blood_, lethality_,
+               pos_, id_, TankType::NORMAL,
                "Tank " + std::to_string(id_))
     {}
     
-    void revive(map::Map &map, std::vector<map::Change> &changes, const map::Pos &newpos)
+    void revive(const map::Pos &newpos)
     {
       if (is_alive() && !hascleared) return;
       blood = max_blood;
       hascleared = false;
       pos = newpos;
-      pos.get_point(map.get_map()).add_status(map::Status::TANK);
-      changes.emplace_back(map::Change(newpos));
+      pos.get_point(map->get_map()).add_status(map::Status::TANK);
+      changes->emplace_back(map::Change(newpos));
     }
     
     std::string colorify_text(const std::string &str) override
@@ -303,8 +310,8 @@ namespace czh::tank
     {
       return root;
     }
-    
-    std::vector<Node> get_neighbors(map::Map &map) const
+  
+    std::vector<Node> get_neighbors(const std::shared_ptr<map::Map> &map) const
     {
       std::vector<Node> ret;
       map::Pos pos_up(pos.get_x(), pos.get_y() + 1);
@@ -312,9 +319,13 @@ namespace czh::tank
       map::Pos pos_left(pos.get_x() - 1, pos.get_y());
       map::Pos pos_right(pos.get_x() + 1, pos.get_y());
       if (check(map, pos_up))
+      {
         ret.emplace_back(Node(pos_up, G + 10, pos));
+      }
       if (check(map, pos_down))
+      {
         ret.emplace_back(Node(pos_down, G + 10, pos));
+      }
       if (check(map, pos_left))
         ret.emplace_back(Node(pos_left, G + 10, pos));
       if (check(map, pos_right))
@@ -323,11 +334,11 @@ namespace czh::tank
     }
   
   private:
-    static bool check(map::Map &map, map::Pos &pos)
+    static bool check(const std::shared_ptr<map::Map> &map, map::Pos &pos)
     {
-      return map.check_pos(pos)
-             && !pos.get_point(map.get_map()).has(map::Status::WALL)
-             && !pos.get_point(map.get_map()).has(map::Status::TANK);
+      return map->check_pos(pos)
+             && !pos.get_point(map->get_map()).has(map::Status::WALL)
+             && !pos.get_point(map->get_map()).has(map::Status::TANK);
     }
   };
   
@@ -336,7 +347,7 @@ namespace czh::tank
     return n1.get_pos() < n2.get_pos();
   }
   
-  bool is_in_firing_line(map::Map &map, const map::Pos &pos, const map::Pos &target_pos)
+  bool is_in_firing_line(const std::shared_ptr<map::Map> &map, const map::Pos &pos, const map::Pos &target_pos)
   {
     int x = (int) target_pos.get_x() - (int) pos.get_x();
     int y = (int) target_pos.get_y() - (int) pos.get_y();
@@ -346,8 +357,8 @@ namespace czh::tank
       std::size_t big = y < 0 ? pos.get_y() : target_pos.get_y();
       for (std::size_t i = small + 1; i < big; ++i)
       {
-        if (map.get_map()[pos.get_x()][i].has(map::Status::WALL)
-            || map.get_map()[pos.get_x()][i].has(map::Status::TANK))
+        if (map->get_map()[pos.get_x()][i].has(map::Status::WALL)
+            || map->get_map()[pos.get_x()][i].has(map::Status::TANK))
         {
           return false;
         }
@@ -359,8 +370,8 @@ namespace czh::tank
       std::size_t big = x < 0 ? pos.get_x() : target_pos.get_x();
       for (std::size_t i = small + 1; i < big; ++i)
       {
-        if (map.get_map()[i][pos.get_y()].has(map::Status::WALL)
-            || map.get_map()[i][pos.get_y()].has(map::Status::TANK))
+        if (map->get_map()[i][pos.get_y()].has(map::Status::WALL)
+            || map->get_map()[i][pos.get_y()].has(map::Status::TANK))
         {
           return false;
         }
@@ -456,15 +467,17 @@ namespace czh::tank
     std::size_t level;
     std::size_t count;
   public:
-    AutoTank(int blood_, int lethality_, map::Map &map, std::vector<map::Change> &changes, map::Pos pos_,
-             std::size_t level_, std::size_t id_)
-        : Tank(blood_, lethality_, map, changes, pos_, id_,
+    AutoTank(std::shared_ptr<map::Map> map_, std::shared_ptr<std::vector<map::Change>> changes_,
+             std::shared_ptr<std::vector<bullet::Bullet>> bullets_,
+             int blood_, int lethality_, map::Pos pos_, std::size_t id_, std::size_t level_)
+        : Tank(std::move(map_), std::move(changes_), std::move(bullets_),
+               blood_, lethality_, pos_, id_,
                TankType::AUTO, "Auto Tank " + std::to_string(id_)),
           found(false), correct_direction(false),
           waypos(0), target_pos_in_vec(0), level(level_), count(0)
     {}
-    
-    void target(map::Map &map, std::size_t target_pos_in_vec_, const map::Pos &target_pos_)
+  
+    void target(std::size_t target_pos_in_vec_, const map::Pos &target_pos_)
     {
       correct_direction = false;
       target_pos_in_vec = target_pos_in_vec_;
@@ -503,7 +516,7 @@ namespace czh::tank
           }
         }
         auto itt = open_list.find_ifB(
-            [this, &map](const Node &p)
+            [this](const Node &p)
             {
               return tank::is_in_firing_line(map, p.get_pos(), target_pos);
             });
