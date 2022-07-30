@@ -237,7 +237,6 @@ namespace czh::map
         index.insert(*it);
         it = way.insert(way.end(), result);
         index.insert(*it);
-        bool a = index.size() == way.size();
         return true;
       };
       while (true)

@@ -54,7 +54,7 @@ int main()
             game.react(Event::CONTINUE);
           break;
         case 'l':
-          game.add_auto_tank(1, ::czh::map::random(1, 11));
+          game.add_auto_tank(::czh::map::random(1, 11));
           break;
         case 'b':
           game.add_auto_boss();

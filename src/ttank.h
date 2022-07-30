@@ -2,6 +2,7 @@
 #include "tmap.h"
 #include "tbullet.h"
 #include <map>
+#include <set>
 #include <list>
 #include <algorithm>
 #include <functional>
@@ -21,7 +22,7 @@ namespace czh::tank
     UP, DOWN, LEFT, RIGHT, FIRE, NOTHING
   };
   
-  class Tank
+  class Tank : public std::enable_shared_from_this<Tank>
   {
   protected:
     int max_blood;
@@ -50,7 +51,6 @@ namespace czh::tank
       pos.get_point(map->get_map()).add_status(map::Status::TANK);
       changes->emplace_back(map::Change(pos));
     }
-  
     void up()
     {
       int a = map->up(map::Status::TANK, pos);
@@ -61,7 +61,7 @@ namespace czh::tank
         changes->emplace_back(map::Change(map::Pos(pos.get_x(), pos.get_y() - 1)));
       }
     }
-  
+    
     void down()
     {
       int a = map->down(map::Status::TANK, pos);
@@ -72,7 +72,7 @@ namespace czh::tank
         changes->emplace_back(map::Change(map::Pos(pos.get_x(), pos.get_y() + 1)));
       }
     }
-  
+    
     void left()
     {
       int a = map->left(map::Status::TANK, pos);
@@ -83,7 +83,7 @@ namespace czh::tank
         changes->emplace_back(map::Change(map::Pos(pos.get_x() + 1, pos.get_y())));
       }
     }
-  
+    
     void right()
     {
       int a = map->right(map::Status::TANK, pos);
@@ -94,7 +94,7 @@ namespace czh::tank
         changes->emplace_back(map::Change(map::Pos(pos.get_x() - 1, pos.get_y())));
       }
     }
-  
+    
     void fire(int circle = 0, int blood = 1, int range = 1000)
     {
       auto &point = get_pos().get_point(map->get_map());
@@ -118,7 +118,7 @@ namespace czh::tank
       if (bullet_point.has(map::Status::WALL)) return;
       bullet_point.add_status(map::Status::BULLET);
       bullets->emplace_back(
-          bullet::Bullet(map, changes, this, pos, get_direction(),
+          bullet::Bullet(map, changes, shared_from_this(), pos, get_direction(),
                          get_lethality(), circle, blood, range));
     }
     
@@ -126,7 +126,7 @@ namespace czh::tank
     {
       return type == TankType::AUTO;
     }
-    
+
     [[nodiscard]]std::size_t get_id() const
     {
       return id;
@@ -144,6 +144,9 @@ namespace czh::tank
     
     [[nodiscard]]int get_blood() const
     { return blood; }
+    
+    [[nodiscard]]int get_max_blood() const
+    { return max_blood; }
     
     [[nodiscard]]int get_lethality() const
     { return lethality * map::random(5, 16) / 10; }
@@ -223,7 +226,6 @@ namespace czh::tank
                pos_, id_, TankType::NORMAL,
                "Tank " + std::to_string(id_))
     {}
-    
     void revive(const map::Pos &newpos)
     {
       if (is_alive() && !hascleared) return;
@@ -319,13 +321,9 @@ namespace czh::tank
       map::Pos pos_left(pos.get_x() - 1, pos.get_y());
       map::Pos pos_right(pos.get_x() + 1, pos.get_y());
       if (check(map, pos_up))
-      {
         ret.emplace_back(Node(pos_up, G + 10, pos));
-      }
       if (check(map, pos_down))
-      {
         ret.emplace_back(Node(pos_down, G + 10, pos));
-      }
       if (check(map, pos_left))
         ret.emplace_back(Node(pos_left, G + 10, pos));
       if (check(map, pos_right))
@@ -476,7 +474,6 @@ namespace czh::tank
           found(false), correct_direction(false),
           waypos(0), target_pos_in_vec(0), level(level_), count(0)
     {}
-  
     void target(std::size_t target_pos_in_vec_, const map::Pos &target_pos_)
     {
       correct_direction = false;
@@ -484,6 +481,23 @@ namespace czh::tank
       target_pos = target_pos_;
       MultiBimap<int, Node> open_list;
       std::map<map::Pos, Node> close_list;
+      std::set<map::Pos> fire_line;
+      for (int i = 0; i <= target_pos.get_x(); ++i)
+      {
+        map::Pos tmp(i, target_pos.get_y());
+        if (is_in_firing_line(map, tmp, target_pos))
+        {
+          fire_line.insert(tmp);
+        }
+      }
+      for (int i = 0; i <= target_pos.get_y(); ++i)
+      {
+        map::Pos tmp(target_pos.get_x(), i);
+        if (is_in_firing_line(map, tmp, target_pos))
+        {
+          fire_line.insert(tmp);
+        }
+      }
       Node beg(get_pos(), 0, {0, 0}, true);
       open_list.insert(beg.get_F(target_pos), beg);
       while (!open_list.empty())
@@ -516,9 +530,9 @@ namespace czh::tank
           }
         }
         auto itt = open_list.find_ifB(
-            [this](const Node &p)
+            [&fire_line](const Node &p) -> bool
             {
-              return tank::is_in_firing_line(map, p.get_pos(), target_pos);
+              return fire_line.find(p.get_pos()) != fire_line.end();
             });
         if (itt != nullptr)//found
         {

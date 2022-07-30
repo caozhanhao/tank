@@ -22,17 +22,18 @@ namespace czh::game
   class Game
   {
   private:
-    std::vector<std::shared_ptr<tank::Tank>> tanks;
-    std::vector<std::pair<std::size_t, tank::NormalTankEvent>> normal_tank_events;
     bool output_inited;
     std::size_t screen_height;
     std::size_t screen_width;
     std::shared_ptr<map::Map> map;
+    std::vector<std::shared_ptr<tank::Tank>> tanks;
     std::shared_ptr<std::vector<map::Change>> changes;
     std::shared_ptr<std::vector<bullet::Bullet>> bullets;
+    std::vector<std::pair<std::size_t, tank::NormalTankEvent>> normal_tank_events;
     bool running;
+    std::size_t nalive_tank;
   public:
-    Game() : output_inited(false), running(true),
+    Game() : output_inited(false), running(true), nalive_tank(0),
              screen_height(term::get_height()), screen_width(term::get_width()),
              map(std::make_shared<map::Map>((screen_height - 1) % 2 == 0 ? screen_height - 2 : screen_height - 1,
                                             screen_width % 2 == 0 ? screen_width - 1 : screen_width)),
@@ -40,34 +41,36 @@ namespace czh::game
              bullets(std::make_shared<std::vector<bullet::Bullet>>())
     {}
   
-    Game &add_tank(std::size_t n = 1)
+    std::size_t add_tank()
     {
       std::size_t id = 0;
-      auto it = std::find_if(tanks.rbegin(), tanks.rend(), [](const std::shared_ptr<tank::Tank> &ptr)
-      { return !ptr->is_auto(); });
+      auto it = std::find_if(tanks.rbegin(), tanks.rend(),
+                             [](const std::shared_ptr<tank::Tank> &ptr)
+                             { return !ptr->is_auto(); });
       if (it != tanks.rend())
-        id = (*it)->get_id() + 1;
-      for (int i = 0; i < n; i++)
       {
-        tanks.insert(tanks.cend(), n, std::make_shared<tank::NormalTank>
-            (map, changes, bullets, 300, 30, get_random_pos(), id + i));
+        id = (*it)->get_id() + 1;
       }
-      return *this;
+      tanks.insert(tanks.cend(), std::make_shared<tank::NormalTank>
+          (map, changes, bullets, 300, 30, get_random_pos(), id));
+      ++nalive_tank;
+      return tanks.size() - 1;
     }
-    
+  
     Game &revive(std::size_t id)
     {
+      ++nalive_tank;
       std::dynamic_pointer_cast<tank::NormalTank>(tanks[id])->
           revive(get_random_pos());
       return *this;
     }
-    
-    Game &add_auto_tank(std::size_t n = 1, std::size_t level = 1)
+  
+    std::size_t add_auto_tank(std::size_t level = 1)
     {
       int alive = (int) std::count_if(tanks.begin(), tanks.end(),
                                       [](const std::shared_ptr<tank::Tank> &ptr)
                                       { return ptr->is_auto() && ptr->is_alive(); });
-      if (alive == CZH_MAX_AUTO_TANK)return *this;
+      if (alive == CZH_MAX_AUTO_TANK) return tanks.size() - 1;
       std::size_t id = 0;
       auto it = std::find_if(tanks.rbegin(), tanks.rend(),
                              [](const std::shared_ptr<tank::Tank> &ptr)
@@ -76,45 +79,46 @@ namespace czh::game
       {
         id = (*it)->get_id() + 1;
       }
-      for (int i = 0; i < n; i++)
-      {
-        tanks.emplace_back(
-            std::make_shared<tank::AutoTank>(map, changes, bullets,
-                                             (int) (11 - level) * 10, (int) (11 - level),
-                                             get_random_pos(), id + i, level));
-      }
-      return *this;
+      tanks.emplace_back(
+          std::make_shared<tank::AutoTank>(map, changes, bullets,
+                                           (int) (11 - level) * 10, (int) (11 - level),
+                                           get_random_pos(), id, level));
+      ++nalive_tank;
+      return tanks.size() - 1;
     }
-    
-    Game &add_auto_boss()
+  
+    std::size_t add_auto_boss()
     {
       int alive = (int) std::count_if(tanks.begin(), tanks.end(),
                                       [](const std::shared_ptr<tank::Tank> &ptr)
                                       { return ptr->is_auto() && ptr->is_alive(); });
-      if (alive == CZH_MAX_AUTO_TANK)return *this;
+      if (alive == CZH_MAX_AUTO_TANK)return tanks.size() - 1;
       std::size_t id = 0;
-      auto it = std::find_if(tanks.rbegin(), tanks.rend(), [](const std::shared_ptr<tank::Tank> &ptr)
-      { return ptr->is_auto(); });
+      auto it = std::find_if(tanks.rbegin(), tanks.rend(),
+                             [](const std::shared_ptr<tank::Tank> &ptr)
+                             { return ptr->is_auto(); });
       if (it != tanks.rend())
       {
         id = (*it)->get_id() + 1;
       }
       tanks.emplace_back(
-          std::make_shared<tank::AutoTank>(map, changes, bullets, map::random(300, 500), map::random(10, 20),
+          std::make_shared<tank::AutoTank>(map, changes, bullets,
+                                           map::random(300, 500), map::random(10, 20),
                                            get_random_pos(), id, map::random(0, 4)));
-      return *this;
+      ++nalive_tank;
+      return tanks.size() - 1;
     }
-    
-    Game &tank_react(std::size_t tankid, tank::NormalTankEvent event)
+  
+    Game &tank_react(std::size_t tankpos, tank::NormalTankEvent event)
     {
-      if (!running || !tanks[tankid]->is_alive())
+      if (!running || !tanks[tankpos]->is_alive())
       {
         return *this;
       }
-      normal_tank_events.emplace_back(tankid, event);
+      normal_tank_events.emplace_back(tankpos, event);
       return *this;
     }
-    
+  
     Game &react(Event event)
     {
       switch (event)
@@ -151,10 +155,10 @@ namespace czh::game
         }
       }
       //tank
-      for (auto &event: normal_tank_events)
+      for (auto &ntevent: normal_tank_events)
       {
-        auto tank = std::dynamic_pointer_cast<tank::NormalTank>(tanks[event.first]);
-        switch (event.second)
+        auto tank = std::dynamic_pointer_cast<tank::NormalTank>(tanks[ntevent.first]);
+        switch (ntevent.second)
         {
           case tank::NormalTankEvent::UP:
             tank->up();
@@ -180,12 +184,9 @@ namespace czh::game
         if (!(*it)->is_alive() || !(*it)->is_auto()) continue;
         auto tank = std::dynamic_pointer_cast<tank::AutoTank>(*it);
         auto target = tanks[tank->get_target_pos_in_vec()];
-        //have not been found or target is not alive should target/retarget
+        //have not been found or target is not nalive_tank should target/retarget
         if (!tank->get_found() || !target->is_alive())
         {
-          map::Pos target_pos;
-          std::size_t target_id = 0;
-          tank::TankType target_type = tank::TankType::NORMAL;
           auto alive = get_alive(it - tanks.begin());
           do
           {
@@ -291,6 +292,7 @@ namespace czh::game
           }
           else
           {
+            --nalive_tank;
             CZH_NOTICE(tank->get_name() + " was killed.");
           }
         }
@@ -350,14 +352,7 @@ namespace czh::game
     
     [[nodiscard]]bool all_over() const
     {
-      std::size_t alive = 0;
-      for (auto &t: tanks)
-      {
-        if (t->is_alive())
-          ++alive;
-      }
-      
-      return alive <= 1;
+      return nalive_tank <= 1;
     }
     
     auto find_tank(std::size_t i, std::size_t j)

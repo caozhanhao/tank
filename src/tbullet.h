@@ -12,18 +12,18 @@ namespace czh::bullet
   private:
     map::Pos pos;
     map::Direction direction;
-    tank::Tank *from;
     int blood;
     int lethality;
     int circle;
     int remained_range;
     std::shared_ptr<std::vector<map::Change>> changes;
     std::shared_ptr<map::Map> map;
+    std::shared_ptr<tank::Tank> from;
   public:
     Bullet(std::shared_ptr<map::Map> map_, std::shared_ptr<std::vector<map::Change>> changes_,
-           tank::Tank *from_, map::Pos pos_, map::Direction direction_, int lethality_, int circle_,
+           std::shared_ptr<tank::Tank> from_, map::Pos pos_, map::Direction direction_, int lethality_, int circle_,
            int blood_, int range_)
-        : map(std::move(map_)), changes(std::move(changes_)), from(from_), pos(pos_), direction(direction_),
+        : map(std::move(map_)), changes(std::move(changes_)), from(std::move(from_)), pos(pos_), direction(direction_),
           blood(blood_), lethality(lethality_), circle(circle_), remained_range(range_)
     {
       changes->emplace_back(pos);
@@ -112,7 +112,7 @@ namespace czh::bullet
       return blood > 0 && remained_range > 0;
     }
   
-    [[nodiscard]] tank::Tank *get_from() const
+    [[nodiscard]] std::shared_ptr<tank::Tank> get_from() const
     {
       return from;
     }
