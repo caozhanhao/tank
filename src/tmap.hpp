@@ -1,4 +1,18 @@
-#pragma once
+//   Copyright 2022 tank - caozhanhao
+//
+//   Licensed under the Apache License, Version 2.0 (the "License");
+//   you may not use this file except in compliance with the License.
+//   You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+//   Unless required by applicable law or agreed to in writing, software
+//   distributed under the License is distributed on an "AS IS" BASIS,
+//   WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+//   See the License for the specific language governing permissions and
+//   limitations under the License.
+#ifndef TANK_TMAP_HPP
+#define TANK_TMAP_HPP
 #include <vector>
 #include <list>
 #include <set>
@@ -72,11 +86,9 @@ namespace czh::map
     std::size_t x;
     std::size_t y;
   public:
-    Pos() : x(0), y(0)
-    {}
+    Pos() : x(0), y(0) {}
     
-    Pos(std::size_t x_, std::size_t y_) : x(x_), y(y_)
-    {}
+    Pos(std::size_t x_, std::size_t y_) : x(x_), y(y_) {}
     
     Point &get_point(std::vector<std::vector<Point>> &map) const
     {
@@ -131,11 +143,9 @@ namespace czh::map
   private:
     Pos pos;
   public:
-    explicit Change(Pos pos_) : pos(pos_)
-    {}
+    explicit Change(Pos pos_) : pos(pos_) {}
     
-    Pos &get_pos()
-    { return pos; }
+    Pos &get_pos() { return pos; }
   };
   
   class Map
@@ -155,34 +165,28 @@ namespace czh::map
       make_maze();
     }
     
-    [[nodiscard]]auto get_width() const
-    { return width; }
+    [[nodiscard]]auto get_width() const { return width; }
     
-    [[nodiscard]] auto get_height() const
-    { return height; }
+    [[nodiscard]] auto get_height() const { return height; }
     
     int up(const Status &status, Pos &pos)
     {
-      return move(status, pos, [](Pos &pos)
-      { pos.get_y()++; });
+      return move(status, pos, [](Pos &pos) { pos.get_y()++; });
     }
     
     int down(const Status &status, Pos &pos)
     {
-      return move(status, pos, [](Pos &pos)
-      { pos.get_y()--; });
+      return move(status, pos, [](Pos &pos) { pos.get_y()--; });
     }
     
     int left(const Status &status, Pos &pos)
     {
-      return move(status, pos, [](Pos &pos)
-      { pos.get_x()--; });
+      return move(status, pos, [](Pos &pos) { pos.get_x()--; });
     }
     
     int right(const Status &status, Pos &pos)
     {
-      return move(status, pos, [](Pos &pos)
-      { pos.get_x()++; });
+      return move(status, pos, [](Pos &pos) { pos.get_x()++; });
     }
     
     std::vector<std::vector<Point>> &get_map()
@@ -327,3 +331,4 @@ namespace czh::map
     }
   };
 }
+#endif

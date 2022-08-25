@@ -1,9 +1,23 @@
-#pragma once
-#include "ttank.h"
-#include "tterm.h"
-#include "tmap.h"
-#include "tbullet.h"
-#include "tlogger.h"
+//   Copyright 2022 tank - caozhanhao
+//
+//   Licensed under the Apache License, Version 2.0 (the "License");
+//   you may not use this file except in compliance with the License.
+//   You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+//   Unless required by applicable law or agreed to in writing, software
+//   distributed under the License is distributed on an "AS IS" BASIS,
+//   WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+//   See the License for the specific language governing permissions and
+//   limitations under the License.
+#ifndef TANK_TGAME_HPP
+#define TANK_TGAME_HPP
+#include "ttank.hpp"
+#include "tterm.hpp"
+#include "tmap.hpp"
+#include "tbullet.hpp"
+#include "tlogger.hpp"
 #include <vector>
 #include <algorithm>
 #include <functional>
@@ -38,15 +52,13 @@ namespace czh::game
              map(std::make_shared<map::Map>((screen_height - 1) % 2 == 0 ? screen_height - 2 : screen_height - 1,
                                             screen_width % 2 == 0 ? screen_width - 1 : screen_width)),
              changes(std::make_shared<std::vector<map::Change>>()),
-             bullets(std::make_shared<std::vector<bullet::Bullet>>())
-    {}
-  
+             bullets(std::make_shared<std::vector<bullet::Bullet>>()) {}
+    
     std::size_t add_tank()
     {
       std::size_t id = 0;
       auto it = std::find_if(tanks.rbegin(), tanks.rend(),
-                             [](const std::shared_ptr<tank::Tank> &ptr)
-                             { return !ptr->is_auto(); });
+                             [](const std::shared_ptr<tank::Tank> &ptr) { return !ptr->is_auto(); });
       if (it != tanks.rend())
       {
         id = (*it)->get_id() + 1;
@@ -56,7 +68,7 @@ namespace czh::game
       ++nalive_tank;
       return tanks.size() - 1;
     }
-  
+    
     Game &revive(std::size_t id)
     {
       ++nalive_tank;
@@ -64,17 +76,18 @@ namespace czh::game
           revive(get_random_pos());
       return *this;
     }
-  
+    
     std::size_t add_auto_tank(std::size_t level = 1)
     {
       int alive = (int) std::count_if(tanks.begin(), tanks.end(),
                                       [](const std::shared_ptr<tank::Tank> &ptr)
-                                      { return ptr->is_auto() && ptr->is_alive(); });
+                                      {
+                                        return ptr->is_auto() && ptr->is_alive();
+                                      });
       if (alive == CZH_MAX_AUTO_TANK) return tanks.size() - 1;
       std::size_t id = 0;
       auto it = std::find_if(tanks.rbegin(), tanks.rend(),
-                             [](const std::shared_ptr<tank::Tank> &ptr)
-                             { return ptr->is_auto(); });
+                             [](const std::shared_ptr<tank::Tank> &ptr) { return ptr->is_auto(); });
       if (it != tanks.rend())
       {
         id = (*it)->get_id() + 1;
@@ -86,17 +99,18 @@ namespace czh::game
       ++nalive_tank;
       return tanks.size() - 1;
     }
-  
+    
     std::size_t add_auto_boss()
     {
       int alive = (int) std::count_if(tanks.begin(), tanks.end(),
                                       [](const std::shared_ptr<tank::Tank> &ptr)
-                                      { return ptr->is_auto() && ptr->is_alive(); });
+                                      {
+                                        return ptr->is_auto() && ptr->is_alive();
+                                      });
       if (alive == CZH_MAX_AUTO_TANK)return tanks.size() - 1;
       std::size_t id = 0;
       auto it = std::find_if(tanks.rbegin(), tanks.rend(),
-                             [](const std::shared_ptr<tank::Tank> &ptr)
-                             { return ptr->is_auto(); });
+                             [](const std::shared_ptr<tank::Tank> &ptr) { return ptr->is_auto(); });
       if (it != tanks.rend())
       {
         id = (*it)->get_id() + 1;
@@ -108,7 +122,7 @@ namespace czh::game
       ++nalive_tank;
       return tanks.size() - 1;
     }
-  
+    
     Game &tank_react(std::size_t tankpos, tank::NormalTankEvent event)
     {
       if (!running || !tanks[tankpos]->is_alive())
@@ -118,7 +132,7 @@ namespace czh::game
       normal_tank_events.emplace_back(tankpos, event);
       return *this;
     }
-  
+    
     Game &react(Event event)
     {
       switch (event)
@@ -335,8 +349,7 @@ namespace czh::game
       return *this;
     }
     
-    [[nodiscard]]bool is_running() const
-    { return running; }
+    [[nodiscard]]bool is_running() const { return running; }
   
   private:
     [[nodiscard]]std::vector<std::size_t> get_alive(std::size_t except) const
@@ -506,3 +519,4 @@ namespace czh::game
     }
   };
 }
+#endif

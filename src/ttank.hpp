@@ -1,6 +1,20 @@
-﻿#pragma once
-#include "tmap.h"
-#include "tbullet.h"
+﻿//   Copyright 2022 tank - caozhanhao
+//
+//   Licensed under the Apache License, Version 2.0 (the "License");
+//   you may not use this file except in compliance with the License.
+//   You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+//   Unless required by applicable law or agreed to in writing, software
+//   distributed under the License is distributed on an "AS IS" BASIS,
+//   WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+//   See the License for the specific language governing permissions and
+//   limitations under the License.
+#ifndef TANK_TTANK_HPP
+#define TANK_TTANK_HPP
+#include "tmap.hpp"
+#include "tbullet.hpp"
 #include <map>
 #include <set>
 #include <list>
@@ -51,6 +65,7 @@ namespace czh::tank
       pos.get_point(map->get_map()).add_status(map::Status::TANK);
       changes->emplace_back(map::Change(pos));
     }
+    
     void up()
     {
       int a = map->up(map::Status::TANK, pos);
@@ -126,7 +141,7 @@ namespace czh::tank
     {
       return type == TankType::AUTO;
     }
-
+    
     [[nodiscard]]std::size_t get_id() const
     {
       return id;
@@ -142,14 +157,11 @@ namespace czh::tank
       return name;
     }
     
-    [[nodiscard]]int get_blood() const
-    { return blood; }
+    [[nodiscard]]int get_blood() const { return blood; }
     
-    [[nodiscard]]int get_max_blood() const
-    { return max_blood; }
+    [[nodiscard]]int get_max_blood() const { return max_blood; }
     
-    [[nodiscard]]int get_lethality() const
-    { return lethality * map::random(5, 16) / 10; }
+    [[nodiscard]]int get_lethality() const { return lethality * map::random(5, 16) / 10; }
     
     [[nodiscard]]bool is_alive() const
     {
@@ -161,8 +173,7 @@ namespace czh::tank
       return hascleared;
     }
     
-    void clear()
-    { hascleared = true; }
+    void clear() { hascleared = true; }
     
     map::Pos &get_pos()
     {
@@ -224,8 +235,8 @@ namespace czh::tank
                int blood_, int lethality_, map::Pos pos_, std::size_t id_)
         : Tank(std::move(map_), std::move(changes_), std::move(bullets_), blood_, lethality_,
                pos_, id_, TankType::NORMAL,
-               "Tank " + std::to_string(id_))
-    {}
+               "Tank " + std::to_string(id_)) {}
+    
     void revive(const map::Pos &newpos)
     {
       if (is_alive() && !hascleared) return;
@@ -279,12 +290,10 @@ namespace czh::tank
     int G;
     bool root;
   public:
-    Node() : G(0), root(false)
-    {}
+    Node() : G(0), root(false) {}
     
     Node(map::Pos pos_, int G_, const map::Pos &last_, bool root_ = false)
-        : pos(pos_), G(G_), last(last_), root(root_)
-    {}
+        : pos(pos_), G(G_), last(last_), root(root_) {}
     
     Node(const Node &node) = default;
     
@@ -312,7 +321,7 @@ namespace czh::tank
     {
       return root;
     }
-  
+    
     std::vector<Node> get_neighbors(const std::shared_ptr<map::Map> &map) const
     {
       std::vector<Node> ret;
@@ -435,8 +444,7 @@ namespace czh::tank
       Bmap.erase(bit);
     }
     
-    B smallestB()
-    { return *Bmap.begin()->second; }
+    B smallestB() { return *Bmap.begin()->second; }
     
     bool empty()
     {
@@ -472,8 +480,8 @@ namespace czh::tank
                blood_, lethality_, pos_, id_,
                TankType::AUTO, "Auto Tank " + std::to_string(id_)),
           found(false), correct_direction(false),
-          waypos(0), target_pos_in_vec(0), level(level_), count(0)
-    {}
+          waypos(0), target_pos_in_vec(0), level(level_), count(0) {}
+    
     void target(std::size_t target_pos_in_vec_, const map::Pos &target_pos_)
     {
       correct_direction = false;
@@ -558,7 +566,7 @@ namespace czh::tank
         return AutoTankEvent::NOTHING;
       else
         count = 0;
-  
+      
       if (waypos < way.size())
       {
         auto ret = way[waypos];
@@ -637,3 +645,4 @@ namespace czh::tank
     }
   };
 }
+#endif
