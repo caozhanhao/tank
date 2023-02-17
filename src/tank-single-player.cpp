@@ -1,4 +1,4 @@
-﻿//   Copyright 2022 tank - caozhanhao
+﻿//   Copyright 2022-2023 tank - caozhanhao
 //
 //   Licensed under the Apache License, Version 2.0 (the "License");
 //   you may not use this file except in compliance with the License.
@@ -11,14 +11,14 @@
 //   WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 //   See the License for the specific language governing permissions and
 //   limitations under the License.
-#include "tterm.hpp"
-const int CZH_MAX_AUTO_TANK = (czh::term::get_height() - 2) - 1;
-#include "tgame.hpp"
+#include "internal/term.h"
+#include "game.h"
 #include <chrono>
 #include <thread>
-using namespace std;
+
 using namespace czh::game;
 using namespace czh::tank;
+
 int main()
 {
   Game game;
@@ -26,12 +26,13 @@ int main()
   std::chrono::high_resolution_clock::time_point beg, end;
   std::chrono::milliseconds cost(0);
   std::chrono::milliseconds sleep(20);
+  char ch;
   while (true)
   {
     beg = std::chrono::high_resolution_clock::now();
     if (czh::term::kbhit())
     {
-      switch (czh::term::getch())
+      switch (ch = czh::term::getch())
       {
         case 'w':
         case 28:
@@ -56,35 +57,34 @@ int main()
         case ' ':
           game.tank_react(0, NormalTankEvent::FIRE);
           break;
-        case 'q':
-          game.react(Event::QUIT);
-          return 0;
-          break;
         case 27://ESC
           if (game.is_running())
+          {
             game.react(Event::PAUSE);
+          }
           else
+          {
             game.react(Event::CONTINUE);
+          }
           break;
         case 'l':
           game.add_auto_tank(::czh::map::random(1, 11));
           break;
-        case 'b':
-          game.add_auto_boss();
-          break;
-        case 'p':
-          game.revive(0);
+        case '/':
+          game.react(Event::COMMAND);
           break;
         default:
-          game.react(Event::NOTHING);
+          CZH_NOTICE("ignored key '" + std::string(1, ch) + "'.");
           break;
       }
     }
-    game.react(Event::NOTHING);
+    game.react(Event::PASS);
     end = std::chrono::high_resolution_clock::now();
     cost = std::chrono::duration_cast<std::chrono::milliseconds>(end - beg);
     if (sleep > cost)
+    {
       std::this_thread::sleep_for(sleep - cost);
+    }
   }
   return 0;
 }

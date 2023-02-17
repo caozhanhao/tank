@@ -1,0 +1,6 @@
+[submodule "qwrpc"]
+	path = qwrpc
+	url = https://github.com/caozhanhao/qwrpc.git
+[submodule "thirdparty/qwrpc"]
+	path = thirdparty/qwrpc
+	url = https://github.com/caozhanhao/qwrpc.git

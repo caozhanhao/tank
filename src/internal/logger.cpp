@@ -1,4 +1,4 @@
-//   Copyright 2022 tank - caozhanhao
+//   Copyright 2022-2023 tank - caozhanhao
 //
 //   Licensed under the Apache License, Version 2.0 (the "License");
 //   you may not use this file except in compliance with the License.
@@ -11,27 +11,25 @@
 //   WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 //   See the License for the specific language governing permissions and
 //   limitations under the License.
-#ifndef TANK_TLOGGER_HPP
-#define TANK_TLOGGER_HPP
-#include "tterm.hpp"
-#include <stdexcept>
+#include "internal/term.h"
 #include <string>
-#include <iostream>
 #include <chrono>
 #include <ctime>
 #include <cstdio>
-
-#define CZH_NOTICE(msg) czh::logger::output(std::string("N: ") + msg);
 namespace czh::logger
 {
-  void output(const std::string &str)
+  void output_at_bottom(const std::string &str)
   {
     term::move_cursor(term::TermPos(0, term::get_height() - 1));
     int a = term::get_width() - str.size();
     if (a > 0)
+    {
       term::output(str + std::string(a, ' '));
+    }
     else
+    {
       term::output(str);
+    }
   }
   
   std::string get_time()
@@ -46,4 +44,3 @@ namespace czh::logger
     return {date};
   }
 }
-#endif
