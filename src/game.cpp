@@ -560,6 +560,70 @@ namespace czh::game
       CZH_NOTICE("Quitting.");
       std::exit(0);
     }
+    else if (args[0] == "tp")
+    {
+      if (args.size() != 3 && args.size() != 4)
+      {
+        CZH_NOTICE("Needs exactly 2 or 3 arguments.");
+        return;
+      }
+      int id = parse_int(1);
+      if (failed) return;
+      if (id_at(id) == nullptr || !id_at(id)->is_alive())
+      {
+        CZH_NOTICE("Invalid arguments");
+        return;
+      }
+      map::Pos from_pos = id_at(id)->get_pos();
+      map::Pos to_pos;
+      auto check = [this](const map::Pos& p)
+      {return map->check_pos(p) && !map->has(map::Status::WALL, p) && !map->has(map::Status::TANK, p);};
+      if(args.size() == 3)
+      {
+        int to_id = parse_int(2);
+        if (failed) return;
+        if (id_at(to_id) == nullptr || !id_at(to_id)->is_alive())
+        {
+          CZH_NOTICE("Invalid arguments");
+          return;
+        }
+        auto pos = id_at(to_id)->get_pos();
+  
+        map::Pos pos_up(pos.get_x(), pos.get_y() + 1);
+        if (check(pos_up)) to_pos = pos_up;
+        map::Pos pos_down(pos.get_x(), pos.get_y() - 1);
+        if (check(pos_down)) to_pos = pos_down;
+        map::Pos pos_left(pos.get_x() - 1, pos.get_y());
+        if (check(pos_left)) to_pos = pos_left;
+        map::Pos pos_right(pos.get_x() + 1, pos.get_y());
+        if (check(pos_right)) to_pos = pos_right;
+        else
+        {
+          CZH_NOTICE("Target pos has no space.");
+          return;
+        }
+      }
+      else
+      {
+        int x = parse_int(2);
+        if (failed) return;
+        int y = parse_int(3);
+        if (failed) return;
+        to_pos.get_x() = x;
+        to_pos.get_y() = y;
+        if(!check(to_pos))
+        {
+          CZH_NOTICE("Target pos has no space.");
+          return;
+        }
+      }
+      map->remove_status(map::Status::TANK, from_pos);
+      map->add_tank(to_pos);
+      id_at(id)->get_pos() = to_pos;
+      CZH_NOTICE(id_at(id)->get_name() + " has been teleported to ("
+      + std::to_string(to_pos.get_x()) + ","  + std::to_string(to_pos.get_y()) + ").");
+      return;
+    }
     else if (args[0] == "revive")
     {
       if (args.size() == 1)
@@ -575,7 +639,7 @@ namespace czh::game
       {
         int id = parse_int(1);
         if (failed) return;
-        if (id >= tanks.size())
+        if (id_at(id) == nullptr)
         {
           CZH_NOTICE("Invalid arguments");
           return;
@@ -601,7 +665,7 @@ namespace czh::game
       {
         int id = parse_int(1);
         if (failed) return;
-        if (id >= tanks.size())
+        if (id_at(id) == nullptr)
         {
           CZH_NOTICE("Invalid arguments.");
           return;
@@ -654,7 +718,7 @@ namespace czh::game
       {
         int id = parse_int(1);
         if (failed) return;
-        if (id >= tanks.size() || id == 0)
+        if (id_at(id) == nullptr || id == 0)
         {
           CZH_NOTICE("Invalid arguments");
           return;
@@ -687,7 +751,7 @@ namespace czh::game
       }
       int id = parse_int(1);
       if (failed) return;
-      if (id >= tanks.size())
+      if (id_at(id) == nullptr)
       {
         CZH_NOTICE("Invalid arguments");
         return;
@@ -731,7 +795,7 @@ namespace czh::game
         }
         else
         {
-          CZH_NOTICE("Invalid arguments.");
+          CZH_NOTICE("Invalid option.");
           return;
         }
       }
@@ -764,7 +828,7 @@ namespace czh::game
       }
       else
       {
-        CZH_NOTICE("Invalid arguments.");
+        CZH_NOTICE("Invalid option.");
         return;
       }
     }
@@ -777,6 +841,8 @@ namespace czh::game
   
   std::shared_ptr<tank::Tank> Game::id_at(size_t id)
   {
-    return tanks[id_index[id]];
+    auto it = id_index.find(id);
+    if(it == id_index.end()) return nullptr;
+    return tanks[it->second];
   }
 }
