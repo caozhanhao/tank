@@ -137,8 +137,14 @@ namespace czh::game
     {
       czh::logger::output_at_bottom("/");
       term::move_cursor(term::TermPos(1, term::get_height() - 1));
+#if defined(__linux__)
+      term::keyboard.deinit();
+#endif
       std::string str;
       std::getline(std::cin, str);
+#if defined(__linux__)
+      term::keyboard.init();
+#endif
       run_command(str);
       return *this;
     }
@@ -612,7 +618,8 @@ namespace czh::game
       {
         for (auto &r: *bullets)
         {
-          r.kill();
+          if(r.get_from()->is_auto())
+            r.kill();
         }
         for (auto &r: tanks)
         {
@@ -625,6 +632,23 @@ namespace czh::game
         tanks.erase(std::remove_if(tanks.begin(), tanks.end(), [](auto &&i) { return i->is_auto(); }), tanks.end());
         id_index.clear();
         CZH_NOTICE("Cleared all tanks.");
+      }
+      else if(args.size() == 2 && args[1] == "death")
+      {
+        for (auto &r: *bullets)
+        {
+          if(r.get_from()->is_auto() && !r.get_from()->is_alive())
+            r.kill();
+        }
+        for (auto &r: tanks)
+        {
+          if (r->is_auto() && !r->is_alive())
+            r->kill();
+        }
+        clear_death();
+        tanks.erase(std::remove_if(tanks.begin(), tanks.end(), [](auto &&i) { return i->is_auto() && !i->is_alive(); }), tanks.end());
+        id_index.clear();
+        CZH_NOTICE("Cleared all died tanks.");
       }
       else
       {
@@ -724,6 +748,7 @@ namespace czh::game
       {
         int value = parse_int(3);
         if (failed) return;
+        if(!id_at(id)->is_alive()) revive(id);
         id_at(id)->get_blood() = value;
         CZH_NOTICE("The blood of " + id_at(id)->get_name()
                    + " has been set for " + std::to_string(value) + ".");

@@ -51,14 +51,16 @@ namespace czh::term
   public:
     struct termios initial_settings, new_settings;
     int peek_character;
+    void deinit();
+    void init();
     KeyBoard();
-
     ~KeyBoard();
 
     int kbhit();
 
     int getch();
   };
+  extern KeyBoard keyboard;
 #endif
   
   int getch();

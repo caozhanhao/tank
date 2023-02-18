@@ -30,22 +30,30 @@
 namespace czh::term
 {
 #if defined(__linux__)
+  void KeyBoard::init()
+  {
+    tcgetattr(0, &initial_settings);
+    new_settings = initial_settings;
+    new_settings.c_lflag &= ~ICANON;
+    new_settings.c_lflag &= ~ECHO;
+    new_settings.c_lflag &= ~ISIG;
+    new_settings.c_cc[VMIN] = 1;
+    new_settings.c_cc[VTIME] = 0;
+    tcsetattr(0, TCSANOW, &new_settings);
+    peek_character = -1;}
+  void KeyBoard::deinit()
+  {
+  
+    tcsetattr(0, TCSANOW, &initial_settings);
+  }
   KeyBoard::KeyBoard()
     {
-      tcgetattr(0, &initial_settings);
-      new_settings = initial_settings;
-      new_settings.c_lflag &= ~ICANON;
-      new_settings.c_lflag &= ~ECHO;
-      new_settings.c_lflag &= ~ISIG;
-      new_settings.c_cc[VMIN] = 1;
-      new_settings.c_cc[VTIME] = 0;
-      tcsetattr(0, TCSANOW, &new_settings);
-      peek_character = -1;
+    init();
     }
   
   KeyBoard::~KeyBoard()
     {
-      tcsetattr(0, TCSANOW, &initial_settings);
+deinit();
     }
     
     int KeyBoard::kbhit()
