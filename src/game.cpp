@@ -192,8 +192,8 @@ namespace czh::game
       if (!(*it)->is_alive() || !(*it)->is_auto()) continue;
       auto tank = std::dynamic_pointer_cast<tank::AutoTank>(*it);
       auto target = id_at(tank->get_target_id());
-      //hasn't found or target is not alive should target/retarget
-      if (!tank->get_found() || !target->is_alive())
+      //hasn't found or target is not alive/cleared should target/retarget
+      if (target == nullptr || !tank->get_found() || !target->is_alive())
       {
         auto alive = get_alive(it - tanks.begin());
         if (alive.empty()) continue;
