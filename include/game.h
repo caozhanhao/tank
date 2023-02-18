@@ -48,7 +48,6 @@ namespace czh::game
     std::shared_ptr<std::vector<bullet::Bullet>> bullets;
     std::vector<std::pair<std::size_t, tank::NormalTankEvent>> normal_tank_events;
     bool running;
-    std::size_t nalive_tank;
     size_t next_id;
     std::map<std::size_t, std::size_t> id_index;
     
@@ -56,7 +55,7 @@ namespace czh::game
     size_t curr_changes_apply;
     size_t clients;
   public:
-    Game() : output_inited(false), running(true), nalive_tank(0), as_server(false),
+    Game() : output_inited(false), running(true), as_server(false),
              screen_height(term::get_height()), screen_width(term::get_width()),
              map(std::make_shared<map::Map>((screen_height - 1) % 2 == 0 ? screen_height - 2 : screen_height - 1,
                                             screen_width % 2 == 0 ? screen_width - 1 : screen_width)),
@@ -88,8 +87,6 @@ namespace czh::game
     void clear_death();
   
     [[nodiscard]]std::vector<std::size_t> get_alive(std::size_t except) const;
-  
-    [[nodiscard]]bool all_over() const;
   
     auto find_tank(std::size_t i, std::size_t j);
   

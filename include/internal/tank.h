@@ -53,15 +53,15 @@ namespace czh::tank
     
     void kill();
     
-    void up();
-    
-    void down();
-    
-    void left();
-    
-    void right();
-    
-    void fire();
+    int up();
+  
+    int down();
+  
+    int left();
+  
+    int right();
+  
+    int fire();
     
     [[nodiscard]]bool is_auto() const;
     
@@ -157,18 +157,20 @@ namespace czh::tank
   private:
     std::size_t target_id;
     map::Pos target_pos;
+    
     std::vector<AutoTankEvent> way;
     std::size_t waypos;
     bool found;
-    bool correct_direction;
-    std::size_t count;
+    
+    bool got_stuck_in_its_way;
+    std::size_t level_speedctl_count;
   public:
     AutoTank(info::TankInfo info_, std::shared_ptr<map::Map> map_,
              std::shared_ptr<std::vector<bullet::Bullet>> bullets_,
              map::Pos pos_)
         : Tank(info_, std::move(map_), std::move(bullets_), pos_),
-          found(false), correct_direction(false),
-          waypos(0), target_id(0), count(0) {}
+          found(false), got_stuck_in_its_way(false),
+          waypos(0), target_id(0), level_speedctl_count(0) {}
     
     void target(std::size_t target_id_, const map::Pos &target_pos_);
     
@@ -177,11 +179,12 @@ namespace czh::tank
     std::size_t &get_target_id();
     
     map::Pos &get_target_pos();
-    
+  
+    void correct_direction();
+    void stuck();
+    void no_stuck();
     [[nodiscard]]bool get_found() const;
-    
-    bool &has_arrived();
-    
+    [[nodiscard]]bool has_arrived();
     [[nodiscard]]std::size_t get_level() const;
   };
 }

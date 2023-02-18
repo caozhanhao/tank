@@ -38,43 +38,43 @@ namespace czh::tank
     attacked(blood);
   }
   
-  void Tank::up()
+  int Tank::up()
   {
-    if (map->up(map::Status::TANK, pos) == 0)
-    {
-      pos.get_y()++;
-    }
     direction = map::Direction::UP;
+    int ret = map->up(map::Status::TANK, pos);
+    if (ret == 0)
+      pos.get_y()++;
+    return ret;
   }
   
-  void Tank::down()
+  int Tank::down()
   {
-    if (map->down(map::Status::TANK, pos) == 0)
-    {
-      pos.get_y()--;
-    }
     direction = map::Direction::DOWN;
+    int ret = map->down(map::Status::TANK, pos);
+    if (ret == 0)
+      pos.get_y()--;
+    return ret;
   }
   
-  void Tank::left()
+  int Tank::left()
   {
-    if (map->left(map::Status::TANK, pos) == 0)
-    {
-      pos.get_x()--;
-    }
     direction = map::Direction::LEFT;
+    int ret = map->left(map::Status::TANK, pos);
+    if (ret == 0)
+      pos.get_x()--;
+    return ret;
   }
   
-  void Tank::right()
+  int Tank::right()
   {
-    if (map->right(map::Status::TANK, pos) == 0)
-    {
-      pos.get_x()++;
-    }
     direction = map::Direction::RIGHT;
+    int ret = map->right(map::Status::TANK, pos);
+    if (ret == 0)
+      pos.get_x()++;
+    return ret;
   }
   
-  void Tank::fire()
+  int Tank::fire()
   {
     map::Pos bullet_pos = get_pos();
     switch (get_direction())
@@ -92,11 +92,13 @@ namespace czh::tank
         bullet_pos.get_x() += info.bullet.circle + 1;
         break;
     }
-    if (map->add_bullet(bullet_pos) == 0)
+    int ret = map->add_bullet(bullet_pos);
+    if (ret == 0)
     {
       bullets->emplace_back(
           bullet::Bullet(info.bullet, map, shared_from_this(), bullet_pos, get_direction()));
     }
+    return ret;
   }
   
   [[nodiscard]]bool Tank::is_auto() const
@@ -329,7 +331,6 @@ namespace czh::tank
   void AutoTank::target(std::size_t target_id_, const map::Pos &target_pos_)
   {
     found = false;
-    correct_direction = false;
     target_id = target_id_;
     target_pos = target_pos_;
     std::multimap<int, Node> open_list;
@@ -412,44 +413,51 @@ namespace czh::tank
     {
       return AutoTankEvent::PASS;
     }
-    if (++count < 10 - info.level)
+    if (++level_speedctl_count < 10 - info.level)
     {
       return AutoTankEvent::PASS;
     }
     else
     {
-      count = 0;
+      level_speedctl_count = 0;
     }
-    
+  
+    if (got_stuck_in_its_way)
+    {
+      if (waypos != 0) --waypos;
+      return AutoTankEvent::FIRE;
+    }
+  
     if (waypos < way.size())
     {
       auto ret = way[waypos];
       ++waypos;
       return ret;
     }
-    else if (!correct_direction)
-    {
-      correct_direction = true;
-      int x = (int) get_pos().get_x() - (int) target_pos.get_x();
-      int y = (int) get_pos().get_y() - (int) target_pos.get_y();
-      if (x > 0)
-      {
-        get_direction() = map::Direction::LEFT;
-      }
-      else if (x < 0)
-      {
-        get_direction() = map::Direction::RIGHT;
-      }
-      else if (y < 0)
-      {
-        get_direction() = map::Direction::UP;
-      }
-      else if (y > 0)
-      {
-        get_direction() = map::Direction::DOWN;
-      }
-    }
+    correct_direction();
     return AutoTankEvent::FIRE;
+  }
+  
+  void AutoTank::correct_direction()
+  {
+    int x = (int) get_pos().get_x() - (int) target_pos.get_x();
+    int y = (int) get_pos().get_y() - (int) target_pos.get_y();
+    if (x > 0)
+    {
+      get_direction() = map::Direction::LEFT;
+    }
+    else if (x < 0)
+    {
+      get_direction() = map::Direction::RIGHT;
+    }
+    else if (y < 0)
+    {
+      get_direction() = map::Direction::UP;
+    }
+    else if (y > 0)
+    {
+      get_direction() = map::Direction::DOWN;
+    }
   }
   
   std::size_t &AutoTank::get_target_id()
@@ -467,11 +475,18 @@ namespace czh::tank
     return found;
   }
   
-  bool &AutoTank::has_arrived()
+  bool AutoTank::has_arrived()
   {
-    return correct_direction;
+    return waypos == way.size();
   }
-  
+  void AutoTank::stuck()
+  {
+    got_stuck_in_its_way = true;
+  }
+  void AutoTank::no_stuck()
+  {
+    got_stuck_in_its_way = false;
+  }
   [[nodiscard]]std::size_t AutoTank::get_level() const
   {
     return info.level;
