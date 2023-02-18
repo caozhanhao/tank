@@ -50,13 +50,12 @@ namespace czh::game
   
   std::size_t Game::add_tank()
   {
-    std::size_t id = tanks.size();
-    id_index[id] = tanks.size();
+    id_index[next_id] = tanks.size();
     tanks.insert(tanks.cend(), std::make_shared<tank::NormalTank>
         (info::TankInfo{
              .max_blood = 300,
-             .name = "Tank " + std::to_string(id),
-             .id = id,
+             .name = "Tank " + std::to_string(next_id),
+             .id = next_id,
              .type = info::TankType::NORMAL,
              .bullet =
              info::BulletInfo
@@ -69,19 +68,19 @@ namespace czh::game
          map, bullets, get_random_pos()));
     ++nalive_tank;
     ++clients;
-    return id;
+    ++next_id;
+    return next_id - 1;
   }
   
   std::size_t Game::add_auto_tank(std::size_t level)
   {
-    std::size_t id = tanks.size();
-    id_index[id] = tanks.size();
+    id_index[next_id] = tanks.size();
     tanks.emplace_back(
         std::make_shared<tank::AutoTank>(
             info::TankInfo{
                 .max_blood = static_cast<int>((11 - level) * 100),
-                .name = "AutoTank " + std::to_string(id),
-                .id = id,
+                .name = "AutoTank " + std::to_string(next_id),
+                .id = next_id,
                 .level = level,
                 .type = info::TankType::AUTO,
                 .bullet =
@@ -93,7 +92,8 @@ namespace czh::game
                         .range = 10000
                     }}, map, bullets, get_random_pos()));
     ++nalive_tank;
-    return id;
+    ++next_id;
+    return next_id - 1;
   }
   
   Game &Game::revive(std::size_t id)

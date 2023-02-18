@@ -49,7 +49,9 @@ namespace czh::game
     std::vector<std::pair<std::size_t, tank::NormalTankEvent>> normal_tank_events;
     bool running;
     std::size_t nalive_tank;
+    size_t next_id;
     std::map<std::size_t, std::size_t> id_index;
+    
     bool as_server;
     size_t curr_changes_apply;
     size_t clients;
@@ -59,7 +61,7 @@ namespace czh::game
              map(std::make_shared<map::Map>((screen_height - 1) % 2 == 0 ? screen_height - 2 : screen_height - 1,
                                             screen_width % 2 == 0 ? screen_width - 1 : screen_width)),
              bullets(std::make_shared<std::vector<bullet::Bullet>>()),
-             curr_changes_apply(0), clients(0) {}
+             curr_changes_apply(0), clients(0), next_id(0) {}
   
     void enable_server();
   
