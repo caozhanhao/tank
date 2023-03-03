@@ -1,10 +1,7 @@
 # tank
 
-A C++ multi & single player game
-
-- the multi-player part is unfinished.
+A C++ game
 
 ### Dependencies
 
-- [qwrpc](https://github.com/caozhanhao/qwrpc)
 - Requires C++ 20

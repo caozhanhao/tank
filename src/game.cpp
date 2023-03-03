@@ -11,6 +11,7 @@
 //   WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 //   See the License for the specific language governing permissions and
 //   limitations under the License.
+#include "internal/cmd_parser.h"
 #include "internal/info.h"
 #include "internal/tank.h"
 #include "internal/term.h"
@@ -29,10 +30,6 @@ namespace czh::game
   {
     if(!a)
       throw std::runtime_error(err);
-  }
-  void Game::enable_server()
-  {
-    as_server = true;
   }
   
   std::vector<map::Change> Game::get_changes()
@@ -419,10 +416,6 @@ namespace czh::game
         {
           update(p.get_pos());
         }
-        if (!as_server)
-        {
-          map->clear_changes();
-        }
       }
     }
       //tank status
@@ -508,345 +501,340 @@ namespace czh::game
   
   void Game::run_command(const std::string &str)
   {
-    std::vector<std::string> args{""};
-    auto curr = args.begin();
     output_inited = false;
     paint();
-    if (str.size() == 0) return;
-    for (auto &r: str)
-    {
-      if (r == ' ')
-      {
-        curr = args.insert(args.end(), "");
-        continue;
-      }
-      *curr += r;
-    }
-    bool failed = false;
-    auto parse_int = [&args, &failed](size_t pos) -> int
-    {
-      if (pos >= args.size())
-      {
-        CZH_NOTICE("Needs at least " + std::to_string(pos) + " argument(s).");
-        failed = true;
-        return -1;
-      }
-      int ret;
-      try
-      {
-        ret = std::stoi(args[pos]);
-      }
-      catch (...)
-      {
-        CZH_NOTICE("The " + std::to_string(pos) + "th arguments needs to be int.");
-        failed = true;
-        return -1;
-      }
-      return ret;
-    };
-    if (args[0] == "quit")
-    {
-      term::move_cursor({0, map->get_height() + 1});
-      term::output("\033[?25h");
-      CZH_NOTICE("Quitting.");
-      std::exit(0);
-    }
-    else if (args[0] == "tp")
-    {
-      if (args.size() != 3 && args.size() != 4)
-      {
-        CZH_NOTICE("Needs exactly 2 or 3 arguments.");
-        return;
-      }
-      int id = parse_int(1);
-      if (failed) return;
-      if (id_at(id) == nullptr || !id_at(id)->is_alive())
-      {
-        CZH_NOTICE("Invalid arguments");
-        return;
-      }
-      map::Pos from_pos = id_at(id)->get_pos();
-      map::Pos to_pos;
-      auto check = [this](const map::Pos& p)
-      {return map->check_pos(p) && !map->has(map::Status::WALL, p) && !map->has(map::Status::TANK, p);};
-      if(args.size() == 3)
-      {
-        int to_id = parse_int(2);
-        if (failed) return;
-        if (id_at(to_id) == nullptr || !id_at(to_id)->is_alive())
-        {
-          CZH_NOTICE("Invalid arguments");
-          return;
-        }
-        auto pos = id_at(to_id)->get_pos();
   
-        map::Pos pos_up(pos.get_x(), pos.get_y() + 1);
-        if (check(pos_up)) to_pos = pos_up;
-        map::Pos pos_down(pos.get_x(), pos.get_y() - 1);
-        if (check(pos_down)) to_pos = pos_down;
-        map::Pos pos_left(pos.get_x() - 1, pos.get_y());
-        if (check(pos_left)) to_pos = pos_left;
-        map::Pos pos_right(pos.get_x() + 1, pos.get_y());
-        if (check(pos_right)) to_pos = pos_right;
+    auto[name, args_internal] = cmd::parse(str);
+  
+    try
+    {
+      if (name == "quit")
+      {
+        term::move_cursor({0, map->get_height() + 1});
+        term::output("\033[?25h");
+        CZH_NOTICE("Quitting.");
+        std::exit(0);
+      }
+      else if (name == "tp")
+      {
+        int id = -1;
+        map::Pos to_pos;
+        auto check = [this](const map::Pos &p)
+        {
+          return map->check_pos(p) && !map->has(map::Status::WALL, p) && !map->has(map::Status::TANK, p);
+        };
+      
+        if (cmd::args_is<int, int>(args_internal))
+        {
+          auto args = cmd::args_get<int, int>(args_internal);
+          id = std::get<0>(args);
+          int to_id = std::get<1>(args);
+          if (id_at(to_id) == nullptr || !id_at(to_id)->is_alive())
+          {
+            CZH_NOTICE("Invalid target tank.");
+            return;
+          }
+          auto pos = id_at(to_id)->get_pos();
+          map::Pos pos_up(pos.get_x(), pos.get_y() + 1);
+          if (check(pos_up)) to_pos = pos_up;
+          map::Pos pos_down(pos.get_x(), pos.get_y() - 1);
+          if (check(pos_down)) to_pos = pos_down;
+          map::Pos pos_left(pos.get_x() - 1, pos.get_y());
+          if (check(pos_left)) to_pos = pos_left;
+          map::Pos pos_right(pos.get_x() + 1, pos.get_y());
+          if (check(pos_right)) to_pos = pos_right;
+          else
+          {
+            CZH_NOTICE("Target pos has no space.");
+            return;
+          }
+        }
+        else if (cmd::args_is<int, int, int>(args_internal))
+        {
+          auto args = cmd::args_get<int, int, int>(args_internal);
+          id = std::get<0>(args);
+          to_pos.get_x() = std::get<1>(args);
+          to_pos.get_y() = std::get<2>(args);
+          if (!check(to_pos))
+          {
+            CZH_NOTICE("Target pos has no space.");
+            return;
+          }
+        }
         else
         {
-          CZH_NOTICE("Target pos has no space.");
-          return;
-        }
-      }
-      else
-      {
-        int x = parse_int(2);
-        if (failed) return;
-        int y = parse_int(3);
-        if (failed) return;
-        to_pos.get_x() = x;
-        to_pos.get_y() = y;
-        if(!check(to_pos))
-        {
-          CZH_NOTICE("Target pos has no space.");
-          return;
-        }
-      }
-      map->remove_status(map::Status::TANK, from_pos);
-      map->add_tank(to_pos);
-      id_at(id)->get_pos() = to_pos;
-      CZH_NOTICE(id_at(id)->get_name() + " has been teleported to ("
-      + std::to_string(to_pos.get_x()) + ","  + std::to_string(to_pos.get_y()) + ").");
-      return;
-    }
-    else if (args[0] == "revive")
-    {
-      if (args.size() == 1)
-      {
-        for (auto &r: tanks)
-        {
-          if (!r->is_alive()) revive(r->get_id());
-        }
-        CZH_NOTICE("Revived all tanks.");
-        return;
-      }
-      else
-      {
-        int id = parse_int(1);
-        if (failed) return;
-        if (id_at(id) == nullptr)
-        {
           CZH_NOTICE("Invalid arguments");
           return;
         }
-        revive(id);
-        CZH_NOTICE(id_at(id)->get_name() + " revived.");
-        return;
-      }
-    }
-    else if (args[0] == "summon")
-    {
-      if (args.size() != 3)
-      {
-        CZH_NOTICE("Need exactly two argument.");
-        return;
-      }
-      int num = parse_int(1);
-      if (failed) return;
-      int lvl = parse_int(2);
-      if (failed) return;
-      if(num <= 0 || lvl > 10 || lvl < 1)
-      {
-        CZH_NOTICE("Invalid arguments.");
-        return;
-      }
-      for(size_t i = 0; i < num; ++i)
-        add_auto_tank(lvl);
-      CZH_NOTICE("Added " + std::to_string(num) + " AutoTanks, Level: " + std::to_string(lvl) + ".");
-      return;
-    }
-    else if (args[0] == "kill")
-    {
-      if (args.size() == 1)
-      {
-        for (auto &r: tanks)
+      
+        if (id_at(id) == nullptr || !id_at(id)->is_alive())
         {
-          if (r->is_alive()) r->kill();
+          CZH_NOTICE("Invalid tank");
+          return;
         }
-        clear_death();
-        CZH_NOTICE("Killed all tanks.");
+      
+        map->remove_status(map::Status::TANK, id_at(id)->get_pos());
+        map->add_tank(to_pos);
+        id_at(id)->get_pos() = to_pos;
+        CZH_NOTICE(id_at(id)->get_name() + " has been teleported to ("
+                   + std::to_string(to_pos.get_x()) + "," + std::to_string(to_pos.get_y()) + ").");
         return;
       }
-      else
+      else if (name == "revive")
       {
-        int id = parse_int(1);
-        if (failed) return;
-        if (id_at(id) == nullptr)
+        if (args_internal.empty())
+        {
+          for (auto &r: tanks)
+          {
+            if (!r->is_alive()) revive(r->get_id());
+          }
+          CZH_NOTICE("Revived all tanks.");
+          return;
+        }
+        else
+        {
+          auto[id] = cmd::args_get<int>(args_internal);
+          if (id_at(id) == nullptr)
+          {
+            CZH_NOTICE("Invalid tank");
+            return;
+          }
+          revive(id);
+          CZH_NOTICE(id_at(id)->get_name() + " revived.");
+          return;
+        }
+      }
+      else if (name == "summon")
+      {
+        auto[num, lvl] = cmd::args_get<int, int>(args_internal);
+        if (num <= 0 || lvl > 10 || lvl < 1)
+        {
+          CZH_NOTICE("Invalid num/lvl.");
+          return;
+        }
+        for (size_t i = 0; i < num; ++i)
+          add_auto_tank(lvl);
+        CZH_NOTICE("Added " + std::to_string(num) + " AutoTanks, Level: " + std::to_string(lvl) + ".");
+        return;
+      }
+      else if (name == "kill")
+      {
+        if (args_internal.empty())
+        {
+          for (auto &r: tanks)
+          {
+            if (r->is_alive()) r->kill();
+          }
+          clear_death();
+          CZH_NOTICE("Killed all tanks.");
+          return;
+        }
+        else
+        {
+          auto[id] = cmd::args_get<int>(args_internal);
+          if (id_at(id) == nullptr)
+          {
+            CZH_NOTICE("Invalid tank.");
+            return;
+          }
+          id_at(id)->kill();
+          clear_death();
+          CZH_NOTICE(id_at(id)->get_name() + " has been killed.");
+          return;
+        }
+      }
+      else if (name == "clear")
+      {
+        if (args_internal.empty())
+        {
+          for (auto &r: *bullets)
+          {
+            if (r.get_from()->is_auto())
+              r.kill();
+          }
+          for (auto &r: tanks)
+          {
+            if (r->is_auto())
+            {
+              r->kill();
+            }
+          }
+          clear_death();
+          tanks.erase(std::remove_if(tanks.begin(), tanks.end(), [](auto &&i) { return i->is_auto(); }), tanks.end());
+          id_index.clear();
+          CZH_NOTICE("Cleared all tanks.");
+        }
+        else if (cmd::args_is<std::string>(args_internal))
+        {
+          auto[d] = cmd::args_get<std::string>(args_internal);
+          if (d == "death")
+          {
+            for (auto &r: *bullets)
+            {
+              if (r.get_from()->is_auto() && !r.get_from()->is_alive())
+                r.kill();
+            }
+            for (auto &r: tanks)
+            {
+              if (r->is_auto() && !r->is_alive())
+                r->kill();
+            }
+            clear_death();
+            tanks.erase(
+                std::remove_if(tanks.begin(), tanks.end(), [](auto &&i) { return i->is_auto() && !i->is_alive(); }),
+                tanks.end());
+            id_index.clear();
+            CZH_NOTICE("Cleared all died tanks.");
+          }
+          else
+          {
+            CZH_NOTICE("Invalid arguments.");
+            return;
+          }
+        }
+        else
+        {
+          auto[id] = cmd::args_get<int>(args_internal);
+          if (id_at(id) == nullptr || id == 0)
+          {
+            CZH_NOTICE("Invalid tank.");
+            return;
+          }
+          for (auto &r: *bullets)
+          {
+            if (r.get_from()->get_id() == id)
+            {
+              r.kill();
+            }
+          }
+          id_at(id)->kill();
+          clear_death();
+          tanks.erase(tanks.begin() + id);
+          id_index.erase(id);
+          CZH_NOTICE("ID: " + std::to_string(id) + " was cleared.");
+        }
+        // make index
+        for (size_t i = 0; i < tanks.size(); ++i)
+        {
+          id_index[tanks[i]->get_id()] = i;
+        }
+      }
+      else if (name == "set")
+      {
+        if (cmd::args_is<int, std::string, int>(args_internal))
+        {
+          auto[id, key, value] = cmd::args_get<int, std::string, int>(args_internal);
+          if (id_at(id) == nullptr)
+          {
+            CZH_NOTICE("Invalid tank");
+            return;
+          }
+          if (key == "max_blood")
+          {
+            id_at(id)->get_info().max_blood = value;
+            CZH_NOTICE("The max_blood of " + id_at(id)->get_name()
+                       + " has been set for " + std::to_string(value) + ".");
+            return;
+          }
+          else if (key == "blood")
+          {
+            if (!id_at(id)->is_alive()) revive(id);
+            id_at(id)->get_blood() = value;
+            CZH_NOTICE("The blood of " + id_at(id)->get_name()
+                       + " has been set for " + std::to_string(value) + ".");
+            return;
+          }
+          else
+          {
+            CZH_NOTICE("Invalid option.");
+            return;
+          }
+        }
+        else if (cmd::args_is<int, std::string, std::string>(args_internal))
+        {
+          auto[id, key, value] = cmd::args_get<int, std::string, std::string>(args_internal);
+          if (id_at(id) == nullptr)
+          {
+            CZH_NOTICE("Invalid tank");
+            return;
+          }
+          if (key == "name")
+          {
+            std::string old_name = id_at(id)->get_name();
+            id_at(id)->get_name() = value;
+            CZH_NOTICE("The name of " + old_name
+                       + " has been set for '" + id_at(id)->get_name() + "'.");
+            return;
+          }
+          else
+          {
+            CZH_NOTICE("Invalid option.");
+            return;
+          }
+        }
+        else if (cmd::args_is<int, std::string, std::string, int>(args_internal))
+        {
+          auto[id, bullet, key, value] = cmd::args_get<int, std::string, std::string, int>(args_internal);
+          if (id_at(id) == nullptr)
+          {
+            CZH_NOTICE("Invalid tank");
+            return;
+          }
+          if (bullet != "bullet")
+          {
+            CZH_NOTICE("Invalid option.");
+            return;
+          }
+          if (key == "blood")
+          {
+            id_at(id)->get_info().bullet.blood = value;
+            CZH_NOTICE("The bullet blood of " + id_at(id)->get_name()
+                       + " has been set for " + std::to_string(value) + ".");
+            return;
+          }
+          else if (key == "lethality")
+          {
+            id_at(id)->get_info().bullet.lethality = value;
+            CZH_NOTICE("The bullet lethality of " + id_at(id)->get_name()
+                       + " has been set for " + std::to_string(value) + ".");
+            return;
+          }
+          else if (key == "circle")
+          {
+            id_at(id)->get_info().bullet.circle = value;
+            CZH_NOTICE("The bullet circle of " + id_at(id)->get_name()
+                       + " has been set for " + std::to_string(value) + ".");
+            return;
+          }
+          else if (key == "range")
+          {
+            id_at(id)->get_info().bullet.range = value;
+            CZH_NOTICE("The bullet range of " + id_at(id)->get_name()
+                       + " has been set for " + std::to_string(value) + ".");
+            return;
+          }
+          else
+          {
+            CZH_NOTICE("Invalid bullet option.");
+            return;
+          }
+        }
+        else
         {
           CZH_NOTICE("Invalid arguments.");
           return;
         }
-        id_at(id)->kill();
-        clear_death();
-        CZH_NOTICE(id_at(id)->get_name() + " has been killed.");
-        return;
-      }
-    }
-    else if (args[0] == "clear")
-    {
-      if (args.size() == 1)
-      {
-        for (auto &r: *bullets)
-        {
-          if(r.get_from()->is_auto())
-            r.kill();
-        }
-        for (auto &r: tanks)
-        {
-          if (r->is_auto())
-          {
-            r->kill();
-          }
-        }
-        clear_death();
-        tanks.erase(std::remove_if(tanks.begin(), tanks.end(), [](auto &&i) { return i->is_auto(); }), tanks.end());
-        id_index.clear();
-        CZH_NOTICE("Cleared all tanks.");
-      }
-      else if(args.size() == 2 && args[1] == "death")
-      {
-        for (auto &r: *bullets)
-        {
-          if(r.get_from()->is_auto() && !r.get_from()->is_alive())
-            r.kill();
-        }
-        for (auto &r: tanks)
-        {
-          if (r->is_auto() && !r->is_alive())
-            r->kill();
-        }
-        clear_death();
-        tanks.erase(std::remove_if(tanks.begin(), tanks.end(), [](auto &&i) { return i->is_auto() && !i->is_alive(); }), tanks.end());
-        id_index.clear();
-        CZH_NOTICE("Cleared all died tanks.");
       }
       else
       {
-        int id = parse_int(1);
-        if (failed) return;
-        if (id_at(id) == nullptr || id == 0)
-        {
-          CZH_NOTICE("Invalid arguments");
-          return;
-        }
-        for (auto &r: *bullets)
-        {
-          if (r.get_from()->get_id() == id)
-          {
-            r.kill();
-          }
-        }
-        id_at(id)->kill();
-        clear_death();
-        tanks.erase(tanks.begin() + id);
-        id_index.erase(id);
-        CZH_NOTICE("ID: " + std::to_string(id) + " was cleared.");
-      }
-      // make index
-      for (size_t i = 0; i < tanks.size(); ++i)
-      {
-        id_index[tanks[i]->get_id()] = i;
-      }
-    }
-    else if (args[0] == "set")
-    {
-      if (args.size() < 4)
-      {
-        CZH_NOTICE("Needs at least 3 arguments.");
-        return;
-      }
-      int id = parse_int(1);
-      if (failed) return;
-      if (id_at(id) == nullptr)
-      {
-        CZH_NOTICE("Invalid arguments");
-        return;
-      }
-      if (args[2] == "bullet")
-      {
-        if (args.size() != 5)
-        {
-          CZH_NOTICE("Needs key or value");
-          return;
-        }
-        int value = parse_int(4);
-        if (failed) return;
-        if (args[3] == "blood")
-        {
-          id_at(id)->get_info().bullet.blood = value;
-          CZH_NOTICE("The bullet blood of " + id_at(id)->get_name()
-                     + " has been set for " + std::to_string(value) + ".");
-          return;
-        }
-        else if (args[3] == "lethality")
-        {
-          id_at(id)->get_info().bullet.lethality = value;
-          CZH_NOTICE("The bullet lethality of " + id_at(id)->get_name()
-                     + " has been set for " + std::to_string(value) + ".");
-          return;
-        }
-        else if (args[3] == "circle")
-        {
-          id_at(id)->get_info().bullet.circle = value;
-          CZH_NOTICE("The bullet circle of " + id_at(id)->get_name()
-                     + " has been set for " + std::to_string(value) + ".");
-          return;
-        }
-        else if (args[3] == "range")
-        {
-          id_at(id)->get_info().bullet.range = value;
-          CZH_NOTICE("The bullet range of " + id_at(id)->get_name()
-                     + " has been set for " + std::to_string(value) + ".");
-          return;
-        }
-        else
-        {
-          CZH_NOTICE("Invalid option.");
-          return;
-        }
-      }
-      else if (args[2] == "max_blood")
-      {
-        int value = parse_int(3);
-        if (failed) return;
-        id_at(id)->get_info().max_blood = value;
-        CZH_NOTICE("The max_blood of " + id_at(id)->get_name()
-                   + " has been set for " + std::to_string(value) + ".");
-        return;
-      }
-      else if (args[2] == "blood")
-      {
-        int value = parse_int(3);
-        if (failed) return;
-        if(!id_at(id)->is_alive()) revive(id);
-        id_at(id)->get_blood() = value;
-        CZH_NOTICE("The blood of " + id_at(id)->get_name()
-                   + " has been set for " + std::to_string(value) + ".");
-        return;
-      }
-      else if (args[2] == "name")
-      {
-        std::string old_name = id_at(id)->get_name();
-        id_at(id)->get_name() = args[3];
-        CZH_NOTICE("The name of " + old_name
-                   + " has been set for '" + id_at(id)->get_name() + "'.");
-        return;
-      }
-      else
-      {
-        CZH_NOTICE("Invalid option.");
+        CZH_NOTICE("Invalid command.");
         return;
       }
     }
-    else
+    catch (std::runtime_error &err)
     {
-      CZH_NOTICE("Invalid command.");
+      if (err.what() != "Get wrong type.") throw err;
+      CZH_NOTICE("Invalid arguments.");
       return;
     }
   }
