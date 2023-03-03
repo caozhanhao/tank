@@ -177,7 +177,7 @@ namespace czh::map
     return at(pos).has(status);
   }
   
-  bool Map::count(const Status &status, const Pos &pos) const
+  int Map::count(const Status &status, const Pos &pos) const
   {
     return at(pos).count(status);
   }

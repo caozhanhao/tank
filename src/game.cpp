@@ -250,7 +250,7 @@ namespace czh::game
     //conflict
     for (auto it = bullets->begin(); it < bullets->end(); ++it)
     {
-      if (map->count(map::Status::BULLET, it->get_pos()) > 1
+      if ((map->count(map::Status::BULLET, it->get_pos()) > 1)
           || map->has(map::Status::TANK, it->get_pos()))
       {
         conflict = true;

@@ -125,7 +125,7 @@ namespace czh::map
     
     bool has(const Status &status, const Pos &pos) const;
     
-    bool count(const Status &status, const Pos &pos) const;
+    int count(const Status &status, const Pos &pos) const;
     
     void attacked(int l, const Pos &pos);
     
