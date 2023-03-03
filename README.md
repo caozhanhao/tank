@@ -12,8 +12,9 @@ A C++ game.
 #### Rules:
 User's Tank:
 - Blood: 500
-- Lethality: 120
-Auto Tank:
+- Lethality: 120   
+
+Auto Tank:  
 - Blood: (11 - level) * 100
 - Lethality: (11 - level) * 10
 - The higher level, the faster it moves and attack.
