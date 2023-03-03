@@ -125,9 +125,4 @@ namespace czh::bullet
   {
     return info.lethality;
   }
-  
-  [[nodiscard]] int Bullet::get_circle() const
-  {
-    return info.circle;
-  }
 }

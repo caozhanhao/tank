@@ -38,24 +38,14 @@ namespace czh::map
     statuses.erase(std::remove(statuses.begin(), statuses.end(), status), statuses.end());
   }
   
+  void Point::remove_all_statuses()
+  {
+    statuses.clear();
+  }
+  
   [[nodiscard]] bool Point::has(const Status &status) const
   {
     return (std::find(statuses.cbegin(), statuses.cend(), status) != statuses.cend());
-  }
-  
-  void Point::attacked(int lethality_)
-  {
-    lethality += lethality_;
-  }
-  
-  [[nodiscard]]int Point::get_lethality() const
-  {
-    return lethality;
-  }
-  
-  void Point::remove_lethality()
-  {
-    lethality = 0;
   }
   
   [[nodiscard]]std::size_t Point::count(const Status &status) const
@@ -182,21 +172,6 @@ namespace czh::map
     return at(pos).count(status);
   }
   
-  void Map::attacked(int l, const Pos &pos)
-  {
-    at(pos).attacked(l);
-  }
-  
-  int Map::get_lethality(const Pos &pos) const
-  {
-    return at(pos).get_lethality();
-  }
-  
-  void Map::remove_lethality(const Pos &pos)
-  {
-    at(pos).remove_lethality();
-  }
-  
   const std::vector<Change> &Map::get_changes() const { return changes; };
   
   void Map::clear_changes() { changes.clear(); };
@@ -284,6 +259,45 @@ namespace czh::map
         map[i][j].remove_status(Status::WALL);
       }
     }
+  }
+  
+  
+  void Map::clear_maze()
+  {
+    for (size_t i = 1; i < width - 1; ++i)
+    {
+      for (size_t j = 1; j < height - 1; ++j)
+      {
+        if(map[i][j].has(Status::WALL))
+        {
+          map[i][j].remove_status(Status::WALL);
+          changes.emplace_back(Pos{i, j});
+        }
+      }
+    }
+  }
+  
+  int Map::fill(const Pos& from, const Pos& to, const Status& status)
+  {
+    if (!check_pos(from) || !check_pos(to))
+      return -1;
+  
+    size_t bx = std::max(from.get_x(), to.get_x());
+    size_t sx = std::min(from.get_x(), to.get_x());
+    size_t by = std::max(from.get_y(), to.get_y());
+    size_t sy = std::min(from.get_y(), to.get_y());
+  
+    for (size_t i = sx; i <= bx; ++i)
+    {
+      for (size_t j = sy; j <= by; ++j)
+      {
+        map[i][j].remove_all_statuses();
+        if(status != Status::END)
+          map[i][j].add_status(status);
+        changes.emplace_back(Pos{i, j});
+      }
+    }
+    return 0;
   }
   
   int Map::move(const Status &status, const Pos &pos, int direction)

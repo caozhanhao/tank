@@ -80,16 +80,16 @@ namespace czh::tank
     switch (get_direction())
     {
       case map::Direction::UP:
-        bullet_pos.get_y() += info.bullet.circle + 1;
+        bullet_pos.get_y()++;
         break;
       case map::Direction::DOWN:
-        bullet_pos.get_y() -= info.bullet.circle + 1;
+        bullet_pos.get_y()--;
         break;
       case map::Direction::LEFT:
-        bullet_pos.get_x() -= info.bullet.circle + 1;
+        bullet_pos.get_x()--;
         break;
       case map::Direction::RIGHT:
-        bullet_pos.get_x() += info.bullet.circle + 1;
+        bullet_pos.get_x()++;
         break;
     }
     int ret = map->add_bullet(bullet_pos);
@@ -187,7 +187,7 @@ namespace czh::tank
   std::string Tank::colorify_text(const std::string &str)
   {
     std::string ret = "\033[0;";
-    ret += std::to_string(info.id % 7 + 32);
+    ret += std::to_string(info.id % 6 + 32);
     ret += "m";
     ret += str;
     ret += "\033[0m";
@@ -197,7 +197,7 @@ namespace czh::tank
   std::string Tank::colorify_tank()
   {
     std::string ret = "\033[0;";
-    ret += std::to_string(info.id % 7 + 42);
+    ret += std::to_string(info.id % 6 + 42);
     ret += ";36m";
     ret += " \033[0m";
     return ret;
@@ -335,6 +335,7 @@ namespace czh::tank
     target_pos = target_pos_;
     std::multimap<int, Node> open_list;
     std::map<map::Pos, Node> close_list;
+    // fire_line
     std::set<map::Pos> fire_line;
     for (int i = 0; i <= target_pos.get_x(); ++i)
     {
@@ -352,8 +353,16 @@ namespace czh::tank
         fire_line.insert(tmp);
       }
     }
+  
+    destination_pos = *std::min_element(fire_line.begin(), fire_line.end(),
+                                  [this](auto&& a, auto&& b)
+                                  {
+                                    return map::get_distance(a, pos) < map::get_distance(b, pos);
+                                  });
+    
+    
     Node beg(get_pos(), 0, {0, 0}, true);
-    open_list.insert({beg.get_F(target_pos), beg});
+    open_list.insert({beg.get_F(destination_pos), beg});
     while (!open_list.empty())
     {
       auto it = open_list.begin();
@@ -371,7 +380,7 @@ namespace czh::tank
                                 });
         if (oit == open_list.end())
         {
-          open_list.insert({node.get_F(target_pos), node});
+          open_list.insert({node.get_F(destination_pos), node});
         }
         else
         {
@@ -379,7 +388,7 @@ namespace czh::tank
           {
             oit->second.get_G() = node.get_G() + 10;
             oit->second.get_last() = node.get_pos();
-            int F = oit->second.get_F(target_pos);
+            int F = oit->second.get_F(destination_pos);
             auto n = open_list.extract(oit);
             n.key() = F;
             open_list.insert(std::move(n));
@@ -427,7 +436,7 @@ namespace czh::tank
       if (waypos != 0) --waypos;
       return AutoTankEvent::FIRE;
     }
-  
+    
     if (waypos < way.size())
     {
       auto ret = way[waypos];
@@ -463,11 +472,6 @@ namespace czh::tank
   std::size_t &AutoTank::get_target_id()
   {
     return target_id;
-  }
-  
-  map::Pos &AutoTank::get_target_pos()
-  {
-    return target_pos;
   }
   
   [[nodiscard]]bool AutoTank::get_found() const

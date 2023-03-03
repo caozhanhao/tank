@@ -34,13 +34,16 @@ namespace czh::cmd
       bool is_int = true;
       while (!std::isspace(*it) && it < cmd.end())
       {
-        if(!std::isdigit(*it)) is_int = false;
+        if(!std::isdigit(*it) && *it != '+' && *it != '-') is_int = false;
         temp += *it++;
       }
-      if(is_int)
-        args.emplace_back(std::stoi(temp));
-      else
-        args.emplace_back(temp);
+      if(!temp.empty())
+      {
+        if (is_int)
+          args.emplace_back(std::stoi(temp));
+        else
+          args.emplace_back(temp);
+      }
     }
     return {name, args};
   }

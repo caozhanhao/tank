@@ -26,7 +26,7 @@ namespace czh::map
   
   enum class Status
   {
-    WALL, TANK, BULLET
+    WALL, TANK, BULLET, END
   };
   enum class Direction
   {
@@ -37,19 +37,12 @@ namespace czh::map
   {
   private:
     std::vector<Status> statuses;
-    int lethality;
   public:
     void add_status(const Status &status);
     
     void remove_status(const Status &status);
-    
+    void remove_all_statuses();
     [[nodiscard]] bool has(const Status &status) const;
-    
-    void attacked(int lethality_);
-    
-    [[nodiscard]]int get_lethality() const;
-    
-    void remove_lethality();
     
     [[nodiscard]]std::size_t count(const Status &status) const;
   };
@@ -127,21 +120,18 @@ namespace czh::map
     
     int count(const Status &status, const Pos &pos) const;
     
-    void attacked(int l, const Pos &pos);
-    
-    int get_lethality(const Pos &pos) const;
-    
-    void remove_lethality(const Pos &pos);
-    
     const std::vector<Change> &get_changes() const;
     
     void clear_changes();
   
+    void clear_maze();
+  
+    int fill(const Pos& from, const Pos& to, const Status& status = Status::END);
   private:
     Point &at(const Pos &i);
     
     const Point &at(const Pos &i) const;
-    
+  
     void make_maze();
     
     void add_space();

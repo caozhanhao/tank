@@ -22,7 +22,6 @@ namespace czh::info
   {
     int blood;
     int lethality;
-    int circle;
     int range;
   };
   enum class TankType

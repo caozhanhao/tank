@@ -157,6 +157,7 @@ namespace czh::tank
   private:
     std::size_t target_id;
     map::Pos target_pos;
+    map::Pos destination_pos;
     
     std::vector<AutoTankEvent> way;
     std::size_t waypos;
@@ -178,8 +179,6 @@ namespace czh::tank
     
     std::size_t &get_target_id();
     
-    map::Pos &get_target_pos();
-  
     void correct_direction();
     void stuck();
     void no_stuck();

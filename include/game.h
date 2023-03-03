@@ -50,21 +50,13 @@ namespace czh::game
     bool running;
     size_t next_id;
     std::map<std::size_t, std::size_t> id_index;
-    
-    size_t curr_changes_apply;
-    size_t clients;
   public:
     Game() : output_inited(false), running(true),
              screen_height(term::get_height()), screen_width(term::get_width()),
              map(std::make_shared<map::Map>((screen_height - 1) % 2 == 0 ? screen_height - 2 : screen_height - 1,
                                             screen_width % 2 == 0 ? screen_width - 1 : screen_width)),
              bullets(std::make_shared<std::vector<bullet::Bullet>>()),
-             curr_changes_apply(0), clients(0), next_id(0) {}
-  
-    std::vector<map::Change> get_changes();
-  
-    void changes_applied();
-  
+             next_id(0) {}
   
     std::size_t add_tank();
   
