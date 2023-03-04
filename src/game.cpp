@@ -238,7 +238,7 @@ namespace czh::game
               (*tank)->attacked(lethality);
               if (!(*tank)->is_alive())
               {
-                CZH_NOTICE((*tank)->get_name() + " was killed.");
+                logger::info((*tank)->get_name() + " was killed.");
                 map->remove_status(map::Status::TANK, it->get_pos());
                 (*tank)->clear();
               }
@@ -581,17 +581,23 @@ Command:
           {
             cmd_string.erase(cmd_string_pos , 1);
             --cmd_string_pos;
-            cmd_string = history[history_pos];
-            cmd_string_pos = cmd_string.size() - 1;
-            if (history_pos != 0) --history_pos;
+            if(!history.empty())
+            {
+              cmd_string = history[history_pos];
+              cmd_string_pos = cmd_string.size() - 1;
+              if (history_pos != 0) --history_pos;
+            }
           }
           else if (cmd_string[cmd_string_pos] == 2)
           {
             cmd_string.erase(cmd_string_pos , 1);
             --cmd_string_pos;
-            cmd_string = history[history_pos];
-            cmd_string_pos = cmd_string.size() - 1;
-            if (history_pos + 1 < history.size()) ++history_pos;
+            if(!history.empty())
+            {
+              cmd_string = history[history_pos];
+              cmd_string_pos = cmd_string.size() - 1;
+              if (history_pos + 1 < history.size()) ++history_pos;
+            }
           }
           else if (cmd_string[cmd_string_pos] == 4)
           {
@@ -636,7 +642,7 @@ Command:
             --cmd_string_pos;
             cmd_string_pos = cmd_string.size() - 1;
           }
-          czh::logger::output_at_bottom(cmd_string);
+          logger::output_at_bottom(cmd_string);
           output_inited = true;
         }
         break;
@@ -703,19 +709,19 @@ Command:
       }
       else if (name == "quit")
       {
-        if(!args_internal.empty())
+        if (!args_internal.empty())
         {
-          CZH_NOTICE("Invalid range.");
+          logger::error("Invalid range.");
           return;
         }
         term::move_cursor({0, map->get_height() + 1});
         term::output("\033[?25h");
-        CZH_NOTICE("Quitting.");
+        logger::info("Quitting.");
         std::exit(0);
       }
       else if (name == "reshape")
       {
-        if(args_internal.empty())
+        if (args_internal.empty())
         {
           *map = map::Map((term::get_height() - 1) % 2 == 0 ? term::get_height() - 2 : term::get_height() - 1,
                           term::get_width() % 2 == 0 ? term::get_width() - 1 : term::get_width());
@@ -727,11 +733,11 @@ Command:
                           width % 2 == 0 ? width - 1 : width);
         }
         bullets->clear();
-        for(auto& r : tanks)
+        for (auto &r: tanks)
         {
-          if(r->is_alive())
+          if (r->is_alive())
           {
-            auto pos =  get_random_pos();
+            auto pos = get_random_pos();
             r->get_pos() = pos;
             map->add_tank(pos);
           }
@@ -742,11 +748,12 @@ Command:
       }
       else if (name == "clear_maze")
       {
-        if(!args_internal.empty())
+        if (!args_internal.empty())
         {
-          CZH_NOTICE("Invalid range.");
+          logger::error("Invalid arguments.");
           return;
-        }     map->clear_maze();
+        }
+        map->clear_maze();
         return;
       }
       else if (name == "fill")
@@ -773,15 +780,15 @@ Command:
         }
         if (!map->check_pos(from) || !map->check_pos(to))
         {
-          CZH_NOTICE("Invalid range.");
+          logger::error("Invalid range.");
           return;
         }
-  
+      
         size_t bx = std::max(from.get_x(), to.get_x());
         size_t sx = std::min(from.get_x(), to.get_x());
         size_t by = std::max(from.get_y(), to.get_y());
         size_t sy = std::min(from.get_y(), to.get_y());
-        
+      
         for (size_t i = sx; i <= bx; ++i)
         {
           for (size_t j = sy; j <= by; ++j)
@@ -800,14 +807,11 @@ Command:
             }
           }
         }
-        if(is_wall)
+        if (is_wall)
           map->fill(from, to, map::Status::WALL);
         else
           map->fill(from, to);
-        CZH_NOTICE("Filled from ("
-                   + std::to_string(from.get_x()) + "," + std::to_string(from.get_y()) + ") to ("
-                   + std::to_string(to.get_x()) + "," + std::to_string(to.get_y()) + ")."
-        );
+        logger::info("Filled from (", from.get_x(), ",", from.get_y(), ") to (", to.get_x(), ",", to.get_y(), ").");
         return;
       }
       else if (name == "tp")
@@ -826,7 +830,7 @@ Command:
           int to_id = std::get<1>(args);
           if (id_at(to_id) == nullptr || !id_at(to_id)->is_alive())
           {
-            CZH_NOTICE("Invalid target tank.");
+            logger::error("Invalid target tank.");
             return;
           }
           auto pos = id_at(to_id)->get_pos();
@@ -840,7 +844,7 @@ Command:
           else if (check(pos_right)) to_pos = pos_right;
           else
           {
-            CZH_NOTICE("Target pos has no space.");
+            logger::error("Target pos has no space.");
             return;
           }
         }
@@ -852,27 +856,26 @@ Command:
           to_pos.get_y() = std::get<2>(args);
           if (!check(to_pos))
           {
-            CZH_NOTICE("Target pos has no space.");
+            logger::error("Target pos has no space.");
             return;
           }
         }
         else
         {
-          CZH_NOTICE("Invalid arguments");
+          logger::error("Invalid arguments");
           return;
         }
       
         if (id_at(id) == nullptr || !id_at(id)->is_alive())
         {
-          CZH_NOTICE("Invalid tank");
+          logger::error("Invalid tank");
           return;
         }
       
         map->remove_status(map::Status::TANK, id_at(id)->get_pos());
         map->add_tank(to_pos);
         id_at(id)->get_pos() = to_pos;
-        CZH_NOTICE(id_at(id)->get_name() + " has been teleported to ("
-                   + std::to_string(to_pos.get_x()) + "," + std::to_string(to_pos.get_y()) + ").");
+        logger::error(id_at(id)->get_name(), " has been teleported to (", to_pos.get_x(), ",", to_pos.get_y(), ").");
         return;
       }
       else if (name == "revive")
@@ -883,7 +886,7 @@ Command:
           {
             if (!r->is_alive()) revive(r->get_id());
           }
-          CZH_NOTICE("Revived all tanks.");
+          logger::info("Revived all tanks.");
           return;
         }
         else
@@ -891,11 +894,11 @@ Command:
           auto[id] = cmd::args_get<int>(args_internal);
           if (id_at(id) == nullptr)
           {
-            CZH_NOTICE("Invalid tank");
+            logger::error("Invalid tank");
             return;
           }
           revive(id);
-          CZH_NOTICE(id_at(id)->get_name() + " revived.");
+          logger::info(id_at(id)->get_name(), " revived.");
           return;
         }
       }
@@ -904,12 +907,12 @@ Command:
         auto[num, lvl] = cmd::args_get<int, int>(args_internal);
         if (num <= 0 || lvl > 10 || lvl < 1)
         {
-          CZH_NOTICE("Invalid num/lvl.");
+          logger::error("Invalid num/lvl.");
           return;
         }
         for (size_t i = 0; i < num; ++i)
           add_auto_tank(lvl);
-        CZH_NOTICE("Added " + std::to_string(num) + " AutoTanks, Level: " + std::to_string(lvl) + ".");
+        logger::info("Added ", num, " AutoTanks, Level: ", lvl, ".");
         return;
       }
       else if (name == "kill")
@@ -921,7 +924,7 @@ Command:
             if (r->is_alive()) r->kill();
           }
           clear_death();
-          CZH_NOTICE("Killed all tanks.");
+          logger::info("Killed all tanks.");
           return;
         }
         else
@@ -929,14 +932,14 @@ Command:
           auto[id] = cmd::args_get<int>(args_internal);
           if (id_at(id) == nullptr)
           {
-            CZH_NOTICE("Invalid tank.");
+            logger::error("Invalid tank.");
             return;
           }
           auto t = id_at(id);
           t->kill();
           map->remove_status(map::Status::TANK, t->get_pos());
           t->clear();
-          CZH_NOTICE(t->get_name() + " has been killed.");
+          logger::info(t->get_name(), " has been killed.");
           return;
         }
       }
@@ -959,7 +962,7 @@ Command:
           clear_death();
           tanks.erase(std::remove_if(tanks.begin(), tanks.end(), [](auto &&i) { return i->is_auto(); }), tanks.end());
           id_index.clear();
-          CZH_NOTICE("Cleared all tanks.");
+          logger::info("Cleared all tanks.");
         }
         else if (cmd::args_is<std::string>(args_internal))
         {
@@ -981,11 +984,11 @@ Command:
                 std::remove_if(tanks.begin(), tanks.end(), [](auto &&i) { return i->is_auto() && !i->is_alive(); }),
                 tanks.end());
             id_index.clear();
-            CZH_NOTICE("Cleared all died tanks.");
+            logger::info("Cleared all died tanks.");
           }
           else
           {
-            CZH_NOTICE("Invalid arguments.");
+            logger::error("Invalid arguments.");
             return;
           }
         }
@@ -994,7 +997,7 @@ Command:
           auto[id] = cmd::args_get<int>(args_internal);
           if (id_at(id) == nullptr || id == 0)
           {
-            CZH_NOTICE("Invalid tank.");
+            logger::error("Invalid tank.");
             return;
           }
           for (auto &r: *bullets)
@@ -1010,7 +1013,7 @@ Command:
           t->clear();
           tanks.erase(tanks.begin() + id);
           id_index.erase(id);
-          CZH_NOTICE("ID: " + std::to_string(id) + " was cleared.");
+          logger::info("ID: ", id, " was cleared.");
         }
         // make id_index
         for (size_t i = 0; i < tanks.size(); ++i)
@@ -1025,45 +1028,42 @@ Command:
           auto[id, key, value] = cmd::args_get<int, std::string, int>(args_internal);
           if (id_at(id) == nullptr)
           {
-            CZH_NOTICE("Invalid tank");
+            logger::error("Invalid tank");
             return;
           }
           if (key == "max_blood")
           {
             id_at(id)->get_info().max_blood = value;
-            CZH_NOTICE("The max_blood of " + id_at(id)->get_name()
-                       + " has been set for " + std::to_string(value) + ".");
+            logger::info("The max_blood of ", id_at(id)->get_name(), " has been set for ", value, ".");
             return;
           }
           else if (key == "blood")
           {
             if (!id_at(id)->is_alive()) revive(id);
             id_at(id)->get_blood() = value;
-            CZH_NOTICE("The blood of " + id_at(id)->get_name()
-                       + " has been set for " + std::to_string(value) + ".");
+            logger::info("The blood of ", id_at(id)->get_name(), " has been set for ", value, ".");
             return;
           }
           else if (key == "target")
           {
-            if(id_at(value) == nullptr || !id_at(value)->is_alive())
+            if (id_at(value) == nullptr || !id_at(value)->is_alive())
             {
-              CZH_NOTICE("Invalid target.");
+              logger::error("Invalid target.");
               return;
             }
-            if(!id_at(id)->is_auto())
+            if (!id_at(id)->is_auto())
             {
-              CZH_NOTICE("Invalid auto tank.");
+              logger::error("Invalid auto tank.");
               return;
             }
             auto atank = std::dynamic_pointer_cast<tank::AutoTank>(id_at(id));
             atank->target(value, id_at(value)->get_pos());
-            CZH_NOTICE("The target of " + atank->get_name()
-                       + " has been set for " + std::to_string(value) + ".");
+            logger::info("The target of ", atank->get_name(), " has been set for ", value, ".");
             return;
           }
           else
           {
-            CZH_NOTICE("Invalid option.");
+            logger::error("Invalid option.");
             return;
           }
         }
@@ -1072,20 +1072,19 @@ Command:
           auto[id, key, value] = cmd::args_get<int, std::string, std::string>(args_internal);
           if (id_at(id) == nullptr)
           {
-            CZH_NOTICE("Invalid tank");
+            logger::error("Invalid tank");
             return;
           }
           if (key == "name")
           {
             std::string old_name = id_at(id)->get_name();
             id_at(id)->get_name() = value;
-            CZH_NOTICE("The name of " + old_name
-                       + " has been set for '" + id_at(id)->get_name() + "'.");
+            logger::info("The name of ", old_name, " has been set for '", id_at(id)->get_name(), "'.");
             return;
           }
           else
           {
-            CZH_NOTICE("Invalid option.");
+            logger::error("Invalid option.");
             return;
           }
         }
@@ -1094,58 +1093,54 @@ Command:
           auto[id, bullet, key, value] = cmd::args_get<int, std::string, std::string, int>(args_internal);
           if (id_at(id) == nullptr)
           {
-            CZH_NOTICE("Invalid tank");
+            logger::error("Invalid tank");
             return;
           }
           if (bullet != "bullet")
           {
-            CZH_NOTICE("Invalid option.");
+            logger::error("Invalid option.");
             return;
           }
           if (key == "blood")
           {
             id_at(id)->get_info().bullet.blood = value;
-            CZH_NOTICE("The bullet blood of " + id_at(id)->get_name()
-                       + " has been set for " + std::to_string(value) + ".");
+            logger::info("The bullet blood of ", id_at(id)->get_name(), " has been set for ", value, ".");
             return;
           }
           else if (key == "lethality")
           {
             id_at(id)->get_info().bullet.lethality = value;
-            CZH_NOTICE("The bullet lethality of " + id_at(id)->get_name()
-                       + " has been set for " + std::to_string(value) + ".");
+            logger::info("The bullet lethality of ", id_at(id)->get_name(), " has been set for ", value, ".");
             return;
           }
           else if (key == "range")
           {
             id_at(id)->get_info().bullet.range = value;
-            CZH_NOTICE("The bullet range of " + id_at(id)->get_name()
-                       + " has been set for " + std::to_string(value) + ".");
+            logger::info("The bullet range of ", id_at(id)->get_name(), " has been set for ", value, ".");
             return;
           }
           else
           {
-            CZH_NOTICE("Invalid bullet option.");
+            logger::error("Invalid bullet option.");
             return;
           }
         }
         else
         {
-          CZH_NOTICE("Invalid arguments.");
+          logger::error("Invalid arguments.");
           return;
         }
       }
       else
       {
-        CZH_NOTICE("Invalid command.");
+        logger::error("Invalid command.");
         return;
       }
     }
-    // All the arguments whose types are wrong go here.
+      // All the arguments whose types are wrong go here.
     catch (std::runtime_error &err)
     {
-      if (std::string(err.what()) != "Get wrong type.") throw err;
-      CZH_NOTICE("Invalid arguments.");
+      logger::error("Invalid arguments.");
       return;
     }
   }
