@@ -1,6 +1,16 @@
-# tank
+<h2 align="center">
+Tank
+</h2> 
 
-A C++ game.
+<p align="center">
+<strong>A cross-platform C++ Game.</strong>
+</p>
+
+### Example
+![Start](examples/start-example.png)
+![Game](examples/game-example.png)
+![Status](examples/status-example.png)
+![Help](examples/help-example.png)
 
 ### Tutorial
 #### Key
