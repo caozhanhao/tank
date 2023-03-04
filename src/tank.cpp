@@ -30,6 +30,7 @@ static void signal_handle(int sig)
 
 int main()
 {
+  czh::logger::init_logger(czh::logger::Severity::NONE, czh::logger::Output::console);
 #if defined (__linux__)
   signal(SIGINT, signal_handle);
 #endif
@@ -97,7 +98,7 @@ int main()
           case 72:
             if (in_linux_like)
             {
-              CZH_NOTICE("Ignored key 72");
+              czh::logger::warn("Ignored key 72");
               break;
             }
             game.tank_react(0, NormalTankEvent::UP);
@@ -109,7 +110,7 @@ int main()
           case 80:
             if (in_linux_like)
             {
-              CZH_NOTICE("Ignored key 80");
+              czh::logger::warn("Ignored key 80");
               break;
             }
             game.tank_react(0, NormalTankEvent::DOWN);
@@ -126,7 +127,7 @@ int main()
           case 75:
             if (in_linux_like)
             {
-              CZH_NOTICE("Ignored key 75");
+              czh::logger::warn("Ignored key 75");
               break;
             }
             game.tank_react(0, NormalTankEvent::LEFT);
@@ -143,7 +144,7 @@ int main()
           case 77:
             if (in_linux_like)
             {
-              CZH_NOTICE("Ignored key 77");
+              czh::logger::warn("Ignored key 77");
               break;
             }
             game.tank_react(0, NormalTankEvent::RIGHT);
@@ -151,7 +152,7 @@ int main()
           case 'B':
             if (!in_linux_like)
             {
-              CZH_NOTICE("Ignored key 76");
+              czh::logger::warn("Ignored key 76");
               break;
             }
             game.tank_react(0, NormalTankEvent::DOWN);
@@ -159,7 +160,7 @@ int main()
           case 'C':
             if (!in_linux_like)
             {
-              CZH_NOTICE("Ignored key 77");
+              czh::logger::warn("Ignored key 77");
               break;
             }
             game.tank_react(0, NormalTankEvent::RIGHT);
@@ -181,7 +182,7 @@ int main()
           case 13://Enter
             if (in_linux_like)
             {
-              CZH_NOTICE("Ignored key 13");
+              czh::logger::warn("Ignored key 13");
               break;
             }
             game.react(Event::START);
@@ -189,7 +190,7 @@ int main()
           case 10:
             if (!in_linux_like)
             {
-              CZH_NOTICE("Ignored key 10");
+              czh::logger::warn("Ignored key 10");
               break;
             }
             game.react(Event::START);
@@ -201,7 +202,7 @@ int main()
             game.react(Event::COMMAND);
             break;
           default:
-            CZH_NOTICE("Ignored key " + std::to_string(static_cast<int>(ch)) + ".");
+            czh::logger::warn("Ignored key ", static_cast<int>(ch), ".");
             break;
         }
       }

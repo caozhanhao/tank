@@ -62,6 +62,8 @@ namespace czh::cmd
   template<typename ...Args>
   auto args_get(const std::vector<details::Arg> &v)
   {
+    if (v.size() != sizeof...(Args))
+      throw std::runtime_error("Get wrong size.");
     return details::args_get_helper<type_list::TypeList<Args...>>
         (v, std::make_index_sequence<sizeof...(Args)>());
   }
