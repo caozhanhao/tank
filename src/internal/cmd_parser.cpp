@@ -18,7 +18,7 @@ namespace czh::cmd
   parse(const std::string &cmd)
   {
     if(cmd.empty()) return {};
-    auto it = cmd.begin();
+    auto it = cmd.begin() + 1; // skip '/'
     auto skip_space = [&it, &cmd]{while(std::isspace(*it) && it < cmd.end()) ++it;};
     skip_space();
     

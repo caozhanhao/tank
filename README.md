@@ -6,7 +6,7 @@ A C++ game.
 #### Key
 - Move: WASD
 - Attack: space
-- All tanks' status: ESC
+- All tanks' status: 'o' or 'O'
 - Command: '/'
 
 #### Rules:
@@ -20,6 +20,9 @@ Auto Tank:
 - The higher level, the faster it moves and attack.
 
 #### Command
+##### help [page]
+- Get help.
+- Use 'Enter' to return game.
 ##### quit
 - Quit Tank.
 

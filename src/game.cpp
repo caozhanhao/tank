@@ -11,6 +11,7 @@
 //   WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 //   See the License for the specific language governing permissions and
 //   limitations under the License.
+#include "internal/utils.h"
 #include "internal/cmd_parser.h"
 #include "internal/info.h"
 #include "internal/tank.h"
@@ -22,6 +23,7 @@
 #include <vector>
 #include <functional>
 #include <string>
+#include <string_view>
 #include <memory>
 
 namespace czh::game
@@ -84,7 +86,7 @@ namespace czh::game
   
   Game &Game::tank_react(std::size_t id, tank::NormalTankEvent event)
   {
-    if (!running || !id_at(id)->is_alive())
+    if (curr_page != Page::GAME || !id_at(id)->is_alive())
     {
       return *this;
     }
@@ -110,158 +112,156 @@ namespace czh::game
   
   Game &Game::react(Event event)
   {
-    bool command = false;
     switch (event)
     {
       case Event::PASS:
         break;
+      case Event::START:
+        curr_page = Page::GAME;
+        output_inited = false;
+        break;
       case Event::PAUSE:
-        running = false;
+        curr_page = Page::TANK_STATUS;
         output_inited = false;
         break;
       case Event::COMMAND:
-        command = true;
+        curr_page = Page::COMMAND;
+        output_inited = false;
         break;
       case Event::CONTINUE:
-        running = true;
+        curr_page = Page::GAME;
         output_inited = false;
         break;
     }
-    if (command)
-    {
-      czh::logger::output_at_bottom("/");
-      term::move_cursor(term::TermPos(1, term::get_height() - 1));
-#if defined(__linux__)
-      term::keyboard.deinit();
-#endif
-      std::string str;
-      std::getline(std::cin, str);
-#if defined(__linux__)
-      term::keyboard.init();
-#endif
-      run_command(str);
-      return *this;
-    }
-    if (!running)
-    {
-      paint();
-      return *this;
-    }
-    //tank
-    for (auto &ntevent: normal_tank_events)
-    {
-      auto tank = tanks[ntevent.first];
-      switch (ntevent.second)
-      {
-        case tank::NormalTankEvent::UP:
-          tank->up();
-          break;
-        case tank::NormalTankEvent::DOWN:
-          tank->down();
-          break;
-        case tank::NormalTankEvent::LEFT:
-          tank->left();
-          break;
-        case tank::NormalTankEvent::RIGHT:
-          tank->right();
-          break;
-        case tank::NormalTankEvent::FIRE:
-          tank->fire();
-          break;
-      }
-    }
-    normal_tank_events.clear();
-    //auto tank
-    for (auto it = tanks.begin(); it < tanks.end(); ++it)
-    {
-      if (!(*it)->is_alive() || !(*it)->is_auto()) continue;
-      auto tank = std::dynamic_pointer_cast<tank::AutoTank>(*it);
-      auto target = id_at(tank->get_target_id());
-      //no target or target is dead/cleared should target/retarget
-      if (target == nullptr || !tank->get_found() || !target->is_alive())
-      {
-        auto alive = get_alive(it - tanks.begin());
-        if (alive.empty()) continue;
-        do
-        {
-          auto t = alive[map::random(0, static_cast<int>(alive.size()))];
-          auto p = tanks[t];
-          tank->target(p->get_id(), p->get_pos());
-        } while (!tank->get_found());
-        target = id_at(tank->get_target_id());
-      }
     
-      //correct its way
-      bool in_firing_line = tank::is_in_firing_line(map, tank->get_pos(), target->get_pos());
-      if (
-             // arrived but not in firing line
-             (tank->has_arrived() && !in_firing_line)
-              // in firing line but not arrived
-          || (in_firing_line && !tank->has_arrived()))
-      {
-        tank->target(tank->get_target_id(), target->get_pos());
-      }
-      int ret = 0;
-      switch (tank->next())
-      {
-        case tank::AutoTankEvent::UP:
-          ret = tank->up();
-          break;
-        case tank::AutoTankEvent::DOWN:
-          ret = tank->down();
-          break;
-        case tank::AutoTankEvent::LEFT:
-          ret = tank->left();
-          break;
-        case tank::AutoTankEvent::RIGHT:
-          ret = tank->right();
-          break;
-        case tank::AutoTankEvent::FIRE:
-          tank->fire();
-          break;
-        case tank::AutoTankEvent::PASS:
-          break;
-      }
-      if (ret != 0) tank->stuck();
-      else tank->no_stuck();
-    }
-    // bullet move
-    for (auto it = bullets->begin(); it < bullets->end(); ++it)
+    switch(curr_page)
     {
-      if ((map->count(map::Status::BULLET, it->get_pos()) > 1)
-          || map->has(map::Status::TANK, it->get_pos())
-          || (it->is_alive() && it->move() != 0)
-          // bullet has moved
-          || map->has(map::Status::TANK, it->get_pos()))
-      {
-        int lethality = 0;
-        for_all_bullets(it->get_pos().get_x(), it->get_pos().get_y(),
-                        [this, &lethality](const std::vector<bullet::Bullet>::iterator &it)
-                        {
-                          if(it->is_alive())
-                            lethality += it->get_lethality();
-                          it->kill();
-                        });
-        map->remove_status(map::Status::BULLET, it->get_pos());
-        if (map->has(map::Status::TANK, it->get_pos()))
+      case Page::GAME:
+        for (auto &ntevent: normal_tank_events)
         {
-          auto tank = find_tank(it->get_pos().get_x(), it->get_pos().get_y());
-          (*tank)->attacked(lethality);
-          if (!(*tank)->is_alive())
+          auto tank = tanks[ntevent.first];
+          switch (ntevent.second)
           {
-            CZH_NOTICE((*tank)->get_name() + " was killed.");
-            map->remove_status(map::Status::TANK, it->get_pos());
-            (*tank)->clear();
+            case tank::NormalTankEvent::UP:
+              tank->up();
+              break;
+            case tank::NormalTankEvent::DOWN:
+              tank->down();
+              break;
+            case tank::NormalTankEvent::LEFT:
+              tank->left();
+              break;
+            case tank::NormalTankEvent::RIGHT:
+              tank->right();
+              break;
+            case tank::NormalTankEvent::FIRE:
+              tank->fire();
+              break;
           }
         }
-      }
+        normal_tank_events.clear();
+        //auto tank
+        for (auto it = tanks.begin(); it < tanks.end(); ++it)
+        {
+          if (!(*it)->is_alive() || !(*it)->is_auto()) continue;
+          auto tank = std::dynamic_pointer_cast<tank::AutoTank>(*it);
+          auto target = id_at(tank->get_target_id());
+          //no target or target is dead/cleared should target/retarget
+          if (target == nullptr || !tank->get_found() || !target->is_alive())
+          {
+            auto alive = get_alive(it - tanks.begin());
+            if (alive.empty()) continue;
+            do
+            {
+              auto t = alive[map::random(0, static_cast<int>(alive.size()))];
+              auto p = tanks[t];
+              tank->target(p->get_id(), p->get_pos());
+            } while (!tank->get_found());
+            target = id_at(tank->get_target_id());
+          }
+      
+          //correct its way
+          bool in_firing_line = tank::is_in_firing_line(map, tank->get_pos(), target->get_pos());
+          if (
+            // arrived but not in firing line
+              (tank->has_arrived() && !in_firing_line)
+              // in firing line but not arrived
+              || (in_firing_line && !tank->has_arrived()))
+          {
+            tank->target(tank->get_target_id(), target->get_pos());
+          }
+          int ret = 0;
+          switch (tank->next())
+          {
+            case tank::AutoTankEvent::UP:
+              ret = tank->up();
+              break;
+            case tank::AutoTankEvent::DOWN:
+              ret = tank->down();
+              break;
+            case tank::AutoTankEvent::LEFT:
+              ret = tank->left();
+              break;
+            case tank::AutoTankEvent::RIGHT:
+              ret = tank->right();
+              break;
+            case tank::AutoTankEvent::FIRE:
+              tank->fire();
+              break;
+            case tank::AutoTankEvent::PASS:
+              break;
+          }
+          if (ret != 0) tank->stuck();
+          else tank->no_stuck();
+        }
+        // bullet move
+        for (auto it = bullets->begin(); it < bullets->end(); ++it)
+        {
+          if ((map->count(map::Status::BULLET, it->get_pos()) > 1)
+              || map->has(map::Status::TANK, it->get_pos())
+              || (it->is_alive() && it->move() != 0)
+              // bullet has moved
+              || map->has(map::Status::TANK, it->get_pos()))
+          {
+            int lethality = 0;
+            for_all_bullets(it->get_pos().get_x(), it->get_pos().get_y(),
+                            [&lethality](const std::vector<bullet::Bullet>::iterator &it)
+                            {
+                              if(it->is_alive())
+                                lethality += it->get_lethality();
+                              it->kill();
+                            });
+            map->remove_status(map::Status::BULLET, it->get_pos());
+            if (map->has(map::Status::TANK, it->get_pos()))
+            {
+              auto tank = find_tank(it->get_pos().get_x(), it->get_pos().get_y());
+              (*tank)->attacked(lethality);
+              if (!(*tank)->is_alive())
+              {
+                CZH_NOTICE((*tank)->get_name() + " was killed.");
+                map->remove_status(map::Status::TANK, it->get_pos());
+                (*tank)->clear();
+              }
+            }
+          }
+        }
+        clear_death();
+        break;
+      case Page::MAIN:
+        break;
+      case Page::COMMAND:
+        break;
+      case Page::TANK_STATUS:
+        break;
+      case Page::HELP:
+        break;
     }
-    clear_death();
     paint();
     return *this;
   }
   
-  [[nodiscard]]bool Game::is_running() const { return running; }
+  [[nodiscard]]Page Game::get_page() const {return curr_page;}
+  
   
   [[nodiscard]]std::vector<std::size_t> Game::get_alive(std::size_t except) const
   {
@@ -344,170 +344,151 @@ namespace czh::game
       screen_height = term::get_height();
       screen_width = term::get_width();
     }
-    if (running)
+    switch (curr_page)
     {
-      if (!output_inited)
-      {
-        term::clear();
-        term::move_cursor({0, 0});
-        for (int j = map->get_height() - 1; j >= 0; --j)
+      case Page::GAME:
+        if (!output_inited)
         {
-          for (int i = 0; i < map->get_width(); ++i)
+          term::clear();
+          term::move_cursor({0, 0});
+          for (int j = map->get_height() - 1; j >= 0; --j)
           {
-            update(map::Pos(i, j));
+            for (int i = 0; i < map->get_width(); ++i)
+              update(map::Pos(i, j));
+            term::output("\n");
           }
-          term::output("\n");
+          output_inited = true;
         }
-        output_inited = true;
-      }
-      else
-      {
-        for (auto &p: map->get_changes())
+        else
         {
-          update(p.get_pos());
+          for (auto &p: map->get_changes())
+            update(p.get_pos());
+          map->clear_changes();
         }
-        map->clear_changes();
-      }
-    }
-      //tank status
-    else
-    {
-      if (!output_inited)
-      {
-        term::clear();
-        std::size_t cursor_y = 0;
-        term::mvoutput({screen_width / 2 - 10, cursor_y++}, "Tank - by caozhanhao");
-        size_t gap = 2;
-        size_t id_x = gap;
-        size_t name_x = id_x + gap + std::to_string((*std::max_element(tanks.begin(), tanks.end(),
-                                                                       [](auto &&a, auto &&b)
-                                                                       {
-                                                                         return a->get_id() < b->get_id();
-                                                                       }))->get_id()).size();
-        auto pos_size = [](const map::Pos &p)
+        break;
+      case Page::TANK_STATUS:
+        if (!output_inited)
         {
-          return std::to_string(p.get_x()).size() + std::to_string(p.get_y()).size() + 3;
-        };
-        size_t pos_x = name_x + gap + (*std::max_element(tanks.begin(), tanks.end(),
-                                                         [](auto &&a, auto &&b)
-                                                         {
-                                                           return a->get_name().size() < b->get_name().size();
-                                                         }))->get_name().size();
-        size_t hp_x = pos_x + gap + pos_size((*std::max_element(tanks.begin(), tanks.end(),
-                                                                [&pos_size](auto &&a, auto &&b)
-                                                                {
-                                                                  return pos_size(a->get_pos()) <
-                                                                         pos_size(b->get_pos());
-                                                                }
-        ))->get_pos());
-      
-        size_t lethality_x = hp_x + gap + std::to_string((*std::max_element(tanks.begin(), tanks.end(),
-                                                                            [](auto &&a, auto &&b)
-                                                                            {
-                                                                              return a->get_blood() < b->get_blood();
-                                                                            }))->get_blood()).size();
-      
-        size_t target_x = lethality_x + gap + +std::to_string((*std::max_element(tanks.begin(), tanks.end(),
-                                                                                 [](auto &&a, auto &&b)
-                                                                                 {
-                                                                                   return a->get_info().bullet.lethality
-                                                                                          <
-                                                                                          b->get_info().bullet.lethality;
-                                                                                 }))->get_info().bullet.lethality).size();
-      
-        term::mvoutput({id_x, cursor_y}, "ID");
-        term::mvoutput({name_x, cursor_y}, "Name");
-        term::mvoutput({pos_x, cursor_y}, "Pos");
-        term::mvoutput({hp_x, cursor_y}, "HP");
-        term::mvoutput({lethality_x, cursor_y}, "ATK");
-        term::mvoutput({target_x, cursor_y}, "Target");
-      
-        cursor_y++;
-        for (int i = 0; i < tanks.size(); ++i)
-        {
-          auto tank = tanks[i];
-          std::string x = std::to_string(tank->get_pos().get_x());
-          std::string y = std::to_string(tank->get_pos().get_y());
-          term::mvoutput({id_x, cursor_y}, std::to_string(tank->get_id()));
-          term::mvoutput({name_x, cursor_y}, tank->colorify_text(tank->get_name()));
-          term::mvoutput({pos_x, cursor_y}, "(" + x + "," + y + ")");
-          term::mvoutput({hp_x, cursor_y}, std::to_string(tank->get_blood()));
-          term::mvoutput({lethality_x, cursor_y}, std::to_string(tank->get_info().bullet.lethality));
-          if (tank->is_auto())
+          term::clear();
+          std::size_t cursor_y = 0;
+          term::mvoutput({screen_width / 2 - 10, cursor_y++}, "Tank - by caozhanhao");
+          size_t gap = 2;
+          size_t id_x = gap;
+          size_t name_x = id_x + gap + std::to_string((*std::max_element(tanks.begin(), tanks.end(),
+                                                                         [](auto &&a, auto &&b)
+                                                                         {
+                                                                           return a->get_id() < b->get_id();
+                                                                         }))->get_id()).size();
+          auto pos_size = [](const map::Pos &p)
           {
-            auto at = std::dynamic_pointer_cast<tank::AutoTank>(tank);
-            std::string target_name;
-            auto target = id_at(at->get_target_id());
-            if (target != nullptr)
-              target_name = target->colorify_text(target->get_name());
-            else
-              target_name = "Cleared";
-            term::mvoutput({target_x, cursor_y}, target_name);
-          }
+            return std::to_string(p.get_x()).size() + std::to_string(p.get_y()).size() + 3;
+          };
+          size_t pos_x = name_x + gap + (*std::max_element(tanks.begin(), tanks.end(),
+                                                           [](auto &&a, auto &&b)
+                                                           {
+                                                             return a->get_name().size() < b->get_name().size();
+                                                           }))->get_name().size();
+          size_t hp_x = pos_x + gap + pos_size((*std::max_element(tanks.begin(), tanks.end(),
+                                                                  [&pos_size](auto &&a, auto &&b)
+                                                                  {
+                                                                    return pos_size(a->get_pos()) <
+                                                                           pos_size(b->get_pos());
+                                                                  }
+          ))->get_pos());
+        
+          size_t lethality_x = hp_x + gap + std::to_string((*std::max_element(tanks.begin(), tanks.end(),
+                                                                              [](auto &&a, auto &&b)
+                                                                              {
+                                                                                return a->get_blood() < b->get_blood();
+                                                                              }))->get_blood()).size();
+        
+          size_t target_x = lethality_x + gap + +std::to_string((*std::max_element(tanks.begin(), tanks.end(),
+                                                                                   [](auto &&a, auto &&b)
+                                                                                   {
+                                                                                     return
+                                                                                         a->get_info().bullet.lethality
+                                                                                         <
+                                                                                         b->get_info().bullet.lethality;
+                                                                                   }))->get_info().bullet.lethality).size();
+        
+          term::mvoutput({id_x, cursor_y}, "ID");
+          term::mvoutput({name_x, cursor_y}, "Name");
+          term::mvoutput({pos_x, cursor_y}, "Pos");
+          term::mvoutput({hp_x, cursor_y}, "HP");
+          term::mvoutput({lethality_x, cursor_y}, "ATK");
+          term::mvoutput({target_x, cursor_y}, "Target");
+        
           cursor_y++;
-          if(cursor_y == screen_height - 1)
+          for (int i = 0; i < tanks.size(); ++i)
           {
-            // pos_x = name_x + gap + name_size
-            // target_size = name_size
-            // then offset = target_x + gap + target_size
-            size_t offset = target_x + pos_x - name_x;
-            id_x += offset;
-            name_x += offset;
-            pos_x += offset;
-            hp_x += offset;
-            lethality_x += offset;
-            target_x += offset;
-            cursor_y = 1;
+            auto tank = tanks[i];
+            std::string x = std::to_string(tank->get_pos().get_x());
+            std::string y = std::to_string(tank->get_pos().get_y());
+            term::mvoutput({id_x, cursor_y}, std::to_string(tank->get_id()));
+            term::mvoutput({name_x, cursor_y}, tank->colorify_text(tank->get_name()));
+            term::mvoutput({pos_x, cursor_y}, "(" + x + "," + y + ")");
+            term::mvoutput({hp_x, cursor_y}, std::to_string(tank->get_blood()));
+            term::mvoutput({lethality_x, cursor_y}, std::to_string(tank->get_info().bullet.lethality));
+            if (tank->is_auto())
+            {
+              auto at = std::dynamic_pointer_cast<tank::AutoTank>(tank);
+              std::string target_name;
+              auto target = id_at(at->get_target_id());
+              if (target != nullptr)
+                target_name = target->colorify_text(target->get_name());
+              else
+                target_name = "Cleared";
+              term::mvoutput({target_x, cursor_y}, target_name);
+            }
+            cursor_y++;
+            if (cursor_y == screen_height - 1)
+            {
+              // pos_x = name_x + gap + name_size
+              // target_size = name_size
+              // then offset = target_x + gap + target_size
+              size_t offset = target_x + pos_x - name_x;
+              id_x += offset;
+              name_x += offset;
+              pos_x += offset;
+              hp_x += offset;
+              lethality_x += offset;
+              target_x += offset;
+              cursor_y = 1;
+            }
           }
+          output_inited = true;
         }
-        output_inited = true;
-      }
-    }
-  }
-  
-  std::vector<bullet::Bullet>::iterator Game::find_bullet(std::size_t i, std::size_t j)
-  {
-    auto it = std::find_if(bullets->begin(), bullets->end(),
-                           [i, j](const bullet::Bullet &b)
-                           {
-                             return (b.get_pos().get_x() == i && b.get_pos().get_y() == j);
-                           });
-    tank_assert(it != bullets->end());
-    return it;
-  }
-  
-  void Game::for_all_bullets(std::size_t i, std::size_t j,
-                             const std::function<void(std::vector<bullet::Bullet>::iterator &)> &func)
-  {
-    for (auto it = bullets->begin(); it < bullets->end(); ++it)
-    {
-      if (it->get_pos().get_x() == i && it->get_pos().get_y() == j)
+        break;
+      case Page::MAIN:
       {
-        func(it);
+        if (!output_inited)
+        {
+          constexpr std::string_view tank = R"(
+ _____           _
+|_   _|_ _ _ __ | | __
+  | |/ _` | '_ \| |/ /
+  | | (_| | | | |   <
+  |_|\__,_|_| |_|_|\_\
+)";
+          static const auto s = utils::split<std::vector<std::string_view>>(tank, "\n");
+          size_t x = screen_width / 2 - 12;
+          size_t y = 2;
+          term::clear();
+          for (size_t i = 0; i < s.size(); ++i)
+            term::mvoutput({x, y++}, std::string(s[i]));
+          term::mvoutput({x + 5, y + 3}, ">>> Enter <<<");
+          term::mvoutput({x + 1, y + 4}, "Use '/help' to get help.");
+          output_inited = true;
+        }
       }
-    }
-  }
-  
-  
-  void Game::run_command(const std::string &str)
-  {
-    output_inited = false;
-    paint();
-  
-    auto[name, args_internal] = cmd::parse(str);
-  
-    try
-    {
-      if (name == "help")
-      {
-        term::clear();
-        term::mvoutput({screen_width / 2 - 10, 0}, "Tank - by caozhanhao");
+        break;
+      case Page::HELP:
         static const std::string help =
             R"(
 Keys:
   Move: WASD
   Attack: space
-  All tanks' status: ESC
+  All tanks' status: 'o' or 'O'
   Command: '/'
 
 Rules:
@@ -518,6 +499,10 @@ Rules:
     The higher level, the faster it moves and attack.
     
 Command:
+  help [page]
+    - Get this help.
+    - Use 'Enter' to return game.
+
   quit
     - Quit Tank.
   
@@ -574,7 +559,145 @@ Command:
       - range (int): Range of A's bullet.
       - e.g. set 0 max_blood 1000  |  set 0 bullet lethality 10
 )";
-        std::cout << help;
+        static const auto s = utils::split<std::vector<std::string_view>>(help, "\n");
+        {
+          size_t page_size = term::get_height() - 3;
+          if (!output_inited)
+          {
+            std::size_t cursor_y = 0;
+            term::mvoutput({screen_width / 2 - 10, cursor_y++}, "Tank - by caozhanhao");
+            if((help_page - 1) * page_size > s.size()) help_page = 1;
+            for(size_t i = (help_page - 1) * page_size; i < std::min(help_page * page_size, s.size()); ++i)
+              term::mvoutput({0, cursor_y++}, std::string(s[i]));
+            term::mvoutput({screen_width / 2 - 3, cursor_y}, "Page " + std::to_string(help_page));
+            output_inited = true;
+          }
+        }
+          break;
+      case Page::COMMAND:
+        if (!output_inited)
+        {
+          if (cmd_string[cmd_string_pos] == 1)
+          {
+            cmd_string.erase(cmd_string_pos , 1);
+            --cmd_string_pos;
+            if (history_pos != 0) --history_pos;
+            cmd_string = history[history_pos];
+          }
+          else if (cmd_string[cmd_string_pos] == 2)
+          {
+            cmd_string.erase(cmd_string_pos , 1);
+            --cmd_string_pos;
+            if (history_pos + 1 < history.size()) ++history_pos;
+            cmd_string = history[history_pos];
+          }
+          else if (cmd_string[cmd_string_pos] == 4)
+          {
+            cmd_string.erase(cmd_string_pos, 1);
+            --cmd_string_pos;
+            if(cmd_string_pos != 0)
+              --cmd_string_pos;
+          }
+          else if (cmd_string[cmd_string_pos] == 5)
+          {
+            cmd_string.erase(cmd_string_pos, 1);
+            --cmd_string_pos;
+            if(cmd_string_pos + 1 < cmd_string.size())
+              ++cmd_string_pos;
+          }
+          else if (cmd_string[cmd_string_pos] == 6)
+          {
+            cmd_string.erase(cmd_string_pos , 1);
+            --cmd_string_pos;
+            if(cmd_string_pos != 0)
+            {
+              cmd_string.erase(cmd_string_pos, 1);
+              --cmd_string_pos;
+            }
+          }
+          else if (cmd_string[cmd_string_pos] == 7)
+          {
+            cmd_string.erase(cmd_string_pos, 1);
+            --cmd_string_pos;
+            if (cmd_string_pos + 1 != cmd_string.size())
+              cmd_string.erase(cmd_string_pos + 1, 1);
+          }
+          else if (cmd_string[cmd_string_pos] == 8)
+          {
+            cmd_string.erase(cmd_string_pos, 1);
+            --cmd_string_pos;
+            cmd_string_pos = 0;
+          }
+          else if (cmd_string[cmd_string_pos] == 9)
+          {
+            cmd_string.erase(cmd_string_pos, 1);
+            --cmd_string_pos;
+            cmd_string_pos = cmd_string.size() - 1;
+          }
+          czh::logger::output_at_bottom(cmd_string);
+          output_inited = true;
+        }
+        break;
+    }
+  }
+  
+  std::vector<bullet::Bullet>::iterator Game::find_bullet(std::size_t i, std::size_t j)
+  {
+    auto it = std::find_if(bullets->begin(), bullets->end(),
+                           [i, j](const bullet::Bullet &b)
+                           {
+                             return (b.get_pos().get_x() == i && b.get_pos().get_y() == j);
+                           });
+    tank_assert(it != bullets->end());
+    return it;
+  }
+  
+  void Game::for_all_bullets(std::size_t i, std::size_t j,
+                             const std::function<void(std::vector<bullet::Bullet>::iterator &)> &func)
+  {
+    for (auto it = bullets->begin(); it < bullets->end(); ++it)
+    {
+      if (it->get_pos().get_x() == i && it->get_pos().get_y() == j)
+      {
+        func(it);
+      }
+    }
+  }
+  
+  void Game::receive_char(char c)
+  {
+    if(c != 3)
+    {
+      cmd_string_pos++;
+      cmd_string.insert(cmd_string.begin() + cmd_string_pos, c);
+      output_inited = false;
+    }
+    else
+    {
+      run_command(cmd_string);
+      history.emplace_back(cmd_string);
+      cmd_string = "/";
+      cmd_string_pos = 0;
+      history_pos = history.size() - 1;
+    }
+  }
+  
+  void Game::run_command(const std::string &str)
+  {
+    curr_page = Page::GAME;
+    auto[name, args_internal] = cmd::parse(str);
+    try
+    {
+      if (name == "help")
+      {
+        term::clear();
+        curr_page = Page::HELP;
+        output_inited = false;
+        if (args_internal.empty())
+          help_page = 1;
+        else
+          help_page = std::get<0>(cmd::args_get<int>(args_internal));
+        return;
       }
       else if (name == "quit")
       {

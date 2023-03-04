@@ -32,8 +32,18 @@ namespace czh::game
   enum class Event
   {
     PASS,
+    START,
     PAUSE,
     CONTINUE,
+    COMMAND
+  };
+  
+  enum class Page
+  {
+    GAME,
+    TANK_STATUS,
+    MAIN,
+    HELP,
     COMMAND
   };
   
@@ -47,17 +57,22 @@ namespace czh::game
     std::vector<std::shared_ptr<tank::Tank>> tanks;
     std::shared_ptr<std::vector<bullet::Bullet>> bullets;
     std::vector<std::pair<std::size_t, tank::NormalTankEvent>> normal_tank_events;
-    bool running;
+    Page curr_page;
+    size_t help_page;
     size_t next_id;
     std::map<std::size_t, std::size_t> id_index;
+    std::vector<std::string> history;
+    std::string cmd_string;
+    size_t history_pos;
+    size_t cmd_string_pos;
   public:
-    Game() : output_inited(false), running(true),
+    Game() : output_inited(false), curr_page(Page::MAIN),
              screen_height(term::get_height()), screen_width(term::get_width()),
              map(std::make_shared<map::Map>((screen_height - 1) % 2 == 0 ? screen_height - 2 : screen_height - 1,
                                             screen_width % 2 == 0 ? screen_width - 1 : screen_width)),
              bullets(std::make_shared<std::vector<bullet::Bullet>>()),
-             next_id(0) {}
-  
+             next_id(0), history_pos(0), cmd_string_pos(0), help_page(1), cmd_string("/"){}
+             
     std::size_t add_tank();
   
     Game &revive(std::size_t id);
@@ -68,10 +83,11 @@ namespace czh::game
   
     Game &react(Event event);
   
-    [[nodiscard]]bool is_running() const;
+    [[nodiscard]]Page get_page() const;
   
     void run_command(const std::string &str);
 
+    void receive_char(char c);
   private:
     void clear_death();
   

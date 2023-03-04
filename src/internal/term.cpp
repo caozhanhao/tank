@@ -40,12 +40,14 @@ namespace czh::term
     new_settings.c_cc[VMIN] = 1;
     new_settings.c_cc[VTIME] = 0;
     tcsetattr(0, TCSANOW, &new_settings);
-    peek_character = -1;}
+    peek_character = -1;
+  }
+  
   void KeyBoard::deinit()
   {
-  
     tcsetattr(0, TCSANOW, &initial_settings);
   }
+  
   KeyBoard::KeyBoard()
     {
     init();
@@ -53,7 +55,7 @@ namespace czh::term
   
   KeyBoard::~KeyBoard()
     {
-deinit();
+      deinit();
     }
     
     int KeyBoard::kbhit()
@@ -74,10 +76,11 @@ deinit();
       return 0;
     }
     
-    int KeyBoard::getch() {
+    int KeyBoard::getch()
+    {
       char ch;
-      
-      if (peek_character != -1) {
+      if (peek_character != -1)
+      {
         ch = peek_character;
         peek_character = -1;
       }
