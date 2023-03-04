@@ -581,15 +581,17 @@ Command:
           {
             cmd_string.erase(cmd_string_pos , 1);
             --cmd_string_pos;
-            if (history_pos != 0) --history_pos;
             cmd_string = history[history_pos];
+            cmd_string_pos = cmd_string.size() - 1;
+            if (history_pos != 0) --history_pos;
           }
           else if (cmd_string[cmd_string_pos] == 2)
           {
             cmd_string.erase(cmd_string_pos , 1);
             --cmd_string_pos;
-            if (history_pos + 1 < history.size()) ++history_pos;
             cmd_string = history[history_pos];
+            cmd_string_pos = cmd_string.size() - 1;
+            if (history_pos + 1 < history.size()) ++history_pos;
           }
           else if (cmd_string[cmd_string_pos] == 4)
           {
