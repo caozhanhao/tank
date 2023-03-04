@@ -771,7 +771,7 @@ Command:
           to.get_x() = std::get<3>(args);
           to.get_y() = std::get<4>(args);
         }
-        if (!map->check_pos(from) || !map->check_pos(from))
+        if (!map->check_pos(from) || !map->check_pos(to))
         {
           CZH_NOTICE("Invalid range.");
           return;
