@@ -21,6 +21,7 @@
 #include "internal/bullet.h"
 #include "internal/logger.h"
 #include <vector>
+#include <optional>
 #include <algorithm>
 #include <functional>
 #include <string>
@@ -46,7 +47,7 @@ namespace czh::game
     HELP,
     COMMAND
   };
-  
+  std::pair<size_t, size_t> get_map_size(size_t w, size_t h);
   class Game
   {
   private:
@@ -66,18 +67,13 @@ namespace czh::game
     size_t history_pos;
     size_t cmd_string_pos;
   public:
-    Game() : output_inited(false), curr_page(Page::MAIN),
-             screen_height(term::get_height()), screen_width(term::get_width()),
-             map(std::make_shared<map::Map>((screen_height - 1) % 2 == 0 ? screen_height - 2 : screen_height - 1,
-                                            screen_width % 2 == 0 ? screen_width - 1 : screen_width)),
-             bullets(std::make_shared<std::vector<bullet::Bullet>>()),
-             next_id(0), history_pos(0), cmd_string_pos(0), help_page(1), cmd_string("/"){}
+    Game();
              
     std::size_t add_tank();
   
     Game &revive(std::size_t id);
   
-    std::size_t add_auto_tank(std::size_t level = 1);
+    std::size_t add_auto_tank(std::size_t lvl = 1);
   
     Game &tank_react(std::size_t tankpos, tank::NormalTankEvent event);
   
@@ -97,7 +93,7 @@ namespace czh::game
   
     auto find_tank_nocheck(std::size_t i, std::size_t j);
   
-    map::Pos get_random_pos();
+    std::optional<map::Pos> get_available_pos();
   
     void update(const map::Pos &pos);
   
@@ -109,6 +105,7 @@ namespace czh::game
                          const std::function<void(std::vector<bullet::Bullet>::iterator &)> &func);
   
     std::shared_ptr<tank::Tank> id_at(size_t id);
+    void reshape(std::size_t w, std::size_t h);
   };
 }
 #endif

@@ -26,7 +26,7 @@ namespace czh::bullet
         ret = map->up(map::Status::BULLET, pos);
         if (ret != 0)
         {
-          info.blood -= 1;
+          info.hp -= 1;
           direction = map::Direction::DOWN;
         }
         else
@@ -39,7 +39,7 @@ namespace czh::bullet
         ret = map->down(map::Status::BULLET, pos);
         if (ret != 0)
         {
-          info.blood -= 1;
+          info.hp -= 1;
           direction = map::Direction::UP;
         }
         else
@@ -52,7 +52,7 @@ namespace czh::bullet
         ret = map->left(map::Status::BULLET, pos);
         if (ret != 0)
         {
-          info.blood -= 1;
+          info.hp -= 1;
           direction = map::Direction::RIGHT;
         }
         else
@@ -65,7 +65,7 @@ namespace czh::bullet
         ret = map->right(map::Status::BULLET, pos);
         if (ret != 0)
         {
-          info.blood -= 1;
+          info.hp -= 1;
           direction = map::Direction::LEFT;
         }
         else
@@ -77,7 +77,7 @@ namespace czh::bullet
     }
     return ret;
   }
-  
+
   std::string Bullet::get_text()
   {
     switch (direction)
@@ -85,15 +85,16 @@ namespace czh::bullet
       case map::Direction::UP:
       case map::Direction::DOWN:
         return "|";
-      default:
-        break;
+      case map::Direction::RIGHT:
+      case map::Direction::LEFT:
+        return "-";
     }
-    return "-";
+    return "*";
   }
   
   [[nodiscard]] bool Bullet::is_alive() const
   {
-    return info.blood > 0 && info.range > 0;
+    return info.hp > 0 && info.range > 0;
   }
   
   [[nodiscard]] std::shared_ptr<tank::Tank> Bullet::get_from() const
@@ -103,12 +104,12 @@ namespace czh::bullet
   
   void Bullet::kill()
   {
-    info.blood = 0;
+    info.hp = 0;
   }
   
   void Bullet::attacked(int lethality_)
   {
-    info.blood -= lethality_;
+    info.hp -= lethality_;
   }
   
   [[nodiscard]]const map::Pos &Bullet::get_pos() const

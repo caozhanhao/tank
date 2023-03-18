@@ -16,17 +16,37 @@
 
 #include <iostream>
 
-#if defined(_WIN32) || defined(_WIN64)
-
+#if __has_include(<conio.h>) && __has_include(<windows.h>)
+#define CZH_TANK_ENABLE_W_TERM
 #include <windows.h>
 #include <conio.h>
-
-#elif defined(__linux__)
+#elif __has_include(<sys/ioctl.h>) && __has_include(<unistd.h>) && __has_include(<sys/select.h>) && __has_include(<termios.h>)
+#define CZH_TANK_ENABLE_L_TERM
+#include <cstdio>
 #include <sys/ioctl.h>
-#include <stdio.h>
 #include <unistd.h>
 #include <sys/select.h>
 #include <termios.h>
+namespace czh::term
+{
+  class KeyBoard
+  {
+  public:
+    struct termios initial_settings, new_settings;
+    int peek_character;
+    void deinit();
+    void init();
+    KeyBoard();
+    ~KeyBoard();
+
+    int kbhit();
+
+    int getch();
+  };
+  extern KeyBoard keyboard;
+  }
+#else
+#error "Unknown target."
 #endif
 
 namespace czh::term
@@ -44,24 +64,6 @@ namespace czh::term
     
     [[nodiscard]]std::size_t get_y() const { return y; }
   };
-
-#if defined(__linux__)
-  class KeyBoard
-  {
-  public:
-    struct termios initial_settings, new_settings;
-    int peek_character;
-    void deinit();
-    void init();
-    KeyBoard();
-    ~KeyBoard();
-
-    int kbhit();
-
-    int getch();
-  };
-  extern KeyBoard keyboard;
-#endif
   
   int getch();
   

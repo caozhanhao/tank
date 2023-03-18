@@ -21,6 +21,7 @@
 #include "internal/logger.h"
 #include "game.h"
 #include <vector>
+#include <optional>
 #include <functional>
 #include <string>
 #include <string_view>
@@ -33,53 +34,79 @@ namespace czh::game
     if(!a)
       throw std::runtime_error(err);
   }
+  std::pair<size_t, size_t> get_map_size(size_t w, size_t h)
+  {
+    return {(w % 2 == 0 ? w - 1 : w), ((h - 1) % 2 == 0 ? h - 2 : h - 1)};
+  }
+  Game::Game() : output_inited(false), curr_page(Page::MAIN),
+           screen_height(term::get_height()), screen_width(term::get_width()),
+           bullets(std::make_shared<std::vector<bullet::Bullet>>()),
+           next_id(0), history_pos(0), cmd_string_pos(0), help_page(1), cmd_string("/")
+  {
+    auto[mx, mh] = get_map_size(screen_width, screen_height);
+    map = std::make_shared<map::Map>(mh, mx);
+  }
   
   std::size_t Game::add_tank()
   {
+    auto pos = get_available_pos();
+    tank_assert(pos.has_value(), "No available space.");
     id_index[next_id] = tanks.size();
     tanks.insert(tanks.cend(), std::make_shared<tank::NormalTank>
         (info::TankInfo{
-             .max_blood = 500,
+             .max_hp = 500,
              .name = "Tank " + std::to_string(next_id),
              .id = next_id,
              .type = info::TankType::NORMAL,
              .bullet =
              info::BulletInfo
                  {
-                     .blood = 1,
-                     .lethality = 120,
+                     .hp = 1,
+                     .lethality = 50,
                      .range = 10000,
                  }},
-         map, bullets, get_random_pos()));
+         map, bullets, *pos));
     ++next_id;
     return next_id - 1;
   }
   
-  std::size_t Game::add_auto_tank(std::size_t level)
+  std::size_t Game::add_auto_tank(std::size_t lvl)
   {
+    auto pos = get_available_pos();
+    if(!pos.has_value())
+    {
+      logger::error("No available space.");
+      return 0;
+    }
     id_index[next_id] = tanks.size();
     tanks.emplace_back(
         std::make_shared<tank::AutoTank>(
             info::TankInfo{
-                .max_blood = static_cast<int>((11 - level) * 100),
+                .max_hp = static_cast<int>(11 - lvl) * 10,
                 .name = "AutoTank " + std::to_string(next_id),
                 .id = next_id,
-                .level = level,
+                .gap = 10 - lvl,
                 .type = info::TankType::AUTO,
                 .bullet =
                 info::BulletInfo
                     {
-                        .blood = 1,
-                        .lethality = static_cast<int>((11 - level) * 10),
+                        .hp = 1,
+                        .lethality = static_cast<int>(11 - lvl),
                         .range = 10000
-                    }}, map, bullets, get_random_pos()));
+                    }}, map, bullets, *pos));
     ++next_id;
     return next_id - 1;
   }
   
   Game &Game::revive(std::size_t id)
   {
-    id_at(id)->revive(get_random_pos());
+    auto pos = get_available_pos();
+    if (!pos.has_value())
+    {
+      logger::error("No available space");
+      return *this;
+    }
+    id_at(id)->revive(*pos);
     return *this;
   }
   
@@ -300,16 +327,28 @@ namespace czh::game
     }
   }
   
-  map::Pos Game::get_random_pos()
+  std::optional<map::Pos> Game::get_available_pos()
   {
-    map::Pos pos;
-    do
+    size_t start_x = map::random(1, static_cast<int>(map->get_width()) - 1);
+    size_t start_y = map::random(1, static_cast<int>(map->get_height()) - 1);
+    for(size_t i = start_x; i < map->get_width(); ++i)
     {
-      pos = map::Pos(map::random(1, static_cast<int>(map->get_width()) - 1),
-                     map::random(1, static_cast<int>(map->get_height()) - 1));
-    } while (find_tank_nocheck(pos.get_x(), pos.get_y()) != tanks.end()
-             || map->has(map::Status::WALL, pos));
-    return pos;
+      for (size_t j = start_y; j < map->get_height(); ++j)
+      {
+        if(!map->has(map::Status::WALL, {i, j}) && !map->has(map::Status::TANK, {i, j}))
+          return map::Pos{i, j};
+      }
+    }
+    for(int i = start_x; i >= 0; --i)
+    {
+      for (int j = start_y; j >= 0; --j)
+      {
+        if(!map->has(map::Status::WALL, {static_cast<size_t>(i), static_cast<size_t>(j)})
+        && !map->has(map::Status::TANK, {static_cast<size_t>(i), static_cast<size_t>(j)}))
+          return map::Pos{static_cast<size_t>(i), static_cast<size_t>(j)};
+      }
+    }
+    return std::nullopt;
   }
   
   void Game::update(const map::Pos &pos)
@@ -334,12 +373,12 @@ namespace czh::game
       term::output(" ");
     }
   }
-  
   void Game::paint()
   {
     if (screen_height != term::get_height() || screen_width != term::get_width())
     {
       term::clear();
+      help_page = 1;
       output_inited = false;
       screen_height = term::get_height();
       screen_width = term::get_width();
@@ -349,6 +388,9 @@ namespace czh::game
       case Page::GAME:
         if (!output_inited)
         {
+          auto [mw, mh] = get_map_size(screen_width, screen_height);
+          if(mw != map->get_width() || mh != map->get_height())
+            reshape(screen_width, screen_height);
           term::clear();
           term::move_cursor({0, 0});
           for (int j = map->get_height() - 1; j >= 0; --j)
@@ -399,23 +441,26 @@ namespace czh::game
           size_t lethality_x = hp_x + gap + std::to_string((*std::max_element(tanks.begin(), tanks.end(),
                                                                               [](auto &&a, auto &&b)
                                                                               {
-                                                                                return a->get_blood() < b->get_blood();
-                                                                              }))->get_blood()).size();
+                                                                                return a->get_hp() < b->get_hp();
+                                                                              }))->get_hp()).size();
+  
+          size_t auto_tank_gap_x = lethality_x + gap + std::to_string((*std::max_element(tanks.begin(), tanks.end(),
+                                                                                         [](auto &&a, auto &&b)
+                                                                                         {
+                                                                                           return
+                                                                                               a->get_info().bullet.lethality
+                                                                                               <
+                                                                                               b->get_info().bullet.lethality;
+                                                                                         }))->get_info().bullet.lethality).size();
         
-          size_t target_x = lethality_x + gap + +std::to_string((*std::max_element(tanks.begin(), tanks.end(),
-                                                                                   [](auto &&a, auto &&b)
-                                                                                   {
-                                                                                     return
-                                                                                         a->get_info().bullet.lethality
-                                                                                         <
-                                                                                         b->get_info().bullet.lethality;
-                                                                                   }))->get_info().bullet.lethality).size();
+          size_t target_x = auto_tank_gap_x + gap + 2;
         
           term::mvoutput({id_x, cursor_y}, "ID");
           term::mvoutput({name_x, cursor_y}, "Name");
           term::mvoutput({pos_x, cursor_y}, "Pos");
           term::mvoutput({hp_x, cursor_y}, "HP");
           term::mvoutput({lethality_x, cursor_y}, "ATK");
+          term::mvoutput({auto_tank_gap_x, cursor_y}, "Gap");
           term::mvoutput({target_x, cursor_y}, "Target");
         
           cursor_y++;
@@ -427,10 +472,11 @@ namespace czh::game
             term::mvoutput({id_x, cursor_y}, std::to_string(tank->get_id()));
             term::mvoutput({name_x, cursor_y}, tank->colorify_text(tank->get_name()));
             term::mvoutput({pos_x, cursor_y}, "(" + x + "," + y + ")");
-            term::mvoutput({hp_x, cursor_y}, std::to_string(tank->get_blood()));
+            term::mvoutput({hp_x, cursor_y}, std::to_string(tank->get_hp()));
             term::mvoutput({lethality_x, cursor_y}, std::to_string(tank->get_info().bullet.lethality));
             if (tank->is_auto())
             {
+              term::mvoutput({auto_tank_gap_x, cursor_y}, std::to_string(tank->get_info().gap));
               auto at = std::dynamic_pointer_cast<tank::AutoTank>(tank);
               std::string target_name;
               auto target = id_at(at->get_target_id());
@@ -470,7 +516,8 @@ namespace czh::game
   | | (_| | | | |   <
   |_|\__,_|_| |_|_|\_\
 )";
-          static const auto s = utils::split<std::vector<std::string_view>>(tank, "\n");
+          static const auto splitted = utils::split<std::vector<std::string_view>>(tank, "\n");
+          auto s = utils::fit_to_screen(splitted, screen_width);
           size_t x = screen_width / 2 - 12;
           size_t y = 2;
           term::clear();
@@ -493,9 +540,9 @@ Keys:
 
 Rules:
   User's Tank:
-    Blood: 500, Lethality: 120
+    HP: 500, Lethality: 50
   Auto Tank:
-    Blood: (11 - level) * 100, Lethality: (11 - level) * 10
+    HP: (11 - level) * 10, Lethality: (11 - level)
     The higher level, the faster it moves and attack.
     
 Command:
@@ -548,19 +595,20 @@ Command:
 
   set [A id] [key] [value]
     - Set A's attribute below:
-      - max_blood (int): Max blood of A. This will take effect when A is revived.
-      - blood (int): Blood of A. This takes effect immediately but won't last when A is revived.
+      - max_hp (int): Max hp of A. This will take effect when A is revived.
+      - hp (int): hp of A. This takes effect immediately but won't last when A is revived.
       - target (id, int): Auto Tank's target. Target should be alive.
       - name (string): Name of A.
   set [A id] bullet [key] [value]
-      - blood (int): Blood of A's bullet.
-      - Whe a bullet hits the wall, its blood decreases by one. That means it will bounce Blood times.
-      - lethality (int): Lethality of A's bullet. This can be a negative number, in which case blood will be added.
+      - hp (int): hp of A's bullet.
+      - Whe a bullet hits the wall, its hp decreases by one. That means it will bounce hp times.
+      - lethality (int): Lethality of A's bullet. This can be a negative number, in which case hp will be added.
       - range (int): Range of A's bullet.
-      - e.g. set 0 max_blood 1000  |  set 0 bullet lethality 10
+      - e.g. set 0 max_hp 1000  |  set 0 bullet lethality 10
 )";
-        static const auto s = utils::split<std::vector<std::string_view>>(help, "\n");
+        static auto splitted = utils::split<std::vector<std::string_view>>(help, "\n");
         {
+          auto s = utils::fit_to_screen(splitted, screen_width);
           size_t page_size = term::get_height() - 3;
           if (!output_inited)
           {
@@ -690,6 +738,24 @@ Command:
     }
   }
   
+  void Game::reshape(std::size_t width, std::size_t height)
+  {
+    auto [mw, mh] = get_map_size(width, height);
+    *map = map::Map(mh, mw);
+    bullets->clear();
+    for (auto &r: tanks)
+    {
+      if (r->is_alive())
+      {
+        auto pos = get_available_pos();
+        tank_assert(pos.has_value(), "Too small.");
+        r->get_pos() = *pos;
+        map->add_tank(*pos);
+      }
+    }
+    output_inited = false;
+  }
+  
   void Game::run_command(const std::string &str)
   {
     curr_page = Page::GAME;
@@ -722,28 +788,12 @@ Command:
       else if (name == "reshape")
       {
         if (args_internal.empty())
-        {
-          *map = map::Map((term::get_height() - 1) % 2 == 0 ? term::get_height() - 2 : term::get_height() - 1,
-                          term::get_width() % 2 == 0 ? term::get_width() - 1 : term::get_width());
-        }
+          reshape(term::get_width(), term::get_height());
         else
         {
           auto[width, height] = cmd::args_get<int, int>(args_internal);
-          *map = map::Map((height - 1) % 2 == 0 ? height - 2 : height - 1,
-                          width % 2 == 0 ? width - 1 : width);
+          reshape(width, height);
         }
-        bullets->clear();
-        for (auto &r: tanks)
-        {
-          if (r->is_alive())
-          {
-            auto pos = get_random_pos();
-            r->get_pos() = pos;
-            map->add_tank(pos);
-          }
-        }
-        output_inited = false;
-        paint();
         return;
       }
       else if (name == "clear_maze")
@@ -1031,17 +1081,17 @@ Command:
             logger::error("Invalid tank");
             return;
           }
-          if (key == "max_blood")
+          if (key == "max_hp")
           {
-            id_at(id)->get_info().max_blood = value;
-            logger::info("The max_blood of ", id_at(id)->get_name(), " has been set for ", value, ".");
+            id_at(id)->get_info().max_hp = value;
+            logger::info("The max_hp of ", id_at(id)->get_name(), " has been set for ", value, ".");
             return;
           }
-          else if (key == "blood")
+          else if (key == "hp")
           {
             if (!id_at(id)->is_alive()) revive(id);
-            id_at(id)->get_blood() = value;
-            logger::info("The blood of ", id_at(id)->get_name(), " has been set for ", value, ".");
+            id_at(id)->get_hp() = value;
+            logger::info("The hp of ", id_at(id)->get_name(), " has been set for ", value, ".");
             return;
           }
           else if (key == "target")
@@ -1101,10 +1151,10 @@ Command:
             logger::error("Invalid option.");
             return;
           }
-          if (key == "blood")
+          if (key == "hp")
           {
-            id_at(id)->get_info().bullet.blood = value;
-            logger::info("The bullet blood of ", id_at(id)->get_name(), " has been set for ", value, ".");
+            id_at(id)->get_info().bullet.hp = value;
+            logger::info("The bullet hp of ", id_at(id)->get_name(), " has been set for ", value, ".");
             return;
           }
           else if (key == "lethality")

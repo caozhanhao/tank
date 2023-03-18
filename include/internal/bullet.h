@@ -35,7 +35,7 @@ namespace czh::bullet
   public:
     Bullet(info::BulletInfo info_, std::shared_ptr<map::Map> map_, std::shared_ptr<tank::Tank> from_tank_,
            map::Pos pos_, map::Direction direction_)
-        : map(std::move(map_)), pos(pos_), direction(direction_), info(info_), from_tank(from_tank_) {}
+        : map(std::move(map_)), pos(pos_), direction(direction_), info(info_), from_tank(from_tank_){}
     
     int move();
     

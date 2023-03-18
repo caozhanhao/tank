@@ -21,12 +21,12 @@ Tank
 
 #### Rules:
 User's Tank:
-- Blood: 500
-- Lethality: 120   
+- HP: 500
+- Lethality: 50   
 
 Auto Tank:  
-- Blood: (11 - level) * 100
-- Lethality: (11 - level) * 10
+- HP: (11 - level) * 10
+- Lethality: (11 - level) 
 - The higher level, the faster it moves and attack.
 
 #### Command
@@ -78,16 +78,16 @@ And the bullets of the cleared tank will also be cleared.
 
 ##### set [A id] [key] [value]
 - Set A's attribute below:
-- max_blood (int): Max blood of A. This will take effect when A is revived.
-- blood (int): Blood of A. This takes effect immediately but won't last when A is revived.
+- max_hp (int): Max hp of A. This will take effect when A is revived.
+- hp (int): HP of A. This takes effect immediately but won't last when A is revived.
 - target (id, int): Auto Tank's target. Target should be alive.
 - name (string): Name of A.
 ###### set [A id] bullet [key] [value]
-- blood (int): Blood of A's bullet.
-- Whe a bullet hits the wall, its blood decreases by one. That means it will bounce Blood times.
-- lethality (int): Lethality of A's bullet. This can be a negative number, in which case blood will be added.
+- hp (int): HP of A's bullet.
+- Whe a bullet hits the wall, its hp decreases by one. That means it will bounce HP times.
+- lethality (int): Lethality of A's bullet. This can be a negative number, in which case hp will be added.
 - range (int): Range of A's bullet.
-- e.g. set 0 max_blood 1000  |  set 0 bullet lethality 10
+- e.g. set 0 max_hp 1000  |  set 0 bullet lethality 10
 ### Dependencies
 
 - Requires C++ 20

@@ -54,7 +54,7 @@ namespace czh::map
     std::size_t y;
   public:
     Pos() : x(0), y(0) {}
-    
+  
     Pos(std::size_t x_, std::size_t y_) : x(x_), y(y_) {}
     
     std::size_t &get_x();

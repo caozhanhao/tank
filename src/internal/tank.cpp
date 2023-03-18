@@ -27,7 +27,7 @@ namespace czh::tank
              std::shared_ptr<std::vector<bullet::Bullet>> bullets_,
              map::Pos pos_)
       : info(info_), map(std::move(map_)), bullets(std::move(bullets_)),
-        direction(map::Direction::UP), pos(pos_), blood(info_.max_blood),
+        direction(map::Direction::UP), pos(pos_), hp(info_.max_hp),
         hascleared(false)
   {
     map->add_tank(pos);
@@ -35,7 +35,7 @@ namespace czh::tank
   
   void Tank::kill()
   {
-    attacked(blood);
+    attacked(hp);
   }
   
   int Tank::up()
@@ -121,11 +121,11 @@ namespace czh::tank
     return info.name;
   }
   
-  [[nodiscard]]int Tank::get_blood() const { return blood; }
+  [[nodiscard]]int Tank::get_hp() const { return hp; }
   
-  [[nodiscard]]int &Tank::get_blood() { return blood; }
+  [[nodiscard]]int &Tank::get_hp() { return hp; }
   
-  [[nodiscard]]int Tank::get_max_blood() const { return info.max_blood; }
+  [[nodiscard]]int Tank::get_max_hp() const { return info.max_hp; }
   
   [[nodiscard]]const info::TankInfo &Tank::get_info() const { return info; }
   
@@ -133,7 +133,7 @@ namespace czh::tank
   
   [[nodiscard]]bool Tank::is_alive() const
   {
-    return blood > 0;
+    return hp > 0;
   }
   
   [[nodiscard]]bool Tank::has_cleared() const
@@ -150,9 +150,9 @@ namespace czh::tank
   
   void Tank::attacked(int lethality_)
   {
-    blood -= lethality_;
-    if (blood < 0) blood = 0;
-    if (blood > info.max_blood) blood = info.max_blood;
+    hp -= lethality_;
+    if (hp < 0) hp = 0;
+    if (hp > info.max_hp) hp = info.max_hp;
   }
   
   [[nodiscard]]const map::Pos &Tank::get_pos() const
@@ -178,7 +178,7 @@ namespace czh::tank
   void Tank::revive(const map::Pos &newpos)
   {
     if (is_alive() && !hascleared) return;
-    blood = info.max_blood;
+    hp = info.max_hp;
     hascleared = false;
     pos = newpos;
     map->add_tank(pos);
@@ -422,14 +422,11 @@ namespace czh::tank
     {
       return AutoTankEvent::PASS;
     }
-    if (++level_speedctl_count < 10 - info.level)
-    {
+    if (++gap_count < info.gap)
       return AutoTankEvent::PASS;
-    }
     else
-    {
-      level_speedctl_count = 0;
-    }
+      gap_count = 0;
+  
   
     if (got_stuck_in_its_way)
     {
@@ -490,9 +487,5 @@ namespace czh::tank
   void AutoTank::no_stuck()
   {
     got_stuck_in_its_way = false;
-  }
-  [[nodiscard]]std::size_t AutoTank::get_level() const
-  {
-    return info.level;
   }
 }

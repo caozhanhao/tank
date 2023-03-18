@@ -38,7 +38,7 @@ namespace czh::tank
   {
   protected:
     info::TankInfo info;
-    int blood;
+    int hp;
     map::Pos pos;
     map::Direction direction;
     bool hascleared;
@@ -71,11 +71,11 @@ namespace czh::tank
     
     const std::string &get_name() const;
     
-    [[nodiscard]]int get_blood() const;
+    [[nodiscard]]int get_hp() const;
     
-    [[nodiscard]]int &get_blood();
+    [[nodiscard]]int &get_hp();
     
-    [[nodiscard]]int get_max_blood() const;
+    [[nodiscard]]int get_max_hp() const;
     
     [[nodiscard]]bool is_alive() const;
     
@@ -164,14 +164,14 @@ namespace czh::tank
     bool found;
     
     bool got_stuck_in_its_way;
-    std::size_t level_speedctl_count;
+    std::size_t gap_count;
   public:
     AutoTank(info::TankInfo info_, std::shared_ptr<map::Map> map_,
              std::shared_ptr<std::vector<bullet::Bullet>> bullets_,
              map::Pos pos_)
         : Tank(info_, std::move(map_), std::move(bullets_), pos_),
           found(false), got_stuck_in_its_way(false),
-          waypos(0), target_id(0), level_speedctl_count(0) {}
+          waypos(0), target_id(0), gap_count(0) {}
     
     void target(std::size_t target_id_, const map::Pos &target_pos_);
     
@@ -184,7 +184,6 @@ namespace czh::tank
     void no_stuck();
     [[nodiscard]]bool get_found() const;
     [[nodiscard]]bool has_arrived();
-    [[nodiscard]]std::size_t get_level() const;
   };
 }
 #endif

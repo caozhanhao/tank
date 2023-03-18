@@ -20,7 +20,7 @@ namespace czh::info
 {
   struct BulletInfo
   {
-    int blood;
+    int hp;
     int lethality;
     int range;
   };
@@ -30,10 +30,10 @@ namespace czh::info
   };
   struct TankInfo
   {
-    int max_blood;
+    int max_hp;
     std::string name;
     std::size_t id;
-    std::size_t level; // AutoTank only
+    std::size_t gap;
     TankType type;
     BulletInfo bullet;
   };

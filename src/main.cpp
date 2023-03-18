@@ -20,27 +20,17 @@
 #pragma ide diagnostic ignored "EndlessLoop"
 using namespace czh::game;
 using namespace czh::tank;
-#if defined (__linux__)
-#include <signal.h>
-static void signal_handle(int sig)
-{
-  std::exit(-1);
-}
-#endif
 
 int main()
 {
   czh::logger::init_logger(czh::logger::Severity::NONE, czh::logger::Output::console);
-#if defined (__linux__)
-  signal(SIGINT, signal_handle);
-#endif
   Game game;
   game.add_tank();
   std::chrono::high_resolution_clock::time_point beg, end;
   std::chrono::milliseconds cost(0);
   std::chrono::milliseconds sleep(20);
   char ch;
-#if defined (__linux__)
+#if defined (CZH_TANK_ENABLE_L_TERM)
   bool in_linux_like = true;
 #else
   bool in_linux_like = false;
