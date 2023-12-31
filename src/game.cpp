@@ -1,4 +1,4 @@
-//   Copyright 2022-2023 tank - caozhanhao
+//   Copyright 2022-2024 tank - caozhanhao
 //
 //   Licensed under the Apache License, Version 2.0 (the "License");
 //   you may not use this file except in compliance with the License.
@@ -43,7 +43,7 @@ namespace czh::game
            bullets(std::make_shared<std::vector<bullet::Bullet>>()),
            next_id(0), history_pos(0), cmd_string_pos(0), help_page(1), cmd_string("/")
   {
-    auto[mx, mh] = get_map_size(screen_width, screen_height);
+    auto[mx, mh] = get_map_size(screen_width / 2, screen_height);
     map = std::make_shared<map::Map>(mh, mx);
   }
   
@@ -59,12 +59,23 @@ namespace czh::game
              .id = next_id,
              .type = info::TankType::NORMAL,
              .bullet =
-             info::BulletInfo
-                 {
-                     .hp = 1,
-                     .lethality = 50,
-                     .range = 10000,
-                 }},
+             []()
+             {
+               return info::BulletInfo
+                   {
+                       .hp = 1,
+                       .lethality = 50,
+                       .range = 10000,
+                       .text = [](int d)
+                       {
+                         if (d == 0) return "/\\";
+                         if (d == 1) return "\\/";
+                         if (d == 2) return "<<";
+                         if (d == 3) return ">>";
+                         return "()";
+                       }
+                   };
+             }},
          map, bullets, *pos));
     ++next_id;
     return next_id - 1;
@@ -79,6 +90,7 @@ namespace czh::game
       return 0;
     }
     id_index[next_id] = tanks.size();
+    std::string v = "WELECOMETOTANK";
     tanks.emplace_back(
         std::make_shared<tank::AutoTank>(
             info::TankInfo{
@@ -88,11 +100,18 @@ namespace czh::game
                 .gap = 10 - lvl,
                 .type = info::TankType::AUTO,
                 .bullet =
-                info::BulletInfo
+                    [lvl, v]()
                     {
+                      return info::BulletInfo
+                      {
                         .hp = 1,
                         .lethality = static_cast<int>(11 - lvl),
-                        .range = 10000
+                        .range = 10000,
+                        .text = [ch = v.substr(utils::randnum<size_t>(0, v.size() - 1), 2)](int d)
+                        {
+                          return ch;
+                        }
+                      };
                     }}, map, bullets, *pos));
     ++next_id;
     return next_id - 1;
@@ -187,9 +206,9 @@ namespace czh::game
           }
         }
         normal_tank_events.clear();
-        //auto tank
         for (auto it = tanks.begin(); it < tanks.end(); ++it)
         {
+          //auto tank
           if (!(*it)->is_alive() || !(*it)->is_auto()) continue;
           auto tank = std::dynamic_pointer_cast<tank::AutoTank>(*it);
           auto target = id_at(tank->get_target_id());
@@ -200,13 +219,12 @@ namespace czh::game
             if (alive.empty()) continue;
             do
             {
-              auto t = alive[map::random(0, static_cast<int>(alive.size()))];
+              auto t = alive[utils::randnum<size_t>(0, alive.size())];
               auto p = tanks[t];
               tank->target(p->get_id(), p->get_pos());
             } while (!tank->get_found());
             target = id_at(tank->get_target_id());
           }
-      
           //correct its way
           bool in_firing_line = tank::is_in_firing_line(map, tank->get_pos(), target->get_pos());
           if (
@@ -251,17 +269,24 @@ namespace czh::game
               || map->has(map::Status::TANK, it->get_pos()))
           {
             int lethality = 0;
+            std::shared_ptr<tank::Tank> attacker;
             for_all_bullets(it->get_pos().get_x(), it->get_pos().get_y(),
-                            [&lethality](const std::vector<bullet::Bullet>::iterator &it)
+                            [&lethality, &attacker](const std::vector<bullet::Bullet>::iterator &it)
                             {
                               if(it->is_alive())
                                 lethality += it->get_lethality();
                               it->kill();
+                              attacker = it->get_from();
                             });
             map->remove_status(map::Status::BULLET, it->get_pos());
             if (map->has(map::Status::TANK, it->get_pos()))
             {
               auto tank = find_tank(it->get_pos().get_x(), it->get_pos().get_y());
+              if((*tank)->is_auto())
+              {
+                auto t = std::dynamic_pointer_cast<tank::AutoTank>(*tank);
+                t->target(attacker->get_id(), attacker->get_pos());
+              }
               (*tank)->attacked(lethality);
               if (!(*tank)->is_alive())
               {
@@ -269,6 +294,34 @@ namespace czh::game
                 map->remove_status(map::Status::TANK, it->get_pos());
                 (*tank)->clear();
               }
+              else
+              {
+                if((*tank)->is_auto())
+                {
+                  auto at = std::dynamic_pointer_cast<tank::AutoTank>(*tank);
+                  at->retreat();
+                }
+              }
+            }
+          }
+        }
+        for (auto it = tanks.begin(); it < tanks.end(); ++it)
+        {
+          if ((*it)->tanks_nearby() == 4)
+          {
+            (*it)->kill();
+            logger::info((*it)->get_name() + " was killed by collision.");
+            map->remove_status(map::Status::TANK, (*it)->get_pos());
+            (*it)->clear();
+          }
+          else if ((*it)->tanks_nearby() == 3)
+          {
+            (*it)->attacked(1);
+            logger::info((*it)->get_name() + " was hurt by collision.");
+            if((*it)->is_auto())
+            {
+              auto at = std::dynamic_pointer_cast<tank::AutoTank>(*it);
+              at->retreat();
             }
           }
         }
@@ -329,8 +382,8 @@ namespace czh::game
   
   std::optional<map::Pos> Game::get_available_pos()
   {
-    size_t start_x = map::random(1, static_cast<int>(map->get_width()) - 1);
-    size_t start_y = map::random(1, static_cast<int>(map->get_height()) - 1);
+    size_t start_x = utils::randnum<size_t>(1, map->get_width() - 1);
+    size_t start_y = utils::randnum<size_t>(1, map->get_height() - 1);
     for(size_t i = start_x; i < map->get_width(); ++i)
     {
       for (size_t j = start_y; j < map->get_height(); ++j)
@@ -353,7 +406,7 @@ namespace czh::game
   
   void Game::update(const map::Pos &pos)
   {
-    term::move_cursor({pos.get_x(), map->get_height() - pos.get_y() - 1});
+    term::move_cursor({pos.get_x() * 2, map->get_height() - pos.get_y() - 1});
     if (map->has(map::Status::TANK, pos))
     {
       auto it = find_tank(pos.get_x(), pos.get_y());
@@ -362,15 +415,15 @@ namespace czh::game
     else if (map->has(map::Status::BULLET, pos))
     {
       auto w = find_bullet(pos.get_x(), pos.get_y());
-      term::output(w->get_from()->colorify_text(w->get_text()));
+      term::output(w->get_from()->colorify_text(std::string{w->get_text()}));
     }
     else if (map->has(map::Status::WALL, pos))
     {
-      term::output("\033[0;41;37m \033[0m\033[?25l");
+      term::output("\033[0;41;37m  \033[0m\033[?25l");
     }
     else
     {
-      term::output(" ");
+      term::output("  ");
     }
   }
   void Game::paint()
@@ -388,9 +441,9 @@ namespace czh::game
       case Page::GAME:
         if (!output_inited)
         {
-          auto [mw, mh] = get_map_size(screen_width, screen_height);
-          if(mw != map->get_width() || mh != map->get_height())
-            reshape(screen_width, screen_height);
+          //auto [mw, mh] = get_map_size(screen_width, screen_height);
+          //if(mw != map->get_width() || mh != map->get_height())
+          //  reshape(screen_width, screen_height);
           term::clear();
           term::move_cursor({0, 0});
           for (int j = map->get_height() - 1; j >= 0; --j)
@@ -448,10 +501,10 @@ namespace czh::game
                                                                                          [](auto &&a, auto &&b)
                                                                                          {
                                                                                            return
-                                                                                               a->get_info().bullet.lethality
+                                                                                               a->get_info().bullet().lethality
                                                                                                <
-                                                                                               b->get_info().bullet.lethality;
-                                                                                         }))->get_info().bullet.lethality).size();
+                                                                                               b->get_info().bullet().lethality;
+                                                                                         }))->get_info().bullet().lethality).size();
         
           size_t target_x = auto_tank_gap_x + gap + 2;
         
@@ -473,7 +526,7 @@ namespace czh::game
             term::mvoutput({name_x, cursor_y}, tank->colorify_text(tank->get_name()));
             term::mvoutput({pos_x, cursor_y}, "(" + x + "," + y + ")");
             term::mvoutput({hp_x, cursor_y}, std::to_string(tank->get_hp()));
-            term::mvoutput({lethality_x, cursor_y}, std::to_string(tank->get_info().bullet.lethality));
+            term::mvoutput({lethality_x, cursor_y}, std::to_string(tank->get_info().bullet().lethality));
             if (tank->is_auto())
             {
               term::mvoutput({auto_tank_gap_x, cursor_y}, std::to_string(tank->get_info().gap));
@@ -788,7 +841,7 @@ Command:
       else if (name == "reshape")
       {
         if (args_internal.empty())
-          reshape(term::get_width(), term::get_height());
+          reshape(term::get_width() / 2, term::get_height());
         else
         {
           auto[width, height] = cmd::args_get<int, int>(args_internal);
@@ -1151,24 +1204,24 @@ Command:
             logger::error("Invalid option.");
             return;
           }
-          if (key == "hp")
-          {
-            id_at(id)->get_info().bullet.hp = value;
-            logger::info("The bullet hp of ", id_at(id)->get_name(), " has been set for ", value, ".");
-            return;
-          }
-          else if (key == "lethality")
-          {
-            id_at(id)->get_info().bullet.lethality = value;
-            logger::info("The bullet lethality of ", id_at(id)->get_name(), " has been set for ", value, ".");
-            return;
-          }
-          else if (key == "range")
-          {
-            id_at(id)->get_info().bullet.range = value;
-            logger::info("The bullet range of ", id_at(id)->get_name(), " has been set for ", value, ".");
-            return;
-          }
+//          if (key == "hp")
+//          {
+//            id_at(id)->get_info().bullet.hp = value;
+//            logger::info("The bullet hp of ", id_at(id)->get_name(), " has been set for ", value, ".");
+//            return;
+//          }
+//          else if (key == "lethality")
+//          {
+//            id_at(id)->get_info().bullet.lethality = value;
+//            logger::info("The bullet lethality of ", id_at(id)->get_name(), " has been set for ", value, ".");
+//            return;
+//          }
+//          else if (key == "range")
+//          {
+//            id_at(id)->get_info().bullet.range = value;
+//            logger::info("The bullet range of ", id_at(id)->get_name(), " has been set for ", value, ".");
+//            return;
+//          }
           else
           {
             logger::error("Invalid bullet option.");

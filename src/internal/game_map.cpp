@@ -1,4 +1,4 @@
-//   Copyright 2022-2023 tank - caozhanhao
+//   Copyright 2022-2024 tank - caozhanhao
 //
 //   Licensed under the Apache License, Version 2.0 (the "License");
 //   you may not use this file except in compliance with the License.
@@ -12,22 +12,14 @@
 //   See the License for the specific language governing permissions and
 //   limitations under the License.
 #include "internal/game_map.h"
+#include "internal/utils.h"
 #include <vector>
 #include <list>
 #include <set>
-#include <random>
 #include <cassert>
 
 namespace czh::map
 {
-  int random(int a, int b)
-  {
-    std::random_device r;
-    std::default_random_engine e(r());
-    std::uniform_int_distribution<int> u(a, b - 1);
-    return u(e);
-  }
-  
   void Point::add_status(const Status &status)
   {
     statuses.emplace_back(status);
@@ -200,8 +192,8 @@ namespace czh::map
         }
       }
     }
-    std::list<Pos> way{Pos((std::size_t) random(0, (int) width / 2) * 2 - 1,
-                           (std::size_t) random(0, (int) height / 2) * 2 - 1)};
+    std::list<Pos> way{Pos((std::size_t) utils::randnum<size_t>(0, width / 2) * 2 - 1,
+                           (std::size_t) utils::randnum<size_t>(0, height / 2) * 2 - 1)};
     std::set<Pos> index{*way.begin()};
     auto it = way.begin();
     auto is_available = [this, &index](const Pos &pos)
@@ -223,7 +215,7 @@ namespace czh::map
       if (is_available(right)) avail.emplace_back(right);
       if (avail.empty()) return false;
       
-      auto &result = avail[(std::size_t) random(0, (int) avail.size())];
+      auto &result = avail[(std::size_t) utils::randnum<size_t>(0, avail.size())];
       Pos midpos((result.get_x() + it->get_x()) / 2, (result.get_y() + it->get_y()) / 2);
       at(midpos).remove_status(Status::WALL);
       

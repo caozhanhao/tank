@@ -1,4 +1,4 @@
-﻿//   Copyright 2022-2023 tank - caozhanhao
+﻿//   Copyright 2022-2024 tank - caozhanhao
 //
 //   Licensed under the Apache License, Version 2.0 (the "License");
 //   you may not use this file except in compliance with the License.
@@ -12,6 +12,7 @@
 //   See the License for the specific language governing permissions and
 //   limitations under the License.
 #include "internal/term.h"
+#include "internal/utils.h"
 #include "game.h"
 #include <chrono>
 #include <thread>
@@ -35,6 +36,7 @@ int main()
 #else
   bool in_linux_like = false;
 #endif
+  bool stop = false;
   while (true)
   {
     beg = std::chrono::high_resolution_clock::now();
@@ -79,125 +81,131 @@ int main()
       }
       else
       {
-        switch (ch)
+        if (ch == '~')
+          stop = !stop;
+        if (!stop)
         {
-          case 'W':
-          case 'w':
-            game.tank_react(0, NormalTankEvent::UP);
-            break;
-          case 72:
-            if (in_linux_like)
-            {
-              czh::logger::warn("Ignored key 72");
-              break;
-            }
-            game.tank_react(0, NormalTankEvent::UP);
-            break;
-          case 'S':
-          case 's':
-            game.tank_react(0, NormalTankEvent::DOWN);
-            break;
-          case 80:
-            if (in_linux_like)
-            {
-              czh::logger::warn("Ignored key 80");
-              break;
-            }
-            game.tank_react(0, NormalTankEvent::DOWN);
-            break;
-          case 'A':
-            if (in_linux_like)
+          switch (ch)
+          {
+            case 'W':
+            case 'w':
               game.tank_react(0, NormalTankEvent::UP);
-            else
-              game.tank_react(0, NormalTankEvent::LEFT);
-            break;
-          case 'a':
-            game.tank_react(0, NormalTankEvent::LEFT);
-            break;
-          case 75:
-            if (in_linux_like)
-            {
-              czh::logger::warn("Ignored key 75");
               break;
-            }
-            game.tank_react(0, NormalTankEvent::LEFT);
-            break;
-          case 'D':
-            if (in_linux_like)
+            case 72:
+              if (in_linux_like)
+              {
+                czh::logger::warn("Ignored key 72");
+                break;
+              }
+              game.tank_react(0, NormalTankEvent::UP);
+              break;
+            case 'S':
+            case 's':
+              game.tank_react(0, NormalTankEvent::DOWN);
+              break;
+            case 80:
+              if (in_linux_like)
+              {
+                czh::logger::warn("Ignored key 80");
+                break;
+              }
+              game.tank_react(0, NormalTankEvent::DOWN);
+              break;
+            case 'A':
+              if (in_linux_like)
+                game.tank_react(0, NormalTankEvent::UP);
+              else
+                game.tank_react(0, NormalTankEvent::LEFT);
+              break;
+            case 'a':
               game.tank_react(0, NormalTankEvent::LEFT);
-            else
+              break;
+            case 75:
+              if (in_linux_like)
+              {
+                czh::logger::warn("Ignored key 75");
+                break;
+              }
+              game.tank_react(0, NormalTankEvent::LEFT);
+              break;
+            case 'D':
+              if (in_linux_like)
+                game.tank_react(0, NormalTankEvent::LEFT);
+              else
+                game.tank_react(0, NormalTankEvent::RIGHT);
+              break;
+            case 'd':
               game.tank_react(0, NormalTankEvent::RIGHT);
-            break;
-          case 'd':
-            game.tank_react(0, NormalTankEvent::RIGHT);
-            break;
-          case 77:
-            if (in_linux_like)
-            {
-              czh::logger::warn("Ignored key 77");
               break;
-            }
-            game.tank_react(0, NormalTankEvent::RIGHT);
-            break;
-          case 'B':
-            if (!in_linux_like)
-            {
-              czh::logger::warn("Ignored key 76");
+            case 77:
+              if (in_linux_like)
+              {
+                czh::logger::warn("Ignored key 77");
+                break;
+              }
+              game.tank_react(0, NormalTankEvent::RIGHT);
               break;
-            }
-            game.tank_react(0, NormalTankEvent::DOWN);
-            break;
-          case 'C':
-            if (!in_linux_like)
-            {
-              czh::logger::warn("Ignored key 77");
+            case 'B':
+              if (!in_linux_like)
+              {
+                czh::logger::warn("Ignored key 76");
+                break;
+              }
+              game.tank_react(0, NormalTankEvent::DOWN);
               break;
-            }
-            game.tank_react(0, NormalTankEvent::RIGHT);
-            break;
-          case ' ':
-            game.tank_react(0, NormalTankEvent::FIRE);
-            break;
-          case 'O':
-          case 'o':
-            if (game.get_page() == czh::game::Page::GAME)
-            {
-              game.react(Event::PAUSE);
-            }
-            else
-            {
-              game.react(Event::CONTINUE);
-            }
-            break;
-          case 13://Enter
-            if (in_linux_like)
-            {
-              czh::logger::warn("Ignored key 13");
+            case 'C':
+              if (!in_linux_like)
+              {
+                czh::logger::warn("Ignored key 77");
+                break;
+              }
+              game.tank_react(0, NormalTankEvent::RIGHT);
               break;
-            }
-            game.react(Event::START);
-            break;
-          case 10:
-            if (!in_linux_like)
-            {
-              czh::logger::warn("Ignored key 10");
+            case ' ':
+              game.tank_react(0, NormalTankEvent::FIRE);
               break;
-            }
-            game.react(Event::START);
-            break;
-          case 'l':
-            game.add_auto_tank(::czh::map::random(1, 11));
-            break;
-          case '/':
-            game.react(Event::COMMAND);
-            break;
-          default:
-            czh::logger::warn("Ignored key ", static_cast<int>(ch), ".");
-            break;
+            case 'O':
+            case 'o':
+              if (game.get_page() == czh::game::Page::GAME)
+              {
+                game.react(Event::PAUSE);
+              }
+              else
+              {
+                game.react(Event::CONTINUE);
+              }
+              break;
+            case 13://Enter
+              if (in_linux_like)
+              {
+                czh::logger::warn("Ignored key 13");
+                break;
+              }
+              game.react(Event::START);
+              break;
+            case 10:
+              if (!in_linux_like)
+              {
+                czh::logger::warn("Ignored key 10");
+                break;
+              }
+              game.react(Event::START);
+              break;
+            case 'l':
+              game.add_auto_tank(czh::utils::randnum<int>(1, 11));
+              break;
+            case '/':
+              game.react(Event::COMMAND);
+              break;
+            default:
+              czh::logger::warn("Ignored key ", static_cast<int>(ch), ".");
+              break;
+          }
         }
       }
     }
-    game.react(Event::PASS);
+    if(!stop)
+      game.react(Event::PASS);
     end = std::chrono::high_resolution_clock::now();
     cost = std::chrono::duration_cast<std::chrono::milliseconds>(end - beg);
     if (sleep > cost)

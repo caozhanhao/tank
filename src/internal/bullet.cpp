@@ -1,4 +1,4 @@
-//   Copyright 2022-2023 tank - caozhanhao
+//   Copyright 2022-2024 tank - caozhanhao
 //
 //   Licensed under the Apache License, Version 2.0 (the "License");
 //   you may not use this file except in compliance with the License.
@@ -80,16 +80,23 @@ namespace czh::bullet
 
   std::string Bullet::get_text()
   {
+    int arg = -1;
     switch (direction)
     {
       case map::Direction::UP:
+        arg = 0;
+        break;
       case map::Direction::DOWN:
-        return "|";
-      case map::Direction::RIGHT:
+        arg = 1;
+        break;
       case map::Direction::LEFT:
-        return "-";
+        arg = 2;
+        break;
+      case map::Direction::RIGHT:
+        arg = 3;
+        break;
     }
-    return "*";
+    return info.text(arg);
   }
   
   [[nodiscard]] bool Bullet::is_alive() const

@@ -1,4 +1,4 @@
-//   Copyright 2022-2023 tank - caozhanhao
+//   Copyright 2022-2024 tank - caozhanhao
 //
 //   Licensed under the Apache License, Version 2.0 (the "License");
 //   you may not use this file except in compliance with the License.
@@ -22,8 +22,6 @@
 
 namespace czh::map
 {
-  int random(int a, int b);
-  
   enum class Status
   {
     WALL, TANK, BULLET, END

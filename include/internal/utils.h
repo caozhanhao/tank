@@ -1,4 +1,4 @@
-//   Copyright 2022-2023 tank - caozhanhao
+//   Copyright 2022-2024 tank - caozhanhao
 //
 //   Licensed under the Apache License, Version 2.0 (the "License");
 //   you may not use this file except in compliance with the License.
@@ -14,8 +14,18 @@
 #ifndef TANK_UTILS_H
 #define TANK_UTILS_H
 #include <string_view>
+#include <random>
 namespace czh::utils
 {
+  template<typename T>
+  T randnum(T a, T b)// [a, b)
+  {
+    std::random_device rd;
+    std::mt19937 gen(rd());
+    std::uniform_int_distribution<T> u(a, b - 1);
+    return u(gen);
+  }
+  
   template<typename BeginIt, typename EndIt>
   concept ItRange =
   requires(BeginIt begin_it, EndIt end_it)

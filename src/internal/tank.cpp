@@ -1,4 +1,4 @@
-//   Copyright 2022-2023 tank - caozhanhao
+//   Copyright 2022-2024 tank - caozhanhao
 //
 //   Licensed under the Apache License, Version 2.0 (the "License");
 //   you may not use this file except in compliance with the License.
@@ -14,6 +14,7 @@
 #include "internal/tank.h"
 #include "internal/game_map.h"
 #include "internal/bullet.h"
+#include "internal/utils.h"
 #include <map>
 #include <set>
 #include <list>
@@ -96,7 +97,7 @@ namespace czh::tank
     if (ret == 0)
     {
       bullets->emplace_back(
-          bullet::Bullet(info.bullet, map, shared_from_this(), bullet_pos, get_direction()));
+          bullet::Bullet(info.bullet(), map, shared_from_this(), bullet_pos, get_direction()));
     }
     return ret;
   }
@@ -199,7 +200,21 @@ namespace czh::tank
     std::string ret = "\033[0;";
     ret += std::to_string(info.id % 6 + 42);
     ret += ";36m";
-    ret += " \033[0m";
+    ret += "  \033[0m";
+    return ret;
+  }
+  
+  int Tank::tanks_nearby() const
+  {
+    int ret = 0;
+    map::Pos pos_up(pos.get_x(), pos.get_y() + 1);
+    map::Pos pos_down(pos.get_x(), pos.get_y() - 1);
+    map::Pos pos_left(pos.get_x() - 1, pos.get_y());
+    map::Pos pos_right(pos.get_x() + 1, pos.get_y());
+    if(map->check_pos(pos_up) && map->has(map::Status::TANK, pos_up)) ret += 1;
+    if(map->check_pos(pos_down) && map->has(map::Status::TANK, pos_down)) ret += 1;
+    if(map->check_pos(pos_left) && map->has(map::Status::TANK, pos_left)) ret += 1;
+    if(map->check_pos(pos_right) && map->has(map::Status::TANK, pos_right)) ret += 1;
     return ret;
   }
   
@@ -416,6 +431,54 @@ namespace czh::tank
     }
   }
   
+  void AutoTank::retreat()
+  {
+    auto check = [this](map::Pos p)
+    {
+      return map->check_pos(p) && !map->has(map::Status::WALL, p) && !map->has(map::Status::TANK, p);
+    };
+    auto p = pos;
+    int i = 0;
+    while (way.size() < 5 && i++ < 10)
+    {
+      map::Pos pos_up(p.get_x(), p.get_y() + 1);
+      map::Pos pos_down(p.get_x(), p.get_y() - 1);
+      map::Pos pos_left(p.get_x() - 1, p.get_y());
+      map::Pos pos_right(p.get_x() + 1, p.get_y());
+      switch (utils::randnum<int>(0, 4))
+      {
+        case 0:
+          if(check(pos_up))
+          {
+            p = pos_up;
+            way.emplace_back(AutoTankEvent::UP);
+          }
+          break;
+        case 1:
+          if(check(pos_down))
+          {
+            p = pos_down;
+            way.emplace_back(AutoTankEvent::DOWN);
+          }
+          break;
+        case 2:
+          if(check(pos_left))
+          {
+            p = pos_left;
+            way.emplace_back(AutoTankEvent::LEFT);
+          }
+          break;
+        case 3:
+          if(check(pos_right))
+          {
+            p = pos_right;
+            way.emplace_back(AutoTankEvent::RIGHT);
+          }
+          break;
+      }
+    }
+  }
+  
   AutoTankEvent AutoTank::next()
   {
     if (!found)
@@ -480,10 +543,12 @@ namespace czh::tank
   {
     return waypos == way.size();
   }
+  
   void AutoTank::stuck()
   {
     got_stuck_in_its_way = true;
   }
+  
   void AutoTank::no_stuck()
   {
     got_stuck_in_its_way = false;

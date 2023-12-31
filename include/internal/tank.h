@@ -1,4 +1,4 @@
-﻿//   Copyright 2022-2023 tank - caozhanhao
+﻿//   Copyright 2022-2024 tank - caozhanhao
 //
 //   Licensed under the Apache License, Version 2.0 (the "License");
 //   you may not use this file except in compliance with the License.
@@ -78,7 +78,7 @@ namespace czh::tank
     [[nodiscard]]int get_max_hp() const;
     
     [[nodiscard]]bool is_alive() const;
-    
+  
     [[nodiscard]]bool has_cleared() const;
     
     void clear();
@@ -104,6 +104,8 @@ namespace czh::tank
     std::string colorify_text(const std::string &str);
     
     std::string colorify_tank();
+  
+    [[nodiscard]]int tanks_nearby() const;
   };
   
   class NormalTank : public Tank
@@ -174,6 +176,8 @@ namespace czh::tank
           waypos(0), target_id(0), gap_count(0) {}
     
     void target(std::size_t target_id_, const map::Pos &target_pos_);
+    
+    void retreat();
     
     AutoTankEvent next();
     

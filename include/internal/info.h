@@ -1,4 +1,4 @@
-//   Copyright 2022-2023 tank - caozhanhao
+//   Copyright 2022-2024 tank - caozhanhao
 //
 //   Licensed under the Apache License, Version 2.0 (the "License");
 //   you may not use this file except in compliance with the License.
@@ -14,6 +14,7 @@
 #ifndef TANK_INFO_H
 #define TANK_INFO_H
 
+#include <functional>
 #include <string>
 
 namespace czh::info
@@ -23,6 +24,7 @@ namespace czh::info
     int hp;
     int lethality;
     int range;
+    std::function<std::string(int)> text;
   };
   enum class TankType
   {
@@ -35,7 +37,7 @@ namespace czh::info
     std::size_t id;
     std::size_t gap;
     TankType type;
-    BulletInfo bullet;
+    std::function<BulletInfo()> bullet;
   };
 }
 #endif
