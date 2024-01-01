@@ -97,7 +97,7 @@ namespace czh::game
                 .max_hp = static_cast<int>(11 - lvl) * 150,
                 .name = "AutoTank " + std::to_string(next_id),
                 .id = next_id,
-                .gap = 10 - lvl,
+                .gap = 10 - static_cast<int>(lvl),
                 .type = info::TankType::AUTO,
                 .bullet =
                     [lvl, v]()
