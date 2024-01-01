@@ -35,7 +35,7 @@ namespace czh::info
     int max_hp;
     std::string name;
     std::size_t id;
-    std::size_t gap;
+    int gap;
     TankType type;
     std::function<BulletInfo()> bullet;
   };

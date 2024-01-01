@@ -54,7 +54,7 @@ namespace czh::game
     id_index[next_id] = tanks.size();
     tanks.insert(tanks.cend(), std::make_shared<tank::NormalTank>
         (info::TankInfo{
-             .max_hp = 500,
+             .max_hp = 10000,
              .name = "Tank " + std::to_string(next_id),
              .id = next_id,
              .type = info::TankType::NORMAL,
@@ -64,7 +64,7 @@ namespace czh::game
                return info::BulletInfo
                    {
                        .hp = 1,
-                       .lethality = 50,
+                       .lethality = 100,
                        .range = 10000,
                        .text = [](int d)
                        {
@@ -90,11 +90,11 @@ namespace czh::game
       return 0;
     }
     id_index[next_id] = tanks.size();
-    std::string v = "WELECOMETOTANK";
+    std::vector<std::string> v = {"WE", "LE", "CO", "ME", "TO", "TA", "NK"};
     tanks.emplace_back(
         std::make_shared<tank::AutoTank>(
             info::TankInfo{
-                .max_hp = static_cast<int>(11 - lvl) * 10,
+                .max_hp = static_cast<int>(11 - lvl) * 150,
                 .name = "AutoTank " + std::to_string(next_id),
                 .id = next_id,
                 .gap = 10 - lvl,
@@ -105,9 +105,9 @@ namespace czh::game
                       return info::BulletInfo
                       {
                         .hp = 1,
-                        .lethality = static_cast<int>(11 - lvl),
+                        .lethality = static_cast<int>(11 - lvl) * 15,
                         .range = 10000,
-                        .text = [ch = v.substr(utils::randnum<size_t>(0, v.size() - 1), 2)](int d)
+                        .text = [ch = v[utils::randnum<size_t>(0, v.size())]](int d)
                         {
                           return ch;
                         }
@@ -212,31 +212,42 @@ namespace czh::game
           if (!(*it)->is_alive() || !(*it)->is_auto()) continue;
           auto tank = std::dynamic_pointer_cast<tank::AutoTank>(*it);
           auto target = id_at(tank->get_target_id());
-          //no target or target is dead/cleared should target/retarget
-          if (target == nullptr || !tank->get_found() || !target->is_alive())
-          {
-            auto alive = get_alive(it - tanks.begin());
-            if (alive.empty()) continue;
-            do
-            {
-              auto t = alive[utils::randnum<size_t>(0, alive.size())];
-              auto p = tanks[t];
-              tank->target(p->get_id(), p->get_pos());
-            } while (!tank->get_found());
-            target = id_at(tank->get_target_id());
-          }
-          //correct its way
           bool in_firing_line = tank::is_in_firing_line(map, tank->get_pos(), target->get_pos());
-          if (
-            // arrived but not in firing line
-              (tank->has_arrived() && !in_firing_line)
-              // in firing line but not arrived
-              || (in_firing_line && !tank->has_arrived()))
+          if(!tank->is_in_retreat())
+          {//no target or target is dead/cleared should target/retarget
+            if (target == nullptr || !tank->get_found() || !target->is_alive())
+            {
+              auto alive = get_alive(it - tanks.begin());
+              if (alive.empty()) continue;
+              do
+              {
+                auto t = alive[utils::randnum<size_t>(0, alive.size())];
+                auto p = tanks[t];
+                tank->target(p->get_id(), p->get_pos());
+              } while (!tank->get_found());
+              target = id_at(tank->get_target_id());
+            }
+            //correct its way
+            if(in_firing_line && !tank->has_arrived())
+            // in firing line but not arrived
+            {
+              tank->clear_way();
+            }
+          }
+          auto e = tank->next();
+          if(e == tank::AutoTankEvent::FIRE)
           {
-            tank->target(tank->get_target_id(), target->get_pos());
+            if(!in_firing_line)
+              // fired but not in firing line
+            {
+              tank->target(tank->get_target_id(), target->get_pos());
+              e = tank->next();
+            }
+            else
+              tank->correct_direction(target->get_pos());
           }
           int ret = 0;
-          switch (tank->next())
+          switch (e)
           {
             case tank::AutoTankEvent::UP:
               ret = tank->up();
@@ -257,15 +268,13 @@ namespace czh::game
               break;
           }
           if (ret != 0) tank->stuck();
-          else tank->no_stuck();
         }
         // bullet move
         for (auto it = bullets->begin(); it < bullets->end(); ++it)
         {
+          if(it->is_alive())
+            it->move();
           if ((map->count(map::Status::BULLET, it->get_pos()) > 1)
-              || map->has(map::Status::TANK, it->get_pos())
-              || (it->is_alive() && it->move() != 0)
-              // bullet has moved
               || map->has(map::Status::TANK, it->get_pos()))
           {
             int lethality = 0;
@@ -285,7 +294,8 @@ namespace czh::game
               if((*tank)->is_auto())
               {
                 auto t = std::dynamic_pointer_cast<tank::AutoTank>(*tank);
-                t->target(attacker->get_id(), attacker->get_pos());
+                if(attacker->get_id() != t->get_id())
+                  t->target(attacker->get_id(), attacker->get_pos());
               }
               (*tank)->attacked(lethality);
               if (!(*tank)->is_alive())
@@ -293,14 +303,6 @@ namespace czh::game
                 logger::info((*tank)->get_name() + " was killed.");
                 map->remove_status(map::Status::TANK, it->get_pos());
                 (*tank)->clear();
-              }
-              else
-              {
-                if((*tank)->is_auto())
-                {
-                  auto at = std::dynamic_pointer_cast<tank::AutoTank>(*tank);
-                  at->retreat();
-                }
               }
             }
           }
@@ -313,16 +315,6 @@ namespace czh::game
             logger::info((*it)->get_name() + " was killed by collision.");
             map->remove_status(map::Status::TANK, (*it)->get_pos());
             (*it)->clear();
-          }
-          else if ((*it)->tanks_nearby() == 3)
-          {
-            (*it)->attacked(1);
-            logger::info((*it)->get_name() + " was hurt by collision.");
-            if((*it)->is_auto())
-            {
-              auto at = std::dynamic_pointer_cast<tank::AutoTank>(*it);
-              at->retreat();
-            }
           }
         }
         clear_death();

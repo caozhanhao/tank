@@ -84,8 +84,8 @@ namespace czh::tank
     void clear();
     
     map::Pos &get_pos();
-    
-    void attacked(int lethality_);
+  
+    virtual void attacked(int lethality_);
     
     [[nodiscard]]const map::Pos &get_pos() const;
     
@@ -165,29 +165,30 @@ namespace czh::tank
     std::size_t waypos;
     bool found;
     
-    bool got_stuck_in_its_way;
-    std::size_t gap_count;
+    bool in_retreat;
+    int gap_count;
   public:
     AutoTank(info::TankInfo info_, std::shared_ptr<map::Map> map_,
              std::shared_ptr<std::vector<bullet::Bullet>> bullets_,
              map::Pos pos_)
         : Tank(info_, std::move(map_), std::move(bullets_), pos_),
-          found(false), got_stuck_in_its_way(false),
-          waypos(0), target_id(0), gap_count(0) {}
+          found(false), waypos(0), target_id(0), gap_count(0), in_retreat(false) {}
     
     void target(std::size_t target_id_, const map::Pos &target_pos_);
-    
-    void retreat();
     
     AutoTankEvent next();
     
     std::size_t &get_target_id();
-    
-    void correct_direction();
+  
+    void correct_direction(const map::Pos& target);
+
     void stuck();
-    void no_stuck();
     [[nodiscard]]bool get_found() const;
     [[nodiscard]]bool has_arrived();
+  
+    void attacked(int lethality_) override;
+    void clear_way();
+    bool is_in_retreat() const;
   };
 }
 #endif

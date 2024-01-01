@@ -77,27 +77,11 @@ namespace czh::tank
   
   int Tank::fire()
   {
-    map::Pos bullet_pos = get_pos();
-    switch (get_direction())
-    {
-      case map::Direction::UP:
-        bullet_pos.get_y()++;
-        break;
-      case map::Direction::DOWN:
-        bullet_pos.get_y()--;
-        break;
-      case map::Direction::LEFT:
-        bullet_pos.get_x()--;
-        break;
-      case map::Direction::RIGHT:
-        bullet_pos.get_x()++;
-        break;
-    }
-    int ret = map->add_bullet(bullet_pos);
+    int ret = map->add_bullet(get_pos());
     if (ret == 0)
     {
       bullets->emplace_back(
-          bullet::Bullet(info.bullet(), map, shared_from_this(), bullet_pos, get_direction()));
+          bullet::Bullet(info.bullet(), map, shared_from_this(), get_pos(), get_direction()));
     }
     return ret;
   }
@@ -291,7 +275,7 @@ namespace czh::tank
   bool Node::check(const std::shared_ptr<map::Map> &map, map::Pos &pos)
   {
     return map->check_pos(pos)
-           && !map->has(map::Status::WALL, pos);
+           && !map->has(map::Status::WALL, pos) && !map->has(map::Status::TANK, pos);
   }
   
   bool operator<(const Node &n1, const Node &n2)
@@ -303,7 +287,7 @@ namespace czh::tank
   {
     int x = (int) target_pos.get_x() - (int) pos.get_x();
     int y = (int) target_pos.get_y() - (int) pos.get_y();
-    if (x == 0 && std::abs(y) > 1)
+    if (x == 0 && std::abs(y) > 0)
     {
       std::size_t small = y > 0 ? pos.get_y() : target_pos.get_y();
       std::size_t big = y < 0 ? pos.get_y() : target_pos.get_y();
@@ -317,7 +301,7 @@ namespace czh::tank
         }
       }
     }
-    else if (y == 0 && std::abs(x) > 1)
+    else if (y == 0 && std::abs(x) > 0)
     {
       std::size_t small = x > 0 ? pos.get_x() : target_pos.get_x();
       std::size_t big = x < 0 ? pos.get_x() : target_pos.get_x();
@@ -331,17 +315,12 @@ namespace czh::tank
         }
       }
     }
-    else if (std::abs(x) <= 1 && std::abs(y) <= 1)
-    {
-      return true;
-    }
     else
     {
       return false;
     }
     return true;
   }
-  
   
   void AutoTank::target(std::size_t target_id_, const map::Pos &target_pos_)
   {
@@ -431,15 +410,25 @@ namespace czh::tank
     }
   }
   
-  void AutoTank::retreat()
+  bool AutoTank::is_in_retreat() const
   {
+    return in_retreat;
+  }
+  
+  void AutoTank::attacked(int lethality_)
+  {
+    Tank::attacked(lethality_);
+    in_retreat = true;
+    way.clear();
+    waypos = 0;
     auto check = [this](map::Pos p)
     {
-      return map->check_pos(p) && !map->has(map::Status::WALL, p) && !map->has(map::Status::TANK, p);
+      return map->check_pos(p) && !map->has(map::Status::WALL, p) && !map->has(map::Status::TANK, p)
+                                                                     && !map->has(map::Status::BULLET, p);
     };
     auto p = pos;
     int i = 0;
-    while (way.size() < 5 && i++ < 10)
+    while (way.size() < 10 && i++ < 10)
     {
       map::Pos pos_up(p.get_x(), p.get_y() + 1);
       map::Pos pos_down(p.get_x(), p.get_y() - 1);
@@ -451,28 +440,28 @@ namespace czh::tank
           if(check(pos_up))
           {
             p = pos_up;
-            way.emplace_back(AutoTankEvent::UP);
+            way.insert(way.end(), 5, AutoTankEvent::UP);
           }
           break;
         case 1:
           if(check(pos_down))
           {
             p = pos_down;
-            way.emplace_back(AutoTankEvent::DOWN);
+            way.insert(way.end(), 5, AutoTankEvent::DOWN);
           }
           break;
         case 2:
           if(check(pos_left))
           {
             p = pos_left;
-            way.emplace_back(AutoTankEvent::LEFT);
+            way.insert(way.end(), 5, AutoTankEvent::LEFT);
           }
           break;
         case 3:
           if(check(pos_right))
           {
             p = pos_right;
-            way.emplace_back(AutoTankEvent::RIGHT);
+            way.insert(way.end(), 5, AutoTankEvent::RIGHT);
           }
           break;
       }
@@ -490,27 +479,29 @@ namespace czh::tank
     else
       gap_count = 0;
   
-  
-    if (got_stuck_in_its_way)
-    {
-      if (waypos != 0) --waypos;
-      return AutoTankEvent::FIRE;
-    }
-    
     if (waypos < way.size())
     {
       auto ret = way[waypos];
       ++waypos;
       return ret;
     }
-    correct_direction();
+    else if(in_retreat) in_retreat = false;
+    
+    gap_count = info.gap - 5;
     return AutoTankEvent::FIRE;
   }
   
-  void AutoTank::correct_direction()
+  void AutoTank::clear_way()
   {
-    int x = (int) get_pos().get_x() - (int) target_pos.get_x();
-    int y = (int) get_pos().get_y() - (int) target_pos.get_y();
+    waypos = 0;
+    way.clear();
+  }
+  
+  
+  void AutoTank::correct_direction(const map::Pos& target)
+  {
+    int x = (int) get_pos().get_x() - (int) target.get_x();
+    int y = (int) get_pos().get_y() - (int) target.get_y();
     if (x > 0)
     {
       get_direction() = map::Direction::LEFT;
@@ -546,11 +537,7 @@ namespace czh::tank
   
   void AutoTank::stuck()
   {
-    got_stuck_in_its_way = true;
-  }
-  
-  void AutoTank::no_stuck()
-  {
-    got_stuck_in_its_way = false;
+    if(waypos != 0) --waypos;
+    way.insert(way.begin() + waypos, AutoTankEvent::FIRE);
   }
 }
