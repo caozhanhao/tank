@@ -11,9 +11,11 @@
 //   WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 //   See the License for the specific language governing permissions and
 //   limitations under the License.
-#include "internal/bullet.h"
-#include "internal/info.h"
-#include <memory>
+#include "tank/game.h"
+#include "tank/bullet.h"
+#include "tank/info.h"
+
+extern czh::map::Map czh::game::game_map;
 
 namespace czh::bullet
 {
@@ -23,7 +25,7 @@ namespace czh::bullet
     switch (direction)
     {
       case map::Direction::UP:
-        ret = map->up(map::Status::BULLET, pos);
+        ret = game::game_map.up(map::Status::BULLET, pos);
         if (ret != 0)
         {
           info.hp -= 1;
@@ -36,7 +38,7 @@ namespace czh::bullet
         }
         break;
       case map::Direction::DOWN:
-        ret = map->down(map::Status::BULLET, pos);
+        ret = game::game_map.down(map::Status::BULLET, pos);
         if (ret != 0)
         {
           info.hp -= 1;
@@ -49,7 +51,7 @@ namespace czh::bullet
         }
         break;
       case map::Direction::LEFT:
-        ret = map->left(map::Status::BULLET, pos);
+        ret = game::game_map.left(map::Status::BULLET, pos);
         if (ret != 0)
         {
           info.hp -= 1;
@@ -62,7 +64,7 @@ namespace czh::bullet
         }
         break;
       case map::Direction::RIGHT:
-        ret = map->right(map::Status::BULLET, pos);
+        ret = game::game_map.right(map::Status::BULLET, pos);
         if (ret != 0)
         {
           info.hp -= 1;
@@ -80,23 +82,19 @@ namespace czh::bullet
 
   std::string Bullet::get_text()
   {
-    int arg = -1;
-    switch (direction)
-    {
-      case map::Direction::UP:
-        arg = 0;
-        break;
-      case map::Direction::DOWN:
-        arg = 1;
-        break;
-      case map::Direction::LEFT:
-        arg = 2;
-        break;
-      case map::Direction::RIGHT:
-        arg = 3;
-        break;
-    }
-    return info.text(arg);
+//    std::string ret;
+//    switch (direction)
+//    {
+//      case map::Direction::UP:
+//        break;
+//      case map::Direction::DOWN:
+//        break;
+//      case map::Direction::LEFT:
+//        break;
+//      case map::Direction::RIGHT:
+//        break;
+//    }
+    return "**";
   }
   
   [[nodiscard]] bool Bullet::is_alive() const
@@ -104,7 +102,7 @@ namespace czh::bullet
     return info.hp > 0 && info.range > 0;
   }
   
-  [[nodiscard]] std::shared_ptr<tank::Tank> Bullet::get_from() const
+  [[nodiscard]] tank::Tank* Bullet::get_from() const
   {
     return from_tank;
   }

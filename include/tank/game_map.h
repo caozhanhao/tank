@@ -84,15 +84,17 @@ namespace czh::map
     Pos &get_pos();
   };
   
+  bool operator<(const Change &c1, const Change &c2);
+  
   class Map
   {
   private:
     std::size_t height;
     std::size_t width;
     std::vector<std::vector<Point>> map;
-    std::vector<Change> changes;
+    std::set<Change> changes;
   public:
-    Map(std::size_t height_, std::size_t width_);
+    Map(std::size_t width_, std::size_t height_);
     
     [[nodiscard]]size_t get_width() const;
     
@@ -118,7 +120,7 @@ namespace czh::map
     
     int count(const Status &status, const Pos &pos) const;
     
-    const std::vector<Change> &get_changes() const;
+    const std::set<Change> & get_changes() const;
     
     void clear_changes();
   

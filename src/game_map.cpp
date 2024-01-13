@@ -11,8 +11,8 @@
 //   WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 //   See the License for the specific language governing permissions and
 //   limitations under the License.
-#include "internal/game_map.h"
-#include "internal/utils.h"
+#include "tank/game_map.h"
+#include "tank/utils.h"
 #include <vector>
 #include <list>
 #include <set>
@@ -84,6 +84,12 @@ namespace czh::map
     return pos1.get_x() < pos2.get_x();
   }
   
+  
+  bool operator<(const Change &c1, const Change &c2)
+  {
+    return c1.get_pos() < c2.get_pos();
+  }
+  
   std::size_t get_distance(const map::Pos &from, const map::Pos &to)
   {
     return std::abs(int(from.get_x() - to.get_x())) + std::abs(int(from.get_y() - to.get_y()));
@@ -94,14 +100,25 @@ namespace czh::map
   
   Pos &Change::get_pos() { return pos; }
   
-  Map::Map(std::size_t height_, std::size_t width_)
+  Map::Map(std::size_t width_, std::size_t height_)
       : height(height_), width(width_), map(width)
   {
     for (auto &r: map)
     {
       r.resize(height);
     }
-    make_maze();
+    
+    for (int i = 0; i < width; ++i)
+    {
+      map[i][height - 1].add_status(map::Status::WALL);
+      map[i][0].add_status(map::Status::WALL);
+    }
+    for (int j = 0; j < height; ++j)
+    {
+      map[width - 1][j].add_status(map::Status::WALL);
+      map[0][j].add_status(map::Status::WALL);
+    }
+    //make_maze();
   }
   
   [[nodiscard]]size_t Map::get_width() const { return width; }
@@ -136,7 +153,7 @@ namespace czh::map
   int Map::add_tank(const Pos &pos)
   {
     at(pos).add_status(Status::TANK);
-    changes.emplace_back(pos);
+    changes.insert(Change{pos});
     return 0;
   }
   
@@ -145,13 +162,14 @@ namespace czh::map
     auto &p = at(pos);
     if (p.has(Status::WALL)) return -1;
     p.add_status(Status::BULLET);
+    changes.insert(Change{pos});
     return 0;
   }
   
   void Map::remove_status(const Status &status, const Pos &pos)
   {
     at(pos).remove_status(status);
-    changes.emplace_back(pos);
+    changes.insert(Change{pos});
   }
   
   bool Map::has(const Status &status, const Pos &pos) const
@@ -164,7 +182,7 @@ namespace czh::map
     return at(pos).count(status);
   }
   
-  const std::vector<Change> &Map::get_changes() const { return changes; };
+  const std::set<Change> &Map::get_changes() const { return changes; };
   
   void Map::clear_changes() { changes.clear(); };
   
@@ -263,7 +281,7 @@ namespace czh::map
         if(map[i][j].has(Status::WALL))
         {
           map[i][j].remove_status(Status::WALL);
-          changes.emplace_back(Pos{i, j});
+          changes.insert(Change{Pos{i, j}});
         }
       }
     }
@@ -286,7 +304,7 @@ namespace czh::map
         map[i][j].remove_all_statuses();
         if(status != Status::END)
           map[i][j].add_status(status);
-        changes.emplace_back(Pos{i, j});
+        changes.insert(Change{Pos{i, j}});
       }
     }
     return 0;
@@ -332,8 +350,8 @@ namespace czh::map
     }
     at(pos).remove_status(status);
     new_point.add_status(status);
-    changes.emplace_back(pos);
-    changes.emplace_back(new_pos);
+    changes.insert(Change{pos});
+    changes.insert(Change{new_pos});
     return 0;
   }
 }

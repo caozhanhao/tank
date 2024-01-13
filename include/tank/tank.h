@@ -14,14 +14,13 @@
 #ifndef TANK_TANK_H
 #define TANK_TANK_H
 
-#include "internal/game_map.h"
-#include "internal/bullet.h"
+#include "game_map.h"
+#include "bullet.h"
 #include <map>
 #include <set>
 #include <list>
 #include <algorithm>
 #include <functional>
-#include <memory>
 
 namespace czh::tank
 {
@@ -34,7 +33,7 @@ namespace czh::tank
     UP, DOWN, LEFT, RIGHT, FIRE, PASS
   };
   
-  class Tank : public std::enable_shared_from_this<Tank>
+  class Tank
   {
   protected:
     info::TankInfo info;
@@ -42,14 +41,10 @@ namespace czh::tank
     map::Pos pos;
     map::Direction direction;
     bool hascleared;
-    std::shared_ptr<map::Map> map;
-    std::shared_ptr<std::vector<bullet::Bullet>> bullets;
   public:
-    Tank(info::TankInfo info_, std::shared_ptr<map::Map> map_,
-         std::shared_ptr<std::vector<bullet::Bullet>> bullets_,
-         map::Pos pos_);
-    
-    virtual ~Tank() = default; // polymorphic
+    Tank(info::TankInfo info_, map::Pos pos_);
+  
+    virtual ~Tank() = default;
     
     void kill();
     
@@ -111,10 +106,9 @@ namespace czh::tank
   class NormalTank : public Tank
   {
   public:
-    NormalTank(info::TankInfo info_, std::shared_ptr<map::Map> map_,
-               const std::shared_ptr<std::vector<bullet::Bullet>> &bullets_,
-               map::Pos pos_)
-        : Tank(info_, std::move(map_), std::move(bullets_), pos_) {}
+    NormalTank(info::TankInfo info_, map::Pos pos_)
+        : Tank(info_, pos_) {}
+    virtual ~NormalTank() = default;
   };
   
   AutoTankEvent get_pos_direction(const map::Pos &from, const map::Pos &to);
@@ -144,15 +138,15 @@ namespace czh::tank
     
     [[nodiscard]]bool is_root() const;
     
-    std::vector<Node> get_neighbors(const std::shared_ptr<map::Map> &map) const;
+    std::vector<Node> get_neighbors() const;
   
   private:
-    static bool check(const std::shared_ptr<map::Map> &map, map::Pos &pos);
+    bool check(map::Pos &pos) const;
   };
   
   bool operator<(const Node &n1, const Node &n2);
   
-  bool is_in_firing_line(const std::shared_ptr<map::Map> &map, const map::Pos &pos, const map::Pos &target_pos);
+  bool is_in_firing_line(const map::Pos &pos, const map::Pos &target_pos);
   
   class AutoTank : public Tank
   {
@@ -168,12 +162,12 @@ namespace czh::tank
     bool in_retreat;
     int gap_count;
   public:
-    AutoTank(info::TankInfo info_, std::shared_ptr<map::Map> map_,
-             std::shared_ptr<std::vector<bullet::Bullet>> bullets_,
-             map::Pos pos_)
-        : Tank(info_, std::move(map_), std::move(bullets_), pos_),
+    AutoTank(info::TankInfo info_, map::Pos pos_)
+        : Tank(info_, pos_),
           found(false), waypos(0), target_id(0), gap_count(0), in_retreat(false) {}
-    
+  
+    virtual ~AutoTank() = default;
+  
     void target(std::size_t target_id_, const map::Pos &target_pos_);
     
     AutoTankEvent next();

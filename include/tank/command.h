@@ -11,8 +11,8 @@
 //   WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 //   See the License for the specific language governing permissions and
 //   limitations under the License.
-#ifndef TANK_CMD_PARSER_H
-#define TANK_CMD_PARSER_H
+#ifndef TANK_COMMAND_H
+#define TANK_COMMAND_H
 #include "type_list.h"
 #include <variant>
 #include <string>
@@ -80,5 +80,7 @@ namespace czh::cmd
     }
     return true;
   }
+  
+  void run_command(const std::string &str);
 }
-#endif //TANK_CMD_PARSER_H
+#endif //TANK_COMMAND_H

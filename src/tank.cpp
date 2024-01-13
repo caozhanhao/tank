@@ -11,27 +11,26 @@
 //   WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 //   See the License for the specific language governing permissions and
 //   limitations under the License.
-#include "internal/tank.h"
-#include "internal/game_map.h"
-#include "internal/bullet.h"
-#include "internal/utils.h"
+#include "tank/game.h"
+#include "tank/tank.h"
+#include "tank/game_map.h"
+#include "tank/bullet.h"
+#include "tank/utils.h"
 #include <map>
 #include <set>
 #include <list>
-#include <algorithm>
 #include <functional>
-#include <memory>
+
+extern czh::map::Map czh::game::game_map;
+extern std::vector<czh::bullet::Bullet> czh::game::bullets;
 
 namespace czh::tank
 {
-  Tank::Tank(info::TankInfo info_, std::shared_ptr<map::Map> map_,
-             std::shared_ptr<std::vector<bullet::Bullet>> bullets_,
-             map::Pos pos_)
-      : info(info_), map(std::move(map_)), bullets(std::move(bullets_)),
-        direction(map::Direction::UP), pos(pos_), hp(info_.max_hp),
-        hascleared(false)
+  Tank::Tank(info::TankInfo info_, map::Pos pos_)
+      : info(info_), direction(map::Direction::UP),
+      pos(pos_), hp(info_.max_hp), hascleared(false)
   {
-    map->add_tank(pos);
+    game::game_map.add_tank(pos);
   }
   
   void Tank::kill()
@@ -42,7 +41,7 @@ namespace czh::tank
   int Tank::up()
   {
     direction = map::Direction::UP;
-    int ret = map->up(map::Status::TANK, pos);
+    int ret = game::game_map.up(map::Status::TANK, pos);
     if (ret == 0)
       pos.get_y()++;
     return ret;
@@ -51,7 +50,7 @@ namespace czh::tank
   int Tank::down()
   {
     direction = map::Direction::DOWN;
-    int ret = map->down(map::Status::TANK, pos);
+    int ret = game::game_map.down(map::Status::TANK, pos);
     if (ret == 0)
       pos.get_y()--;
     return ret;
@@ -60,7 +59,7 @@ namespace czh::tank
   int Tank::left()
   {
     direction = map::Direction::LEFT;
-    int ret = map->left(map::Status::TANK, pos);
+    int ret = game::game_map.left(map::Status::TANK, pos);
     if (ret == 0)
       pos.get_x()--;
     return ret;
@@ -69,7 +68,7 @@ namespace czh::tank
   int Tank::right()
   {
     direction = map::Direction::RIGHT;
-    int ret = map->right(map::Status::TANK, pos);
+    int ret = game::game_map.right(map::Status::TANK, pos);
     if (ret == 0)
       pos.get_x()++;
     return ret;
@@ -77,11 +76,11 @@ namespace czh::tank
   
   int Tank::fire()
   {
-    int ret = map->add_bullet(get_pos());
+    int ret = game::game_map.add_bullet(get_pos());
     if (ret == 0)
     {
-      bullets->emplace_back(
-          bullet::Bullet(info.bullet(), map, shared_from_this(), get_pos(), get_direction()));
+      game::bullets.emplace_back(
+          bullet::Bullet(info.bullet, this, get_pos(), get_direction()));
     }
     return ret;
   }
@@ -166,7 +165,7 @@ namespace czh::tank
     hp = info.max_hp;
     hascleared = false;
     pos = newpos;
-    map->add_tank(pos);
+    game::game_map.add_tank(pos);
   }
   
   std::string Tank::colorify_text(const std::string &str)
@@ -195,10 +194,10 @@ namespace czh::tank
     map::Pos pos_down(pos.get_x(), pos.get_y() - 1);
     map::Pos pos_left(pos.get_x() - 1, pos.get_y());
     map::Pos pos_right(pos.get_x() + 1, pos.get_y());
-    if(map->check_pos(pos_up) && map->has(map::Status::TANK, pos_up)) ret += 1;
-    if(map->check_pos(pos_down) && map->has(map::Status::TANK, pos_down)) ret += 1;
-    if(map->check_pos(pos_left) && map->has(map::Status::TANK, pos_left)) ret += 1;
-    if(map->check_pos(pos_right) && map->has(map::Status::TANK, pos_right)) ret += 1;
+    if(game::game_map.check_pos(pos_up) && game::game_map.has(map::Status::TANK, pos_up)) ret += 1;
+    if(game::game_map.check_pos(pos_down) && game::game_map.has(map::Status::TANK, pos_down)) ret += 1;
+    if(game::game_map.check_pos(pos_left) && game::game_map.has(map::Status::TANK, pos_left)) ret += 1;
+    if(game::game_map.check_pos(pos_right) && game::game_map.has(map::Status::TANK, pos_right)) ret += 1;
     return ret;
   }
   
@@ -246,36 +245,36 @@ namespace czh::tank
     return root;
   }
   
-  std::vector<Node> Node::get_neighbors(const std::shared_ptr<map::Map> &map) const
+  std::vector<Node> Node::get_neighbors() const
   {
     std::vector<Node> ret;
     map::Pos pos_up(pos.get_x(), pos.get_y() + 1);
     map::Pos pos_down(pos.get_x(), pos.get_y() - 1);
     map::Pos pos_left(pos.get_x() - 1, pos.get_y());
     map::Pos pos_right(pos.get_x() + 1, pos.get_y());
-    if (check(map, pos_up))
+    if (check(pos_up))
     {
       ret.emplace_back(Node(pos_up, G + 10, pos));
     }
-    if (check(map, pos_down))
+    if (check(pos_down))
     {
       ret.emplace_back(Node(pos_down, G + 10, pos));
     }
-    if (check(map, pos_left))
+    if (check(pos_left))
     {
       ret.emplace_back(Node(pos_left, G + 10, pos));
     }
-    if (check(map, pos_right))
+    if (check(pos_right))
     {
       ret.emplace_back(Node(pos_right, G + 10, pos));
     }
     return ret;
   }
   
-  bool Node::check(const std::shared_ptr<map::Map> &map, map::Pos &pos)
+  bool Node::check(map::Pos &pos) const
   {
-    return map->check_pos(pos)
-           && !map->has(map::Status::WALL, pos) && !map->has(map::Status::TANK, pos);
+    return game::game_map.check_pos(pos)
+           && !game::game_map.has(map::Status::WALL, pos) && !game::game_map.has(map::Status::TANK, pos);
   }
   
   bool operator<(const Node &n1, const Node &n2)
@@ -283,7 +282,7 @@ namespace czh::tank
     return n1.get_pos() < n2.get_pos();
   }
   
-  bool is_in_firing_line(const std::shared_ptr<map::Map> &map, const map::Pos &pos, const map::Pos &target_pos)
+  bool is_in_firing_line(const map::Pos &pos, const map::Pos &target_pos)
   {
     int x = (int) target_pos.get_x() - (int) pos.get_x();
     int y = (int) target_pos.get_y() - (int) pos.get_y();
@@ -294,8 +293,8 @@ namespace czh::tank
       for (std::size_t i = small + 1; i < big; ++i)
       {
         map::Pos tmp = {pos.get_x(), i};
-        if (map->has(map::Status::WALL, tmp)
-            || map->has(map::Status::TANK, tmp))
+        if (game::game_map.has(map::Status::WALL, tmp)
+            || game::game_map.has(map::Status::TANK, tmp))
         {
           return false;
         }
@@ -308,8 +307,8 @@ namespace czh::tank
       for (std::size_t i = small + 1; i < big; ++i)
       {
         map::Pos tmp = {i, pos.get_y()};
-        if (map->has(map::Status::WALL, tmp)
-            || map->has(map::Status::TANK, tmp))
+        if (game::game_map.has(map::Status::WALL, tmp)
+            || game::game_map.has(map::Status::TANK, tmp))
         {
           return false;
         }
@@ -334,7 +333,7 @@ namespace czh::tank
     for (int i = 0; i <= target_pos.get_x(); ++i)
     {
       map::Pos tmp(i, target_pos.get_y());
-      if (is_in_firing_line(map, tmp, target_pos))
+      if (is_in_firing_line(tmp, target_pos))
       {
         fire_line.insert(tmp);
       }
@@ -342,7 +341,7 @@ namespace czh::tank
     for (int i = 0; i <= target_pos.get_y(); ++i)
     {
       map::Pos tmp(target_pos.get_x(), i);
-      if (is_in_firing_line(map, tmp, target_pos))
+      if (is_in_firing_line(tmp, target_pos))
       {
         fire_line.insert(tmp);
       }
@@ -362,7 +361,7 @@ namespace czh::tank
       auto it = open_list.begin();
       auto curr = close_list.insert({it->second.get_pos(), it->second});
       open_list.erase(it);
-      auto neighbors = curr.first->second.get_neighbors(map);
+      auto neighbors = curr.first->second.get_neighbors();
       for (auto &node: neighbors)
       {
         auto cit = close_list.find(node.get_pos());
@@ -423,8 +422,8 @@ namespace czh::tank
     waypos = 0;
     auto check = [this](map::Pos p)
     {
-      return map->check_pos(p) && !map->has(map::Status::WALL, p) && !map->has(map::Status::TANK, p)
-                                                                     && !map->has(map::Status::BULLET, p);
+      return game::game_map.check_pos(p) && !game::game_map.has(map::Status::WALL, p) && !game::game_map.has(map::Status::TANK, p)
+                                                                     && !game::game_map.has(map::Status::BULLET, p);
     };
     auto p = pos;
     int i = 0;

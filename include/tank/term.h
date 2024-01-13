@@ -17,11 +17,11 @@
 #include <iostream>
 
 #if __has_include(<conio.h>) && __has_include(<windows.h>)
-#define CZH_TANK_ENABLE_W_TERM
+#define CZH_TANK_KEYBOARD_MODE_0
 #include <windows.h>
 #include <conio.h>
 #elif __has_include(<sys/ioctl.h>) && __has_include(<unistd.h>) && __has_include(<sys/select.h>) && __has_include(<termios.h>)
-#define CZH_TANK_ENABLE_L_TERM
+#define CZH_TANK_KEYBOARD_MODE_1
 #include <cstdio>
 #include <sys/ioctl.h>
 #include <unistd.h>
@@ -72,6 +72,8 @@ namespace czh::term
   void move_cursor(const TermPos &pos);
   
   void output(const std::string &str);
+  
+  void flush();
   
   void mvoutput(const TermPos &pos, const std::string &str);
   

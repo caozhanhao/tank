@@ -16,7 +16,6 @@
 
 #include "info.h"
 #include "game_map.h"
-#include <memory>
 
 namespace czh::tank
 {
@@ -29,14 +28,12 @@ namespace czh::bullet
   private:
     map::Pos pos;
     map::Direction direction;
-    std::shared_ptr<map::Map> map;
-    std::shared_ptr<tank::Tank> from_tank;
+    tank::Tank* from_tank;
     info::BulletInfo info;
   public:
-    int life;
-    Bullet(info::BulletInfo info_, std::shared_ptr<map::Map> map_, std::shared_ptr<tank::Tank> from_tank_,
+    Bullet(info::BulletInfo info_, tank::Tank* from_tank_,
            map::Pos pos_, map::Direction direction_)
-        : map(std::move(map_)), pos(pos_), direction(direction_), info(info_), from_tank(from_tank_), life(0){}
+        : pos(pos_), direction(direction_), info(info_), from_tank(from_tank_) {}
     
     int move();
   
@@ -44,7 +41,7 @@ namespace czh::bullet
     
     [[nodiscard]] bool is_alive() const;
     
-    [[nodiscard]] std::shared_ptr<tank::Tank> get_from() const;
+    [[nodiscard]] tank::Tank* get_from() const;
     
     void kill();
     

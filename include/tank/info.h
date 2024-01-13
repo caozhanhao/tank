@@ -24,7 +24,6 @@ namespace czh::info
     int hp;
     int lethality;
     int range;
-    std::function<std::string(int)> text;
   };
   enum class TankType
   {
@@ -37,7 +36,7 @@ namespace czh::info
     std::size_t id;
     int gap;
     TankType type;
-    std::function<BulletInfo()> bullet;
+    BulletInfo bullet;
   };
 }
 #endif
