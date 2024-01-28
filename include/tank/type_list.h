@@ -13,8 +13,10 @@
 //   limitations under the License.
 #ifndef TANK_TYPE_LIST_H
 #define TANK_TYPE_LIST_H
+
 #include <string>
 #include <variant>
+
 namespace czh::type_list
 {
   template<typename... List>

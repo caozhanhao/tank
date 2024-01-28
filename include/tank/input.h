@@ -27,6 +27,7 @@ namespace czh::input
     M_KEY_ENTER,
     EMPTY
   };
+  
   Input get_input();
 }
 #endif

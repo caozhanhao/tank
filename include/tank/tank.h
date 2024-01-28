@@ -26,13 +26,17 @@
 namespace czh::tank
 {
   class Tank;
-  Tank* build_tank(const map::TankData& data);
-  map::TankData get_tank_data(Tank*);
+  
+  Tank *build_tank(const map::TankData &data);
+  
+  map::TankData get_tank_data(Tank *);
   
   class Tank
   {
-    friend Tank* build_tank(const map::TankData& data);
-    friend map::TankData get_tank_data(Tank*);
+    friend Tank *build_tank(const map::TankData &data);
+    
+    friend map::TankData get_tank_data(Tank *);
+  
   protected:
     info::TankInfo info;
     int hp;
@@ -41,19 +45,19 @@ namespace czh::tank
     bool hascleared;
   public:
     Tank(info::TankInfo info_, map::Pos pos_);
-  
+    
     virtual ~Tank() = default;
     
     void kill();
     
     int up();
-  
+    
     int down();
-  
+    
     int left();
-  
+    
     int right();
-  
+    
     int fire();
     
     [[nodiscard]]bool is_auto() const;
@@ -71,13 +75,13 @@ namespace czh::tank
     [[nodiscard]]int get_max_hp() const;
     
     [[nodiscard]]bool is_alive() const;
-  
+    
     [[nodiscard]]bool has_cleared() const;
     
     void clear();
     
     map::Pos &get_pos();
-  
+    
     virtual void attacked(int lethality_);
     
     [[nodiscard]]const map::Pos &get_pos() const;
@@ -98,11 +102,14 @@ namespace czh::tank
   
   class NormalTank : public Tank
   {
-    friend Tank* build_tank(const map::TankData& data);
-    friend map::TankData get_tank_data(Tank*);
+    friend Tank *build_tank(const map::TankData &data);
+    
+    friend map::TankData get_tank_data(Tank *);
+  
   public:
     NormalTank(info::TankInfo info_, map::Pos pos_)
         : Tank(info_, pos_) {}
+    
     virtual ~NormalTank() = default;
   };
   
@@ -145,34 +152,37 @@ namespace czh::tank
   
   class AutoTank : public Tank
   {
-    friend Tank* build_tank(const map::TankData& data);
-    friend map::TankData get_tank_data(Tank*);
+    friend Tank *build_tank(const map::TankData &data);
+    
+    friend map::TankData get_tank_data(Tank *);
+  
   private:
     std::size_t target_id;
     map::Pos target_pos;
     map::Pos destination_pos;
-  
+    
     std::vector<AutoTankEvent> way;
     std::size_t waypos;
-
+    
     int gap_count;
   public:
     AutoTank(info::TankInfo info_, map::Pos pos_)
-        : Tank(info_, pos_), waypos(0), target_id(0), gap_count(0){}
-  
+        : Tank(info_, pos_), waypos(0), target_id(0), gap_count(0) {}
+    
     virtual ~AutoTank() = default;
-  
+    
     void target(std::size_t target_id_, const map::Pos &target_pos_);
     
     AutoTankEvent next();
     
     std::size_t &get_target_id();
-  
-    void correct_direction(const map::Pos& target);
-
+    
+    void correct_direction(const map::Pos &target);
+    
     [[nodiscard]]bool has_arrived() const;
-
+    
     void attacked(int lethality_) override;
+    
     void generate_random_way();
   };
 }

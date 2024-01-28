@@ -35,10 +35,11 @@ int main()
   czh::logger::init_logger(czh::logger::Severity::NONE, czh::logger::Output::console);
   add_tank();
   std::thread game_thread(
-      []{
+      []
+      {
         std::chrono::high_resolution_clock::time_point beg, end;
         std::chrono::milliseconds cost;
-        while(true)
+        while (true)
         {
           beg = std::chrono::high_resolution_clock::now();
           mainloop();
@@ -46,10 +47,12 @@ int main()
           end = std::chrono::high_resolution_clock::now();
           cost = std::chrono::duration_cast<std::chrono::milliseconds>(end - beg);
           if (tick > cost)
+          {
             std::this_thread::sleep_for(tick - cost);
+          }
         }
       }
-      );
+  );
   game_thread.detach();
   while (true)
   {
@@ -87,9 +90,10 @@ int main()
             render();
           }
           break;
-        case Input::G_KEY_L: {
-            std::lock_guard<std::mutex> l(game::mainloop_mtx);
-            add_auto_tank(utils::randnum<int>(1, 11));
+        case Input::G_KEY_L:
+        {
+          std::lock_guard<std::mutex> l(game::mainloop_mtx);
+          add_auto_tank(utils::randnum<int>(1, 11));
         }
           break;
         case Input::G_KEY_SLASH:
@@ -106,4 +110,5 @@ int main()
     }
   }
 }
+
 #pragma clang diagnostic pop

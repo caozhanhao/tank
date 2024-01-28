@@ -18,6 +18,7 @@
 #include <chrono>
 #include <ctime>
 #include <cstdio>
+
 extern std::mutex czh::game::render_mtx;
 namespace czh::logger
 {
@@ -58,18 +59,23 @@ namespace czh::logger
   std::string Record::get_message() const { return message; }
   
   auto Record::get_time_point() const { return time_point; }
+  
   void Logger::init(Severity min_severity_, Output mode_, const std::string &filename)
   {
     min_severity = min_severity_;
     mode = mode_;
-    if(filename != "")
+    if (filename != "")
     {
       os = std::make_unique<std::ofstream>(filename);
       if (!os->is_open())
+      {
         throw std::runtime_error("Open log file failed");
+      }
     }
     else
+    {
       os = nullptr;
+    }
   }
   
   void output_at_bottom(const std::string &str)
@@ -94,7 +100,7 @@ namespace czh::logger
     if (record.get_severity() < min_severity) return;
     std::string str;
     str += get_severity_str(record.get_severity()) + " ";
-    if(record.get_severity() > Severity::INFO)
+    if (record.get_severity() > Severity::INFO)
     {
       std::string time = time_to_str(record.get_time_point());
       str += time + " ";

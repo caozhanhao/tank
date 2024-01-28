@@ -42,8 +42,8 @@ namespace czh::game
     int y_min;
     int y_max;
   };
-
-
+  
+  
   extern int keyboard_mode;
   extern std::chrono::milliseconds tick;
   extern bool output_inited;
@@ -55,8 +55,8 @@ namespace czh::game
   extern std::size_t screen_height;
   extern std::size_t screen_width;
   extern map::Map game_map;
-  extern std::map<std::size_t, tank::Tank*> tanks;
-  extern std::list<bullet::Bullet*> bullets;
+  extern std::map<std::size_t, tank::Tank *> tanks;
+  extern std::list<bullet::Bullet *> bullets;
   extern std::vector<std::pair<std::size_t, tank::NormalTankEvent>> normal_tank_events;
   extern Page curr_page;
   extern size_t help_page;
@@ -67,20 +67,33 @@ namespace czh::game
   extern size_t cmd_string_pos;
   
   std::optional<map::Pos> get_available_pos();
+  
   void tank_assert(bool a, const std::string &err = "Assertion Failed.");
-  tank::Tank* id_at(size_t id);
+  
+  tank::Tank *id_at(size_t id);
+  
   void revive(std::size_t id);
+  
   std::size_t add_auto_tank(std::size_t lvl);
+  
   std::size_t add_tank();
+  
   void clear_death();
+  
   void mainloop();
+  
   void tank_react(std::size_t id, tank::NormalTankEvent event);
   
-  void load_point(const map::Pos& pos);
+  void load_point(const map::Pos &pos);
+  
   void load_point(int x, int y);
-  void load_zone(const Zone& zone);
-  void unload_point(const map::Pos& pos);
+  
+  void load_zone(const Zone &zone);
+  
+  void unload_point(const map::Pos &pos);
+  
   void unload_point(int x, int y);
-  void unload_zone(const Zone& zone);
+  
+  void unload_zone(const Zone &zone);
 }
 #endif

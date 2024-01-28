@@ -13,8 +13,10 @@
 //   limitations under the License.
 #ifndef TANK_UTILS_H
 #define TANK_UTILS_H
+
 #include <string_view>
 #include <random>
+
 namespace czh::utils
 {
   template<typename T>
@@ -53,9 +55,13 @@ namespace czh::utils
     {
       const auto second = str.find_first_of(delims, first);
       if (first != second)
+      {
         ret.insert(ret.end(), str.substr(first, second - first));
+      }
       if (second == std::string_view::npos)
+      {
         break;
+      }
       first = second + 1;
     }
     return ret;
@@ -67,7 +73,7 @@ namespace czh::utils
     T ret;
     for (auto it = container.begin(); it < container.end(); ++it)
     {
-      if(it->size() > w)
+      if (it->size() > w)
       {
         ret.insert(ret.end(), it->substr(0, w));
         ret.insert(ret.end(), it->substr(w));

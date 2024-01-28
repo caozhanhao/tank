@@ -27,39 +27,45 @@ extern bool czh::game::map_size_changed;
 extern std::mutex czh::game::mainloop_mtx;
 extern std::chrono::milliseconds czh::game::tick;
 extern czh::map::Map czh::game::game_map;
-extern std::map<std::size_t, czh::tank::Tank*> czh::game::tanks;
-extern std::list<czh::bullet::Bullet*> czh::game::bullets;
+extern std::map<std::size_t, czh::tank::Tank *> czh::game::tanks;
+extern std::list<czh::bullet::Bullet *> czh::game::bullets;
 namespace czh::cmd
 {
   std::tuple<std::string, std::vector<details::Arg>>
   parse(const std::string &cmd)
   {
-    if(cmd.empty()) return {};
+    if (cmd.empty()) return {};
     auto it = cmd.begin() + 1; // skip '/'
-    auto skip_space = [&it, &cmd]{while(std::isspace(*it) && it < cmd.end()) ++it;};
+    auto skip_space = [&it, &cmd] { while (std::isspace(*it) && it < cmd.end()) ++it; };
     skip_space();
     
     std::string name;
-    while(!std::isspace(*it) && it < cmd.end())
+    while (!std::isspace(*it) && it < cmd.end())
+    {
       name += *it++;
+    }
     
     std::vector<details::Arg> args;
-    while(it < cmd.end())
+    while (it < cmd.end())
     {
       skip_space();
       std::string temp;
       bool is_int = true;
       while (!std::isspace(*it) && it < cmd.end())
       {
-        if(!std::isdigit(*it) && *it != '+' && *it != '-') is_int = false;
+        if (!std::isdigit(*it) && *it != '+' && *it != '-') is_int = false;
         temp += *it++;
       }
-      if(!temp.empty())
+      if (!temp.empty())
       {
         if (is_int)
+        {
           args.emplace_back(std::stoi(temp));
+        }
         else
+        {
           args.emplace_back(temp);
+        }
       }
     }
     return {name, args};
@@ -77,9 +83,13 @@ namespace czh::cmd
         game::curr_page = game::Page::HELP;
         game::output_inited = false;
         if (args_internal.empty())
+        {
           game::help_page = 1;
+        }
         else
+        {
           game::help_page = std::get<0>(cmd::args_get<int>(args_internal));
+        }
         return;
       }
       else if (name == "quit")
@@ -93,7 +103,7 @@ namespace czh::cmd
         term::output("\033[?25h");
         term::flush();
         logger::info("Quitting.");
-        for(auto it = game::tanks.begin(); it != game::tanks.end();)
+        for (auto it = game::tanks.begin(); it != game::tanks.end();)
         {
           delete it->second;
           it = game::tanks.erase(it);
@@ -122,35 +132,46 @@ namespace czh::cmd
           to.x = std::get<3>(args);
           to.y = std::get<4>(args);
         }
-
+        
         int bx = std::max(from.x, to.x);
         int sx = std::min(from.x, to.x);
         int by = std::max(from.y, to.y);
         int sy = std::min(from.y, to.y);
-
+        
         game::load_zone({sx, bx + 1, sy, by + 1});
-
+        
         for (int i = sx; i <= bx; ++i)
         {
-          for (int j = sy; j <= by; ++j) {
-              if (game::game_map.has(map::Status::TANK, {i, j})) {
-                  if (auto t = game::game_map.at(i, j).get_tank_instance(); t != nullptr) {
-                      t->kill();
-                      game::game_map.remove_status(map::Status::TANK, {i, j});
-                      t->clear();
-                  }
-              } else if (game::game_map.has(map::Status::BULLET, {i, j})) {
-                  auto bullets = game::game_map.at(i, j).get_bullets_instance();
-                  for (auto &r: bullets)
-                      r->kill();
-                  game::clear_death();
+          for (int j = sy; j <= by; ++j)
+          {
+            if (game::game_map.has(map::Status::TANK, {i, j}))
+            {
+              if (auto t = game::game_map.at(i, j).get_tank_instance(); t != nullptr)
+              {
+                t->kill();
+                game::game_map.remove_status(map::Status::TANK, {i, j});
+                t->clear();
               }
+            }
+            else if (game::game_map.has(map::Status::BULLET, {i, j}))
+            {
+              auto bullets = game::game_map.at(i, j).get_bullets_instance();
+              for (auto &r: bullets)
+              {
+                r->kill();
+              }
+              game::clear_death();
+            }
           }
         }
         if (is_wall)
+        {
           game::game_map.fill(from, to, map::Status::WALL);
+        }
         else
+        {
           game::game_map.fill(from, to);
+        }
         logger::info("Filled from (", from.x, ",", from.y, ") to (", to.x, ",", to.y, ").");
         return;
       }
@@ -179,10 +200,10 @@ namespace czh::cmd
           map::Pos pos_down(pos.x, pos.y - 1);
           map::Pos pos_left(pos.x - 1, pos.y);
           map::Pos pos_right(pos.x + 1, pos.y);
-          if (check(pos_up)) to_pos = pos_up;
-          else if (check(pos_down)) to_pos = pos_down;
-          else if (check(pos_left)) to_pos = pos_left;
-          else if (check(pos_right)) to_pos = pos_right;
+          if (check(pos_up)) { to_pos = pos_up; }
+          else if (check(pos_down)) { to_pos = pos_down; }
+          else if (check(pos_left)) { to_pos = pos_left; }
+          else if (check(pos_right)) { to_pos = pos_right; }
           else
           {
             logger::error("Target pos has no space.");
@@ -254,21 +275,23 @@ namespace czh::cmd
           return;
         }
         for (size_t i = 0; i < num; ++i)
+        {
           game::add_auto_tank(lvl);
+        }
         logger::info("Added ", num, " AutoTanks, Level: ", lvl, ".");
         return;
       }
       else if (name == "observe")
       {
-          auto[id] = cmd::args_get<int>(args_internal);
-          if (game::id_at(id) == nullptr)
-          {
-              logger::error("Invalid tank");
-              return;
-          }
-          game::tank_focus = id;
-          logger::info("Observing " + game::id_at(id)->get_name());
+        auto[id] = cmd::args_get<int>(args_internal);
+        if (game::id_at(id) == nullptr)
+        {
+          logger::error("Invalid tank");
           return;
+        }
+        game::tank_focus = id;
+        logger::info("Observing " + game::id_at(id)->get_name());
+        return;
       }
       else if (name == "kill")
       {
@@ -279,7 +302,7 @@ namespace czh::cmd
           {
             if (r.second->is_alive()) r.second->kill();
           }
-            game::clear_death();
+          game::clear_death();
           logger::info("Killed all tanks.");
           return;
         }
@@ -293,7 +316,7 @@ namespace czh::cmd
           }
           auto t = game::id_at(id);
           t->kill();
-            game::clear_death();
+          game::clear_death();
           logger::info(t->get_name(), " has been killed.");
           return;
         }
@@ -306,17 +329,24 @@ namespace czh::cmd
           for (auto &r: game::bullets)
           {
             if (game::id_at(r->get_tank())->is_auto())
+            {
               r->kill();
+            }
           }
-          for (auto &r: game::tanks) {
-              if (r.second->is_auto())
-                  r.second->kill();
+          for (auto &r: game::tanks)
+          {
+            if (r.second->is_auto())
+            {
+              r.second->kill();
+            }
           }
           game::clear_death();
-          for(auto it = game::tanks.begin(); it != game::tanks.end();)
+          for (auto it = game::tanks.begin(); it != game::tanks.end();)
           {
-            if(!it->second->is_auto())
+            if (!it->second->is_auto())
+            {
               ++it;
+            }
             else
             {
               delete it->second;
@@ -332,19 +362,26 @@ namespace czh::cmd
           {
             for (auto &r: game::bullets)
             {
-                auto t = game::id_at(r->get_tank());
-                if (t->is_auto() && !t->is_alive())
-                    r->kill();
+              auto t = game::id_at(r->get_tank());
+              if (t->is_auto() && !t->is_alive())
+              {
+                r->kill();
+              }
             }
-            for (auto &r: game::tanks) {
-                if (r.second->is_auto() && !r.second->is_alive())
-                    r.second->kill();
-            }
-              game::clear_death();
-            for(auto it = game::tanks.begin(); it != game::tanks.end();)
+            for (auto &r: game::tanks)
             {
-              if(!it->second->is_auto() || it->second->is_alive())
+              if (r.second->is_auto() && !r.second->is_alive())
+              {
+                r.second->kill();
+              }
+            }
+            game::clear_death();
+            for (auto it = game::tanks.begin(); it != game::tanks.end();)
+            {
+              if (!it->second->is_auto() || it->second->is_alive())
+              {
                 ++it;
+              }
               else
               {
                 delete it->second;
@@ -359,22 +396,27 @@ namespace czh::cmd
             return;
           }
         }
-        else {
-            auto [id] = cmd::args_get<int>(args_internal);
-            if (game::id_at(id) == nullptr || id == 0) {
-                logger::error("Invalid tank.");
-                return;
+        else
+        {
+          auto[id] = cmd::args_get<int>(args_internal);
+          if (game::id_at(id) == nullptr || id == 0)
+          {
+            logger::error("Invalid tank.");
+            return;
+          }
+          for (auto &r: game::bullets)
+          {
+            if (r->get_tank() == id)
+            {
+              r->kill();
             }
-            for (auto &r: game::bullets) {
-                if (r->get_tank() == id)
-                    r->kill();
-            }
-            auto t = game::id_at(id);
-            t->kill();
-            delete t;
-            game::tanks.erase(id);
-            game::clear_death();
-            logger::info("ID: ", id, " was cleared.");
+          }
+          auto t = game::id_at(id);
+          t->kill();
+          delete t;
+          game::tanks.erase(id);
+          game::clear_death();
+          logger::info("ID: ", id, " was cleared.");
         }
       }
       else if (name == "set")
@@ -413,7 +455,7 @@ namespace czh::cmd
               logger::error("Invalid auto tank.");
               return;
             }
-            auto atank = dynamic_cast<tank::AutoTank*>(game::id_at(id));
+            auto atank = dynamic_cast<tank::AutoTank *>(game::id_at(id));
             atank->target(value, game::id_at(value)->get_pos());
             logger::info("The target of ", atank->get_name(), " has been set for ", value, ".");
             return;
@@ -453,7 +495,7 @@ namespace czh::cmd
             logger::error("Invalid option.");
             return;
           }
-          if(time > 0)
+          if (time > 0)
           {
             game::tick = std::chrono::milliseconds(time);
             logger::info("Tick has been set for ", time, ".");

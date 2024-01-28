@@ -17,6 +17,7 @@
 namespace czh::term
 {
 #if defined(CZH_TANK_KEYBOARD_MODE_1)
+  
   void KeyBoard::init()
   {
     tcgetattr(0, &initial_settings);
@@ -36,46 +37,49 @@ namespace czh::term
   }
   
   KeyBoard::KeyBoard()
-    {
+  {
     init();
-    }
+  }
   
   KeyBoard::~KeyBoard()
-    {
-      deinit();
-    }
+  {
+    deinit();
+  }
+  
+  int KeyBoard::kbhit()
+  {
+    unsigned char ch;
+    int nread;
+    if (peek_character != -1) return 1;
+    new_settings.c_cc[VMIN] = 0;
+    tcsetattr(0, TCSANOW, &new_settings);
+    nread = read(0, &ch, 1);
+    new_settings.c_cc[VMIN] = 1;
+    tcsetattr(0, TCSANOW, &new_settings);
     
-    int KeyBoard::kbhit()
+    if (nread == 1)
     {
-      unsigned char ch;
-      int nread;
-      if (peek_character != -1) return 1;
-      new_settings.c_cc[VMIN] = 0;
-      tcsetattr(0, TCSANOW, &new_settings);
-      nread = read(0, &ch, 1);
-      new_settings.c_cc[VMIN] = 1;
-      tcsetattr(0, TCSANOW, &new_settings);
-      
-      if (nread == 1) {
-        peek_character = ch;
-        return 1;
-      }
-      return 0;
+      peek_character = ch;
+      return 1;
     }
-    
-    int KeyBoard::getch()
+    return 0;
+  }
+  
+  int KeyBoard::getch()
+  {
+    char ch;
+    if (peek_character != -1)
     {
-      char ch;
-      if (peek_character != -1)
-      {
-        ch = peek_character;
-        peek_character = -1;
-      }
-      else read(0, &ch, 1);
-      return ch;
+      ch = peek_character;
+      peek_character = -1;
     }
+    else { read(0, &ch, 1); }
+    return ch;
+  }
+  
   KeyBoard keyboard;
 #endif
+  
   int getch()
   {
 #if defined(CZH_TANK_KEYBOARD_MODE_0)
@@ -101,7 +105,7 @@ namespace czh::term
     COORD coord{(SHORT) pos.get_x(), (SHORT) pos.get_y()};
     SetConsoleCursorPosition(handle, coord);
 #elif defined(CZH_TANK_KEYBOARD_MODE_1)
-    printf("%c[%d;%df", 0x1b, (int)pos.get_y() + 1, (int)pos.get_x() + 1);
+    printf("%c[%d;%df", 0x1b, (int) pos.get_y() + 1, (int) pos.get_x() + 1);
 #endif
   }
   
@@ -145,7 +149,7 @@ namespace czh::term
 #elif defined(CZH_TANK_KEYBOARD_MODE_1)
     struct winsize w;
     ioctl(STDOUT_FILENO, TIOCGWINSZ, &w);
-    return  w.ws_col;
+    return w.ws_col;
 #endif
   }
   

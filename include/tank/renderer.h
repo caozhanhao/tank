@@ -16,7 +16,9 @@
 namespace czh::renderer
 {
   std::string colorify_text(int id, std::string str);
+  
   std::string colorify_tank(int id, std::string str);
+  
   void render();
 }
 #endif //TANK_RENDERER_H

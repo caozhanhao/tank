@@ -22,11 +22,13 @@
 #include <conio.h>
 #elif __has_include(<sys/ioctl.h>) && __has_include(<unistd.h>) && __has_include(<sys/select.h>) && __has_include(<termios.h>)
 #define CZH_TANK_KEYBOARD_MODE_1
+
 #include <cstdio>
 #include <sys/ioctl.h>
 #include <unistd.h>
 #include <sys/select.h>
 #include <termios.h>
+
 namespace czh::term
 {
   class KeyBoard
@@ -34,17 +36,22 @@ namespace czh::term
   public:
     struct termios initial_settings, new_settings;
     int peek_character;
+    
     void deinit();
+    
     void init();
+    
     KeyBoard();
+    
     ~KeyBoard();
-
+    
     int kbhit();
-
+    
     int getch();
   };
+  
   extern KeyBoard keyboard;
-  }
+}
 #else
 #error "Unknown target."
 #endif

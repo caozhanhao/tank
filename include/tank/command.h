@@ -45,7 +45,7 @@ namespace czh::cmd
                              }, tmp);
       return args;
     }
-  
+    
     template<typename ...Args>
     auto make_index()
     {

@@ -13,6 +13,7 @@
 //   limitations under the License.
 #ifndef TANK_LOGGER_H
 #define TANK_LOGGER_H
+
 #include "term.h"
 #include <string>
 #include <fstream>
@@ -57,7 +58,7 @@ namespace czh::logger
     
     std::string get_message() const;
     
-    auto get_time_point() const ;
+    auto get_time_point() const;
     
     template<typename T>
     void add(T &&data)
@@ -148,7 +149,7 @@ namespace czh::logger
   template<typename ...Args>
   void debug(Args &&...args)
   {
-    log_helper(Severity::DEBUG,std::forward<Args>(args)...);
+    log_helper(Severity::DEBUG, std::forward<Args>(args)...);
   }
   
   template<typename ...Args>
@@ -166,7 +167,7 @@ namespace czh::logger
   template<typename ...Args>
   void error(Args &&...args)
   {
-    log_helper(Severity::ERR,  std::forward<Args>(args)...);
+    log_helper(Severity::ERR, std::forward<Args>(args)...);
   }
   
   template<typename ...Args>
@@ -174,6 +175,7 @@ namespace czh::logger
   {
     log_helper(Severity::CRITICAL, std::forward<Args>(args)...);
   }
+  
   void output_at_bottom(const std::string &str);
 }
 #endif

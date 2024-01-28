@@ -112,32 +112,36 @@ namespace czh::input
             break;
         }
       }
-
+      
       switch (ret)
       {
         case Input::C_KEY_UP:
-        if (!game::history.empty())
-        {
-          game::cmd_string = game::history[game::history_pos];
-          game::cmd_string_pos = game::cmd_string.size() - 1;
-          if (game::history_pos != 0) --game::history_pos;
+          if (!game::history.empty())
+          {
+            game::cmd_string = game::history[game::history_pos];
+            game::cmd_string_pos = game::cmd_string.size() - 1;
+            if (game::history_pos != 0) --game::history_pos;
           }
           break;
         case Input::C_KEY_DOWN:
-        if (!game::history.empty())
-        {
-          game::cmd_string = game::history[game::history_pos];
-          game::cmd_string_pos = game::cmd_string.size() - 1;
-          if (game::history_pos + 1 < game::history.size()) ++game::history_pos;
-        }
+          if (!game::history.empty())
+          {
+            game::cmd_string = game::history[game::history_pos];
+            game::cmd_string_pos = game::cmd_string.size() - 1;
+            if (game::history_pos + 1 < game::history.size()) ++game::history_pos;
+          }
           break;
         case Input::C_KEY_LEFT:
           if (game::cmd_string_pos != 0)
+          {
             --game::cmd_string_pos;
+          }
           break;
         case Input::C_KEY_RIGHT:
           if (game::cmd_string_pos + 1 < game::cmd_string.size())
+          {
             ++game::cmd_string_pos;
+          }
           break;
         case Input::C_KEY_BACKSPACE:
           if (game::cmd_string_pos != 0)
@@ -148,7 +152,9 @@ namespace czh::input
           break;
         case Input::C_KEY_DELETE:
           if (game::cmd_string_pos + 1 != game::cmd_string.size())
+          {
             game::cmd_string.erase(game::cmd_string_pos + 1, 1);
+          }
           break;
         case Input::C_KEY_HOME:
           game::cmd_string_pos = 0;
@@ -181,9 +187,13 @@ namespace czh::input
           break;
         case 72:
           if (game::keyboard_mode == 1)
+          {
             logger::warn("Ignored key 72");
+          }
           else
+          {
             ret = Input::G_UP;
+          }
           break;
         case 'S':
         case 's':
@@ -191,51 +201,79 @@ namespace czh::input
           break;
         case 80:
           if (game::keyboard_mode == 1)
+          {
             czh::logger::warn("Ignored key 80");
+          }
           else
+          {
             ret = Input::G_DOWN;
+          }
           break;
         case 'A':
           if (game::keyboard_mode == 1)
+          {
             ret = Input::G_UP;
+          }
           else
+          {
             ret = Input::G_DOWN;
+          }
           break;
         case 'a':
           ret = Input::G_LEFT;
           break;
         case 75:
           if (game::keyboard_mode == 1)
+          {
             czh::logger::warn("Ignored key 75");
+          }
           else
+          {
             ret = Input::G_LEFT;
+          }
           break;
         case 'D':
           if (game::keyboard_mode == 1)
+          {
             ret = Input::G_LEFT;
+          }
           else
+          {
             ret = Input::G_RIGHT;
+          }
           break;
         case 'd':
           ret = Input::G_RIGHT;
           break;
         case 77:
           if (game::keyboard_mode == 1)
+          {
             czh::logger::warn("Ignored key 77");
+          }
           else
+          {
             ret = Input::G_RIGHT;
+          }
           break;
         case 'B':
           if (game::keyboard_mode == 0)
+          {
             czh::logger::warn("Ignored key 76");
+          }
           else
+          {
             ret = Input::G_DOWN;
+          }
           break;
         case 'C':
           if (game::keyboard_mode == 0)
+          {
             czh::logger::warn("Ignored key 77");
+          }
           else
+          {
             ret = Input::G_RIGHT;
+          }
           break;
         case ' ':
           ret = Input::G_KEY_SPACE;
@@ -246,15 +284,23 @@ namespace czh::input
           break;
         case 13:
           if (game::keyboard_mode == 1)
+          {
             czh::logger::warn("Ignored key 13");
+          }
           else
-           ret = Input::M_KEY_ENTER;
+          {
+            ret = Input::M_KEY_ENTER;
+          }
           break;
         case 10:
           if (game::keyboard_mode == 0)
+          {
             czh::logger::warn("Ignored key 10");
+          }
           else
+          {
             ret = Input::M_KEY_ENTER;
+          }
           break;
         case 'L':
         case 'l':
