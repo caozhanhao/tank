@@ -14,12 +14,33 @@
 #ifndef TANK_GAME_MAP_H
 #define TANK_GAME_MAP_H
 
+#include "info.h"
 #include <vector>
 #include <list>
 #include <set>
 #include <algorithm>
+#include <variant>
 #include <random>
+#include <map>
+#include <optional>
+#include <variant>
 
+namespace czh::tank
+{
+  enum class NormalTankEvent
+  {
+    UP, DOWN, LEFT, RIGHT, FIRE
+  };
+  enum class AutoTankEvent
+  {
+    UP, DOWN, LEFT, RIGHT, FIRE, PASS
+  };
+  class Tank;
+}
+namespace czh::bullet
+{
+  class Bullet;
+}
 namespace czh::map
 {
   enum class Status
@@ -31,37 +52,15 @@ namespace czh::map
     UP, DOWN, LEFT, RIGHT
   };
   
-  class Point
-  {
-  private:
-    std::vector<Status> statuses;
-  public:
-    void add_status(const Status &status);
-    
-    void remove_status(const Status &status);
-    void remove_all_statuses();
-    [[nodiscard]] bool has(const Status &status) const;
-    
-    [[nodiscard]]std::size_t count(const Status &status) const;
-  };
-  
   class Pos
   {
-  private:
-    std::size_t x;
-    std::size_t y;
+  public:
+    int x;
+    int y;
   public:
     Pos() : x(0), y(0) {}
-  
-    Pos(std::size_t x_, std::size_t y_) : x(x_), y(y_) {}
     
-    std::size_t &get_x();
-    
-    std::size_t &get_y();
-    
-    [[nodiscard]]const std::size_t &get_x() const;
-    
-    [[nodiscard]]const std::size_t &get_y() const;
+    Pos(int x_, int y_) : x(x_), y(y_) {}
     
     bool operator==(const Pos &pos) const;
     
@@ -86,19 +85,91 @@ namespace czh::map
   
   bool operator<(const Change &c1, const Change &c2);
   
+  struct BulletData
+  {
+    map::Pos pos;
+    map::Direction direction;
+    int from_tank_id;
+    info::BulletInfo info;
+  };
+  
+  struct NormalTankData
+  {};
+  struct AutoTankData
+  {
+    std::size_t target_id;
+    map::Pos target_pos;
+    map::Pos destination_pos;
+    std::vector<tank::AutoTankEvent> way;
+    std::size_t waypos;
+    bool found;
+    bool in_retreat;
+    int gap_count;
+  };
+  
+  struct TankData
+  {
+    info::TankInfo info;
+    int hp;
+    map::Pos pos;
+    map::Direction direction;
+    bool hascleared;
+    
+    std::variant<NormalTankData, AutoTankData> data;
+    bool is_auto() const
+    {
+      return data.index() == 1;
+    }
+  };
+  
+  struct ActivePointData
+  {
+    tank::Tank* tank;
+    std::vector<bullet::Bullet*> bullets;
+  };
+  
+  struct InactivePointData
+  {
+    TankData tank;
+    std::vector<BulletData> bullets;
+  };
+  
+  class Map;
+  class Point
+  {
+    friend class Map;
+  private:
+    std::vector<Status> statuses;
+    std::variant<ActivePointData, InactivePointData> data;
+  public:
+    bool is_active() const;
+    
+    tank::Tank* get_tank_instance() const;
+    const std::vector<bullet::Bullet*>& get_bullets_instance() const;
+  
+    const TankData& get_tank_data() const;
+    const std::vector<BulletData>& get_bullets_data() const;
+    
+    void activate(const ActivePointData& data);
+    void deactivate(const InactivePointData& data);
+    
+    void add_status(const Status &status, void*);
+    
+    void remove_status(const Status &status);
+    void remove_all_statuses();
+    [[nodiscard]] bool has(const Status &status) const;
+    
+    [[nodiscard]]std::size_t count(const Status &status) const;
+  };
+  
+  extern Point empty_point;
   class Map
   {
   private:
-    std::size_t height;
-    std::size_t width;
-    std::vector<std::vector<Point>> map;
+    std::map<Pos, Point> map;
     std::set<Change> changes;
   public:
-    Map(std::size_t width_, std::size_t height_);
-    
-    [[nodiscard]]size_t get_width() const;
-    
-    [[nodiscard]] size_t get_height() const;
+    Map();
     
     int up(const Status &status, const Pos &pos);
     
@@ -108,11 +179,9 @@ namespace czh::map
     
     int right(const Status &status, const Pos &pos);
     
-    [[nodiscard]]bool check_pos(const Pos &pos) const;
+    int add_tank(tank::Tank*, const Pos &pos);
     
-    int add_tank(const Pos &pos);
-    
-    int add_bullet(const Pos &pos);
+    int add_bullet(bullet::Bullet*, const Pos &pos);
     
     void remove_status(const Status &status, const Pos &pos);
     
@@ -124,18 +193,11 @@ namespace czh::map
     
     void clear_changes();
   
-    void clear_maze();
-  
     int fill(const Pos& from, const Pos& to, const Status& status = Status::END);
-  private:
-    Point &at(const Pos &i);
-    
-    const Point &at(const Pos &i) const;
   
-    void make_maze();
-    
-    void add_space();
-    
+    const Point &at(const Pos &i) const;
+    const Point & at(int x, int y) const;
+  private:
     int move(const Status &status, const Pos &pos, int direction);
   };
 }

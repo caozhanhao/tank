@@ -12,11 +12,14 @@
 //   See the License for the specific language governing permissions and
 //   limitations under the License.
 #include "tank/game.h"
+#include "tank/tank.h"
+#include "tank/bullet.h"
 #include "tank/utils.h"
 #include "tank/term.h"
 #include <mutex>
 #include <vector>
 #include <string>
+#include <cassert>
 
 extern bool czh::game::output_inited;
 extern czh::game::Zone czh::game::rendered_zone;
@@ -36,35 +39,49 @@ extern std::size_t czh::game::screen_width;
 
 namespace czh::renderer
 {
+  std::string colorify_text(int id, std::string str)
+  {
+    std::string ret = "\033[0;";
+    ret += std::to_string(id % 6 + 32);
+    ret += "m";
+    ret += str;
+    ret += "\033[0m";
+    return ret;
+  }
+  
+  std::string colorify_tank(int id, std::string str)
+  {
+    std::string ret = "\033[0;";
+    ret += std::to_string(id % 6 + 42);
+    ret += ";36m";
+    ret += str + "\033[0m";
+    return ret;
+  }
+  
   void update_point(const map::Pos &pos)
   {
-    term::move_cursor({(pos.get_x() - game::rendered_zone.x_min) * 2,
-                       game::rendered_zone.y_max - pos.get_y() - 1});
+    term::move_cursor({static_cast<size_t>((pos.x - game::rendered_zone.x_min) * 2),
+                       static_cast<size_t>(game::rendered_zone.y_max - pos.y - 1)});
     if (game::game_map.has(map::Status::TANK, pos))
     {
-      auto it = game::find_tank(pos.get_x(), pos.get_y());
-      term::output((*it)->colorify_tank());
+      term::output(colorify_tank(game::game_map.at(pos).get_tank_instance()->get_id(), "  "));
     }
     else if (game::game_map.has(map::Status::BULLET, pos))
     {
-      auto w = game::find_bullet(pos.get_x(), pos.get_y());
-      term::output(w->get_from()->colorify_text(std::string{w->get_text()}));
+      const auto& bullets = game::game_map.at(pos).get_bullets_instance();
+      assert(!bullets.empty());
+      term::output(colorify_text(bullets[0]->get_tank(), std::string{bullets[0]->get_text()}));
     }
     else
     {
       std::string s = "  ";
-      if(pos.get_x() != 0 && pos.get_x() % 10 == 0)
+      if(std::abs(pos.x) % 10 == 0)
       {
-        if(pos.get_y() == game::rendered_zone.y_min || pos.get_y() == game::rendered_zone.y_max - 1)
-          s = std::to_string(pos.get_x()).substr(0, 2);
-        else
           s = "||";
       }
-      if(pos.get_y() != 0 && pos.get_y() % 10 == 0)
+      if(std::abs(pos.y) % 10 == 0)
       {
-        if(pos.get_x() == game::rendered_zone.x_min || pos.get_x() == game::rendered_zone.x_max - 1)
-          s = std::to_string(pos.get_y()).substr(0, 2);
-        else if (s == "||")
+        if (s == "||")
           s = "<>";
         else
           s = "==";
@@ -85,25 +102,13 @@ namespace czh::renderer
   game::Zone get_visible_zone(size_t id)
   {
     auto pos = game::id_at(id)->get_pos();
-    size_t offset_x = game::screen_width / 4;
-    size_t x_min = (pos.get_x() > offset_x) ? (pos.get_x() - offset_x) : 0;
-    size_t x_max = game::screen_width / 2 + x_min;
-    if(x_max > game::game_map.get_width())
-    {
-      x_max = game::game_map.get_width();
-      if(x_max > game::screen_width / 2)
-        x_min = x_max - game::screen_width / 2;
-    }
+    int offset_x = (int)game::screen_width / 4;
+    int x_min = pos.x - offset_x;
+    int x_max = (int)game::screen_width / 2 + x_min;
   
-    size_t offset_y = game::screen_height / 2;
-    size_t y_min = (pos.get_y() > offset_y) ? (pos.get_y() - offset_y) : 0;
-    size_t y_max = game::screen_height - 1 + y_min;
-    if(y_max > game::game_map.get_height())
-    {
-      y_max = game::game_map.get_height();
-      if(y_max > game::screen_height - 1)
-        y_min = y_max - game::screen_height + 1;
-    }
+    int offset_y = (int)game::screen_height / 2;
+    int y_min = pos.y - offset_y;
+    int y_max =(int) game::screen_height - 1 + y_min;
     return {x_min, x_max, y_min, y_max};
   }
   
@@ -114,32 +119,20 @@ namespace czh::renderer
     switch (direction)
     {
       case map::Direction::UP:
-        if(ret.y_max < game::game_map.get_height())
-        {
           ret.y_max++;
           ret.y_min++;
-        }
         break;
       case map::Direction::DOWN:
-        if(ret.y_min != 0)
-        {
           ret.y_max--;
           ret.y_min--;
-        }
         break;
       case map::Direction::LEFT:
-        if(ret.x_min != 0)
-        {
           ret.x_max--;
           ret.x_min--;
-        }
         break;
       case map::Direction::RIGHT:
-        if(ret.x_max < game::game_map.get_width())
-        {
           ret.x_max++;
           ret.x_min++;
-        }
         break;
       default:
         ret = get_visible_zone(0);
@@ -152,20 +145,20 @@ namespace czh::renderer
   {
     auto pos = game::id_at(id)->get_pos();
     return
-        ((game::rendered_zone.x_min != 0 && game::rendered_zone.x_min + 10 > pos.get_x())
-         || (game::rendered_zone.x_max != game::game_map.get_width() && game::rendered_zone.x_max - 10 <= pos.get_x())
-         || (game::rendered_zone.y_min != 0 && game::rendered_zone.y_min + 10 > pos.get_y())
-         || (game::rendered_zone.y_max != game::game_map.get_height() && game::rendered_zone.y_max - 10 <= pos.get_y()));
+        ((game::rendered_zone.x_min + 10 > pos.x)
+         || (game::rendered_zone.x_max - 10 <= pos.x)
+         || (game::rendered_zone.y_min + 10 > pos.y)
+         || (game::rendered_zone.y_max - 10 <= pos.y));
   }
   
   bool completely_out_of_zone(size_t id)
   {
     auto pos = game::id_at(id)->get_pos();
     return
-        ((game::rendered_zone.x_min > pos.get_x())
-         || (game::rendered_zone.x_max <= pos.get_x())
-         || (game::rendered_zone.y_min > pos.get_y())
-         || (game::rendered_zone.y_max <= pos.get_y()));
+        ((game::rendered_zone.x_min > pos.x)
+         || (game::rendered_zone.x_max <= pos.x)
+         || (game::rendered_zone.y_min > pos.y)
+         || (game::rendered_zone.y_max <= pos.y));
   }
   
   void render()
@@ -191,6 +184,7 @@ namespace czh::renderer
             game::rendered_zone = get_visible_zone(0);
           else
             game::rendered_zone = next_zone(0);
+          game::load_zone(game::rendered_zone);
           for (int j = game::rendered_zone.y_max - 1; j >= static_cast<int>(game::rendered_zone.y_min); j--)
           {
             for (int i = game::rendered_zone.x_min; i < static_cast<int>(game::rendered_zone.x_max); i++)
@@ -203,10 +197,10 @@ namespace czh::renderer
         {
           for (auto &p: game::game_map.get_changes())
           {
-            if (p.get_pos().get_x() >= game::rendered_zone.x_min
-                && p.get_pos().get_x() < game::rendered_zone.x_max
-                && p.get_pos().get_y() >= game::rendered_zone.y_min
-                && p.get_pos().get_y() < game::rendered_zone.y_max)
+            if (p.get_pos().x >= game::rendered_zone.x_min
+                && p.get_pos().x < game::rendered_zone.x_max
+                && p.get_pos().y >= game::rendered_zone.y_min
+                && p.get_pos().y < game::rendered_zone.y_max)
             {
               update_point(p.get_pos());
             }
@@ -230,7 +224,7 @@ namespace czh::renderer
                                                                          }))->get_id()).size();
           auto pos_size = [](const map::Pos &p)
           {
-            return std::to_string(p.get_x()).size() + std::to_string(p.get_y()).size() + 3;
+            return std::to_string(p.x).size() + std::to_string(p.y).size() + 3;
           };
           size_t pos_x = name_x + gap + (*std::max_element(game::tanks.begin(), game::tanks.end(),
                                                            [](auto &&a, auto &&b)
@@ -275,10 +269,10 @@ namespace czh::renderer
           for (int i = 0; i < game::tanks.size(); ++i)
           {
             auto tank = game::tanks[i];
-            std::string x = std::to_string(tank->get_pos().get_x());
-            std::string y = std::to_string(tank->get_pos().get_y());
+            std::string x = std::to_string(tank->get_pos().x);
+            std::string y = std::to_string(tank->get_pos().y);
             term::mvoutput({id_x, cursor_y}, std::to_string(tank->get_id()));
-            term::mvoutput({name_x, cursor_y}, tank->colorify_text(tank->get_name()));
+            term::mvoutput({name_x, cursor_y}, colorify_text(tank->get_id(), tank->get_name()));
             term::mvoutput({pos_x, cursor_y}, "(" + x + "," + y + ")");
             term::mvoutput({hp_x, cursor_y}, std::to_string(tank->get_hp()));
             term::mvoutput({lethality_x, cursor_y}, std::to_string(tank->get_info().bullet.lethality));
@@ -289,7 +283,7 @@ namespace czh::renderer
               std::string target_name;
               auto target = game::id_at(at->get_target_id());
               if (target != nullptr)
-                target_name = target->colorify_text(target->get_name());
+                target_name = colorify_text(target->get_id(), target->get_name());
               else
                 target_name = "Cleared";
               term::mvoutput({target_x, cursor_y}, target_name);

@@ -34,7 +34,7 @@ namespace czh::bullet
         else
         {
           info.range -= 1;
-          pos.get_y()++;
+          pos.y++;
         }
         break;
       case map::Direction::DOWN:
@@ -47,7 +47,7 @@ namespace czh::bullet
         else
         {
           info.range -= 1;
-          pos.get_y()--;
+          pos.y--;
         }
         break;
       case map::Direction::LEFT:
@@ -60,7 +60,7 @@ namespace czh::bullet
         else
         {
           info.range -= 1;
-          pos.get_x()--;
+          pos.x--;
         }
         break;
       case map::Direction::RIGHT:
@@ -73,7 +73,7 @@ namespace czh::bullet
         else
         {
           info.range -= 1;
-          pos.get_x()++;
+          pos.x++;
         }
         break;
     }
@@ -102,9 +102,9 @@ namespace czh::bullet
     return info.hp > 0 && info.range > 0;
   }
   
-  [[nodiscard]] tank::Tank* Bullet::get_from() const
+  [[nodiscard]] int Bullet::get_tank() const
   {
-    return from_tank;
+    return from_tank_id;
   }
   
   void Bullet::kill()
@@ -130,5 +130,19 @@ namespace czh::bullet
   [[nodiscard]] int Bullet::get_lethality() const
   {
     return info.lethality;
+  }
+  Bullet build_bullet(const map::BulletData& data)
+  {
+    return Bullet(data.info, data.from_tank_id, data.pos, data.direction);
+  }
+  map::BulletData get_bullet_data(const Bullet& b)
+  {
+    return map::BulletData
+        {
+            .pos = b.pos,
+            .direction = b.direction,
+            .from_tank_id =  b.from_tank_id,
+            .info = b.info
+        };
   }
 }

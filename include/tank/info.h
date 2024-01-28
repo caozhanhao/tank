@@ -38,5 +38,6 @@ namespace czh::info
     TankType type;
     BulletInfo bullet;
   };
+  
 }
 #endif

@@ -20,21 +20,19 @@
 #include <set>
 #include <list>
 #include <algorithm>
+#include <variant>
 #include <functional>
 
 namespace czh::tank
 {
-  enum class NormalTankEvent
-  {
-    UP, DOWN, LEFT, RIGHT, FIRE
-  };
-  enum class AutoTankEvent
-  {
-    UP, DOWN, LEFT, RIGHT, FIRE, PASS
-  };
+  class Tank;
+  Tank* build_tank(const map::TankData& data);
+  map::TankData get_tank_data(Tank*);
   
   class Tank
   {
+    friend Tank* build_tank(const map::TankData& data);
+    friend map::TankData get_tank_data(Tank*);
   protected:
     info::TankInfo info;
     int hp;
@@ -96,15 +94,12 @@ namespace czh::tank
     
     void revive(const map::Pos &newpos);
     
-    std::string colorify_text(const std::string &str);
-    
-    std::string colorify_tank();
-  
-    [[nodiscard]]int tanks_nearby() const;
   };
   
   class NormalTank : public Tank
   {
+    friend Tank* build_tank(const map::TankData& data);
+    friend map::TankData get_tank_data(Tank*);
   public:
     NormalTank(info::TankInfo info_, map::Pos pos_)
         : Tank(info_, pos_) {}
@@ -146,19 +141,21 @@ namespace czh::tank
   
   bool operator<(const Node &n1, const Node &n2);
   
-  bool is_in_firing_line(const map::Pos &pos, const map::Pos &target_pos);
+  bool is_in_firing_line(int range, const map::Pos &pos, const map::Pos &target_pos);
   
   class AutoTank : public Tank
   {
+    friend Tank* build_tank(const map::TankData& data);
+    friend map::TankData get_tank_data(Tank*);
   private:
     std::size_t target_id;
     map::Pos target_pos;
     map::Pos destination_pos;
-    
+  
     std::vector<AutoTankEvent> way;
     std::size_t waypos;
     bool found;
-    
+  
     bool in_retreat;
     int gap_count;
   public:

@@ -12,62 +12,111 @@
 //   See the License for the specific language governing permissions and
 //   limitations under the License.
 #include "tank/game_map.h"
-#include "tank/utils.h"
 #include <vector>
 #include <list>
 #include <set>
 #include <cassert>
+#include <stdexcept>
+#include <variant>
 
+
+czh::map::Point czh::map::empty_point{};
 namespace czh::map
 {
-  void Point::add_status(const Status &status)
+  bool Point::is_active() const
   {
+    return data.index() == 0;
+  }
+  
+  tank::Tank* Point::get_tank_instance() const
+  {
+    assert(is_active());
+    return std::get<ActivePointData>(data).tank;
+  }
+  
+  const std::vector<bullet::Bullet*>& Point::get_bullets_instance() const
+  {
+    assert(is_active());
+    return std::get<ActivePointData>(data).bullets;
+  }
+  
+  const TankData& Point::get_tank_data() const
+  {
+    assert(!is_active());
+    return std::get<InactivePointData>(data).tank;
+  }
+  
+  const std::vector<BulletData>& Point::get_bullets_data() const
+  {
+    assert(!is_active());
+    return std::get<InactivePointData>(data).bullets;
+  }
+  
+  
+  void Point::activate(const ActivePointData& d)
+  {
+    data.emplace<ActivePointData>(d);
+  }
+  
+  void Point::deactivate(const InactivePointData& d)
+  {
+    data.emplace<InactivePointData>(d);
+  }
+  
+  void Point::add_status(const Status &status, void* ptr)
+  {
+    assert(is_active());
     statuses.emplace_back(status);
+    if(ptr != nullptr)
+    switch (status)
+    {
+      case Status::BULLET:
+        std::get<ActivePointData>(data).bullets.emplace_back(static_cast<bullet::Bullet*>(ptr));
+        break;
+      case Status::TANK:
+        std::get<ActivePointData>(data).tank = static_cast<tank::Tank*>(ptr);
+        break;
+    }
   }
   
   void Point::remove_status(const Status &status)
   {
+    assert(is_active());
     statuses.erase(std::remove(statuses.begin(), statuses.end(), status), statuses.end());
+    switch (status)
+    {
+      case Status::BULLET:
+        std::get<ActivePointData>(data).bullets.clear();
+        break;
+      case Status::TANK:
+        std::get<ActivePointData>(data).tank = nullptr;
+        break;
+    }
   }
   
   void Point::remove_all_statuses()
   {
+    assert(is_active());
     statuses.clear();
+    std::get<ActivePointData>(data).bullets.clear();
+    std::get<ActivePointData>(data).tank = nullptr;
   }
   
   [[nodiscard]] bool Point::has(const Status &status) const
   {
+    assert(is_active());
     return (std::find(statuses.cbegin(), statuses.cend(), status) != statuses.cend());
   }
   
   [[nodiscard]]std::size_t Point::count(const Status &status) const
   {
+    assert(is_active());
     return std::count(statuses.cbegin(), statuses.cend(), status);
-  }
-  
-  std::size_t &Pos::get_x()
-  {
-    return x;
-  }
-  
-  std::size_t &Pos::get_y()
-  {
-    return y;
-  }
-  
-  [[nodiscard]]const std::size_t &Pos::get_x() const
-  {
-    return x;
-  }
-  
-  [[nodiscard]]const std::size_t &Pos::get_y() const
-  {
-    return y;
   }
   
   bool Pos::operator==(const Pos &pos) const
   {
-    return (x == pos.get_x() && y == pos.get_y());
+    return (x == pos.x && y == pos.y);
   }
   
   bool Pos::operator!=(const Pos &pos) const
@@ -77,11 +126,11 @@ namespace czh::map
   
   bool operator<(const Pos &pos1, const Pos &pos2)
   {
-    if (pos1.get_x() == pos2.get_x())
+    if (pos1.x == pos2.x)
     {
-      return pos1.get_y() < pos2.get_y();
+      return pos1.y < pos2.y;
     }
-    return pos1.get_x() < pos2.get_x();
+    return pos1.x < pos2.x;
   }
   
   
@@ -92,7 +141,7 @@ namespace czh::map
   
   std::size_t get_distance(const map::Pos &from, const map::Pos &to)
   {
-    return std::abs(int(from.get_x() - to.get_x())) + std::abs(int(from.get_y() - to.get_y()));
+    return std::abs(int(from.x - to.x)) + std::abs(int(from.y - to.y));
   }
   
   
@@ -100,30 +149,7 @@ namespace czh::map
   
   Pos &Change::get_pos() { return pos; }
   
-  Map::Map(std::size_t width_, std::size_t height_)
-      : height(height_), width(width_), map(width)
-  {
-    for (auto &r: map)
-    {
-      r.resize(height);
-    }
-    
-    for (int i = 0; i < width; ++i)
-    {
-      map[i][height - 1].add_status(map::Status::WALL);
-      map[i][0].add_status(map::Status::WALL);
-    }
-    for (int j = 0; j < height; ++j)
-    {
-      map[width - 1][j].add_status(map::Status::WALL);
-      map[0][j].add_status(map::Status::WALL);
-    }
-    //make_maze();
-  }
-  
-  [[nodiscard]]size_t Map::get_width() const { return width; }
-  
-  [[nodiscard]] size_t Map::get_height() const { return height; }
+  Map::Map() {}
   
   int Map::up(const Status &status, const Pos &pos)
   {
@@ -145,30 +171,25 @@ namespace czh::map
     return move(status, pos, 3);
   }
   
-  [[nodiscard]]bool Map::check_pos(const Pos &pos) const
+  int Map::add_tank(tank::Tank* t, const Pos &pos)
   {
-    return pos.get_x() < width && pos.get_y() < height;
-  }
-  
-  int Map::add_tank(const Pos &pos)
-  {
-    at(pos).add_status(Status::TANK);
+    map[pos].add_status(Status::TANK, t);
     changes.insert(Change{pos});
     return 0;
   }
   
-  int Map::add_bullet(const Pos &pos)
+  int Map::add_bullet(bullet::Bullet* b, const Pos &pos)
   {
-    auto &p = at(pos);
+    auto &p = map[pos];
     if (p.has(Status::WALL)) return -1;
-    p.add_status(Status::BULLET);
+    p.add_status(Status::BULLET, b);
     changes.insert(Change{pos});
     return 0;
   }
   
   void Map::remove_status(const Status &status, const Pos &pos)
   {
-    at(pos).remove_status(status);
+    map[pos].remove_status(status);
     changes.insert(Change{pos});
   }
   
@@ -186,125 +207,34 @@ namespace czh::map
   
   void Map::clear_changes() { changes.clear(); };
   
-  Point &Map::at(const Pos &i)
+  const Point &Map::at(int x, int y) const
   {
-    assert(check_pos(i));
-    return map[i.get_x()][i.get_y()];
+    return at(Pos(x, y));
   }
   
   const Point &Map::at(const Pos &i) const
   {
-    assert(check_pos(i));
-    return map[i.get_x()][i.get_y()];
-  }
-  
-  void Map::make_maze()
-  {
-    for (int i = 0; i < width; ++i)
-    {
-      for (int j = 0; j < height; ++j)
-      {
-        if (i % 2 == 0 || j % 2 == 0)
-        {
-          map[i][j].add_status(map::Status::WALL);
-        }
-      }
-    }
-    std::list<Pos> way{Pos((std::size_t) utils::randnum<size_t>(0, width / 2) * 2 - 1,
-                           (std::size_t) utils::randnum<size_t>(0, height / 2) * 2 - 1)};
-    std::set<Pos> index{*way.begin()};
-    auto it = way.begin();
-    auto is_available = [this, &index](const Pos &pos)
-    {
-      return check_pos(pos)
-             && !at(pos).has(Status::WALL)
-             && index.find(pos) == index.end();
-    };
-    auto next = [&is_available, &way, &it, this, &index]() -> bool
-    {
-      std::vector<Pos> avail;
-      Pos up(it->get_x(), it->get_y() + 2);
-      Pos down(it->get_x(), it->get_y() - 2);
-      Pos left(it->get_x() - 2, it->get_y());
-      Pos right(it->get_x() + 2, it->get_y());
-      if (is_available(up)) avail.emplace_back(up);
-      if (is_available(down)) avail.emplace_back(down);
-      if (is_available(left)) avail.emplace_back(left);
-      if (is_available(right)) avail.emplace_back(right);
-      if (avail.empty()) return false;
-      
-      auto &result = avail[(std::size_t) utils::randnum<size_t>(0, avail.size())];
-      Pos midpos((result.get_x() + it->get_x()) / 2, (result.get_y() + it->get_y()) / 2);
-      at(midpos).remove_status(Status::WALL);
-      
-      it = way.insert(way.end(), midpos);
-      index.insert(*it);
-      it = way.insert(way.end(), result);
-      index.insert(*it);
-      return true;
-    };
-    while (true)
-    {
-      if (!next())
-      {
-        if (it != way.begin())
-        {
-          --it;
-        }
-        else
-        {
-          break;
-        }
-      }
-    }
-    add_space();
-  }
-  
-  void Map::add_space()
-  {
-    for (size_t i = width / 6; i < width - width / 6; ++i)
-    {
-      for (size_t j = height / 6; j < height - height / 6; ++j)
-      {
-        map[i][j].remove_status(Status::WALL);
-      }
-    }
-  }
-  
-  
-  void Map::clear_maze()
-  {
-    for (size_t i = 1; i < width - 1; ++i)
-    {
-      for (size_t j = 1; j < height - 1; ++j)
-      {
-        if(map[i][j].has(Status::WALL))
-        {
-          map[i][j].remove_status(Status::WALL);
-          changes.insert(Change{Pos{i, j}});
-        }
-      }
-    }
+    if(map.find(i) != map.end())
+      return map.at(i);
+    return empty_point;
   }
   
   int Map::fill(const Pos& from, const Pos& to, const Status& status)
   {
-    if (!check_pos(from) || !check_pos(to))
-      return -1;
+    int bx = std::max(from.x, to.x);
+    int sx = std::min(from.x, to.x);
+    int by = std::max(from.y, to.y);
+    int sy = std::min(from.y, to.y);
   
-    size_t bx = std::max(from.get_x(), to.get_x());
-    size_t sx = std::min(from.get_x(), to.get_x());
-    size_t by = std::max(from.get_y(), to.get_y());
-    size_t sy = std::min(from.get_y(), to.get_y());
-  
-    for (size_t i = sx; i <= bx; ++i)
+    for (int i = sx; i <= bx; ++i)
     {
-      for (size_t j = sy; j <= by; ++j)
+      for (int j = sy; j <= by; ++j)
       {
-        map[i][j].remove_all_statuses();
+        Pos p(i, j);
+        map[p].remove_all_statuses();
         if(status != Status::END)
-          map[i][j].add_status(status);
-        changes.insert(Change{Pos{i, j}});
+          map[p].add_status(status, nullptr);
+        changes.insert(Change{p});
       }
     }
     return 0;
@@ -312,44 +242,42 @@ namespace czh::map
   
   int Map::move(const Status &status, const Pos &pos, int direction)
   {
-    if (!check_pos(pos))
-    {
-      return -1;
-    }
     Pos new_pos = pos;
     switch (direction)
     {
       case 0:
-        new_pos.get_y()++;
+        new_pos.y++;
         break;
       case 1:
-        new_pos.get_y()--;
+        new_pos.y--;
         break;
       case 2:
-        new_pos.get_x()--;
+        new_pos.x--;
         break;
       case 3:
-        new_pos.get_x()++;
+        new_pos.x++;
         break;
     }
-    if (!check_pos(new_pos))
-    {
-      return -1;
-    }
-    auto &new_point = at(new_pos);
+    auto &new_point = map[new_pos];
+    auto &old_point = map[pos];
+    assert(new_point.is_active() && old_point.is_active());
     switch (status)
     {
       case Status::BULLET:
         if (new_point.has(Status::WALL)) return -1;
+        new_point.add_status(Status::BULLET, nullptr);
+        std::get<ActivePointData>(new_point.data).bullets = std::get<ActivePointData>(old_point.data).bullets;
+        old_point.remove_status(Status::BULLET);
         break;
       case Status::TANK:
         if (new_point.has(Status::WALL) || new_point.has(Status::TANK)) return -1;
+        new_point.add_status(Status::TANK, std::get<ActivePointData>(old_point.data).tank);
+        old_point.remove_status(Status::TANK);
         break;
       default:
+        throw std::runtime_error("Unreachable");
         break;
     }
-    at(pos).remove_status(status);
-    new_point.add_status(status);
     changes.insert(Change{pos});
     changes.insert(Change{new_pos});
     return 0;

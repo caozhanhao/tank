@@ -17,23 +17,26 @@
 #include "info.h"
 #include "game_map.h"
 
-namespace czh::tank
-{
-  class Tank;
-}
 namespace czh::bullet
 {
+  class Bullet;
+  Bullet build_bullet(const map::BulletData& data);
+  map::BulletData get_bullet_data(const Bullet&);
+  
+  
   class Bullet
   {
+    friend Bullet build_bullet(const map::BulletData& data);
+    friend map::BulletData get_bullet_data(const Bullet&);
   private:
     map::Pos pos;
     map::Direction direction;
-    tank::Tank* from_tank;
+    int from_tank_id;
     info::BulletInfo info;
   public:
-    Bullet(info::BulletInfo info_, tank::Tank* from_tank_,
+    Bullet(info::BulletInfo info_, int from_tank_id_,
            map::Pos pos_, map::Direction direction_)
-        : pos(pos_), direction(direction_), info(info_), from_tank(from_tank_) {}
+        : pos(pos_), direction(direction_), info(info_), from_tank_id(from_tank_id_) {}
     
     int move();
   
@@ -41,7 +44,7 @@ namespace czh::bullet
     
     [[nodiscard]] bool is_alive() const;
     
-    [[nodiscard]] tank::Tank* get_from() const;
+    [[nodiscard]] int get_tank() const;
     
     void kill();
     
@@ -52,8 +55,6 @@ namespace czh::bullet
     map::Pos &get_pos();
     
     [[nodiscard]] int get_lethality() const;
-    
-    [[nodiscard]] int get_circle() const;
   };
 }
 #endif

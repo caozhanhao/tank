@@ -23,11 +23,6 @@
 #include <optional>
 #include <mutex>
 
-namespace czh
-{
-  constexpr size_t INITIAL_MAP_WIDTH = 128;
-  constexpr size_t INITIAL_MAP_HEIGHT = 128;
-}
 namespace czh::game
 {
   enum class Page
@@ -41,10 +36,10 @@ namespace czh::game
   
   struct Zone // [X min, X max)   [Y min, Y max)
   {
-    size_t x_min;
-    size_t x_max;
-    size_t y_min;
-    size_t y_max;
+    int x_min;
+    int x_max;
+    int y_min;
+    int y_max;
   };
   
   extern int keyboard_mode;
@@ -72,16 +67,18 @@ namespace czh::game
   std::optional<map::Pos> get_available_pos();
   void tank_assert(bool a, const std::string &err = "Assertion Failed.");
   tank::Tank* id_at(size_t id);
-  std::vector<tank::Tank*>::iterator find_tank_nocheck(std::size_t i, std::size_t j);
-  std::vector<tank::Tank*>::iterator find_tank(std::size_t i, std::size_t j);
-  std::vector<bullet::Bullet>::iterator find_bullet(std::size_t i, std::size_t j);
-  void for_all_bullets(std::size_t i, std::size_t j,
-                       const std::function<void(std::vector<bullet::Bullet>::iterator &)> &func);
   void revive(std::size_t id);
   std::size_t add_auto_tank(std::size_t lvl);
   std::size_t add_tank();
   void clear_death();
   void mainloop();
   void tank_react(std::size_t id, tank::NormalTankEvent event);
+  
+  void load_point(const map::Pos& pos);
+  void load_point(int x, int y);
+  void load_zone(const Zone& zone);
+  void unload_point(const map::Pos& pos);
+  void unload_point(int x, int y);
+  void unload_zone(const Zone& zone);
 }
 #endif
