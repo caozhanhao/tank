@@ -18,15 +18,17 @@
 #include <string>
 #include <vector>
 #include <mutex>
+#include <list>
+#include <map>
+#include <cassert>
 
 extern bool czh::game::output_inited;
 extern bool czh::game::map_size_changed;
 extern std::mutex czh::game::mainloop_mtx;
 extern std::chrono::milliseconds czh::game::tick;
 extern czh::map::Map czh::game::game_map;
-extern std::vector<czh::tank::Tank *> czh::game::tanks;
-extern std::vector<czh::bullet::Bullet> czh::game::bullets;
-extern std::map<std::size_t, std::size_t> czh::game::id_index;
+extern std::map<std::size_t, czh::tank::Tank*> czh::game::tanks;
+extern std::list<czh::bullet::Bullet*> czh::game::bullets;
 namespace czh::cmd
 {
   std::tuple<std::string, std::vector<details::Arg>>
@@ -93,81 +95,65 @@ namespace czh::cmd
         logger::info("Quitting.");
         for(auto it = game::tanks.begin(); it != game::tanks.end();)
         {
-          delete *it;
+          delete it->second;
           it = game::tanks.erase(it);
         }
         std::exit(0);
       }
-//      else if (name == "clear_maze")
-//      {
-//        if (!args_internal.empty())
-//        {
-//          logger::error("Invalid arguments.");
-//          return;
-//        }
-//        game::game_map.clear_maze();
-//        return;
-//      }
-//      else if (name == "fill")
-//      {
-//        map::Pos from;
-//        map::Pos to;
-//        int is_wall = 0;
-//        if (cmd::args_is<int, int>(args_internal))
-//        {
-//          auto args = cmd::args_get<int, int, int>(args_internal);
-//          is_wall = std::get<0>(args);
-//          from.x = std::get<1>(args);
-//          from.y = std::get<2>(args);
-//          to = from;
-//        }
-//        else
-//        {
-//          auto args = cmd::args_get<int, int, int, int, int>(args_internal);
-//          is_wall = std::get<0>(args);
-//          from.x = std::get<1>(args);
-//          from.y = std::get<2>(args);
-//          to.x = std::get<3>(args);
-//          to.y = std::get<4>(args);
-//        }
-//        if (!game::game_map.check_pos(from) || !game::game_map.check_pos(to))
-//        {
-//          logger::error("Invalid range.");
-//          return;
-//        }
-//
-//        int bx = std::max(from.x, to.x);
-//        int sx = std::min(from.x, to.x);
-//        int by = std::max(from.y, to.y);
-//        int sy = std::min(from.y, to.y);
-//
-//        for (int i = sx; i <= bx; ++i)
-//        {
-//          for (int j = sy; j <= by; ++j)
-//          {
-//            if (game::game_map.has(map::Status::TANK, {i, j}))
-//            {
-//              if(auto t = game::game_map.at(i, j).get_tank_instance(); t != nullptr)
-//              {
-//                t->kill();
-//                game::game_map.remove_status(map::Status::TANK, {i, j});
-//                t->clear();
-//              }
-//            }
-//            else if (game::game_map.has(map::Status::BULLET, {i, j}))
-//            {
-//              game::find_bullet(i, j)->kill();
-//              game::game_map.remove_status(map::Status::BULLET, {i, j});
-//            }
-//          }
-//        }
-//        if (is_wall)
-//          game::game_map.fill(from, to, map::Status::WALL);
-//        else
-//          game::game_map.fill(from, to);
-//        logger::info("Filled from (", from.x, ",", from.y, ") to (", to.x, ",", to.y, ").");
-//        return;
-//      }
+      else if (name == "fill")
+      {
+        map::Pos from;
+        map::Pos to;
+        int is_wall = 0;
+        if (cmd::args_is<int, int>(args_internal))
+        {
+          auto args = cmd::args_get<int, int, int>(args_internal);
+          is_wall = std::get<0>(args);
+          from.x = std::get<1>(args);
+          from.y = std::get<2>(args);
+          to = from;
+        }
+        else
+        {
+          auto args = cmd::args_get<int, int, int, int, int>(args_internal);
+          is_wall = std::get<0>(args);
+          from.x = std::get<1>(args);
+          from.y = std::get<2>(args);
+          to.x = std::get<3>(args);
+          to.y = std::get<4>(args);
+        }
+
+        int bx = std::max(from.x, to.x);
+        int sx = std::min(from.x, to.x);
+        int by = std::max(from.y, to.y);
+        int sy = std::min(from.y, to.y);
+
+        game::load_zone({sx, bx + 1, sy, by + 1});
+
+        for (int i = sx; i <= bx; ++i)
+        {
+          for (int j = sy; j <= by; ++j) {
+              if (game::game_map.has(map::Status::TANK, {i, j})) {
+                  if (auto t = game::game_map.at(i, j).get_tank_instance(); t != nullptr) {
+                      t->kill();
+                      game::game_map.remove_status(map::Status::TANK, {i, j});
+                      t->clear();
+                  }
+              } else if (game::game_map.has(map::Status::BULLET, {i, j})) {
+                  auto bullets = game::game_map.at(i, j).get_bullets_instance();
+                  for (auto &r: bullets)
+                      r->kill();
+                  game::clear_death();
+              }
+          }
+        }
+        if (is_wall)
+          game::game_map.fill(from, to, map::Status::WALL);
+        else
+          game::game_map.fill(from, to);
+        logger::info("Filled from (", from.x, ",", from.y, ") to (", to.x, ",", to.y, ").");
+        return;
+      }
       else if (name == "tp")
       {
         std::lock_guard<std::mutex> l(game::mainloop_mtx);
@@ -240,7 +226,7 @@ namespace czh::cmd
         {
           for (auto &r: game::tanks)
           {
-            if (!r->is_alive()) game::revive(r->get_id());
+            if (!r.second->is_alive()) game::revive(r.second->get_id());
           }
           logger::info("Revived all tanks.");
           return;
@@ -272,6 +258,18 @@ namespace czh::cmd
         logger::info("Added ", num, " AutoTanks, Level: ", lvl, ".");
         return;
       }
+      else if (name == "observe")
+      {
+          auto[id] = cmd::args_get<int>(args_internal);
+          if (game::id_at(id) == nullptr)
+          {
+              logger::error("Invalid tank");
+              return;
+          }
+          game::tank_focus = id;
+          logger::info("Observing " + game::id_at(id)->get_name());
+          return;
+      }
       else if (name == "kill")
       {
         std::lock_guard<std::mutex> l(game::mainloop_mtx);
@@ -279,9 +277,9 @@ namespace czh::cmd
         {
           for (auto &r: game::tanks)
           {
-            if (r->is_alive()) r->kill();
+            if (r.second->is_alive()) r.second->kill();
           }
-          game::clear_death();
+            game::clear_death();
           logger::info("Killed all tanks.");
           return;
         }
@@ -295,109 +293,90 @@ namespace czh::cmd
           }
           auto t = game::id_at(id);
           t->kill();
-          game::game_map.remove_status(map::Status::TANK, t->get_pos());
-          t->clear();
+            game::clear_death();
           logger::info(t->get_name(), " has been killed.");
           return;
         }
       }
-//      else if (name == "clear")
-//      {
-//        std::lock_guard<std::mutex> l(game::mainloop_mtx);
-//        if (args_internal.empty())
-//        {
-//          for (auto &r: game::bullets)
-//          {
-//            if (r.get_from()->is_auto())
-//              r.kill();
-//          }
-//          for (auto &r: game::tanks)
-//          {
-//            if (r->is_auto())
-//            {
-//              r->kill();
-//            }
-//          }
-//          game::clear_death();
-//          for(auto it = game::tanks.begin(); it != game::tanks.end();)
-//          {
-//            if(!(*it)->is_auto())
-//              ++it;
-//            else
-//            {
-//              delete *it;
-//              it = game::tanks.erase(it);
-//            }
-//          }
-//          game::id_index.clear();
-//          logger::info("Cleared all tanks.");
-//        }
-//        else if (cmd::args_is<std::string>(args_internal))
-//        {
-//          auto[d] = cmd::args_get<std::string>(args_internal);
-//          if (d == "death")
-//          {
-//            for (auto &r: game::bullets)
-//            {
-//              if (r.get_from()->is_auto() && !r.get_from()->is_alive())
-//                r.kill();
-//            }
-//            for (auto &r: game::tanks)
-//            {
-//              if (r->is_auto() && !r->is_alive())
-//                r->kill();
-//            }
-//            game::clear_death();
-//            for(auto it = game::tanks.begin(); it != game::tanks.end();)
-//            {
-//              if(!(*it)->is_auto() || (*it)->is_alive())
-//                ++it;
-//              else
-//              {
-//                delete *it;
-//                it = game::tanks.erase(it);
-//              }
-//            }
-//            game::id_index.clear();
-//            logger::info("Cleared all died tanks.");
-//          }
-//          else
-//          {
-//            logger::error("Invalid arguments.");
-//            return;
-//          }
-//        }
-//        else
-//        {
-//          auto[id] = cmd::args_get<int>(args_internal);
-//          if (game::id_at(id) == nullptr || id == 0)
-//          {
-//            logger::error("Invalid tank.");
-//            return;
-//          }
-//          for (auto &r: game::bullets)
-//          {
-//            if (r.get_from()->get_id() == id)
-//            {
-//              r.kill();
-//            }
-//          }
-//          auto t = game::id_at(id);
-//          t->kill();
-//          game::game_map.remove_status(map::Status::TANK, t->get_pos());
-//          t->clear();
-//          auto it = game::tanks.begin() + id;
-//          delete *it;
-//          game::tanks.erase(it);
-//          game::id_index.erase(id);
-//          logger::info("ID: ", id, " was cleared.");
-//        }
-//        // make game::id_index
-//        for (size_t i = 0; i < game::tanks.size(); ++i)
-//        {
-//          game::id_index[game::tanks[i]->get_id()] = i;
-//        }
-//      }
+      else if (name == "clear")
+      {
+        std::lock_guard<std::mutex> l(game::mainloop_mtx);
+        if (args_internal.empty())
+        {
+          for (auto &r: game::bullets)
+          {
+            if (game::id_at(r->get_tank())->is_auto())
+              r->kill();
+          }
+          for (auto &r: game::tanks) {
+              if (r.second->is_auto())
+                  r.second->kill();
+          }
+          game::clear_death();
+          for(auto it = game::tanks.begin(); it != game::tanks.end();)
+          {
+            if(!it->second->is_auto())
+              ++it;
+            else
+            {
+              delete it->second;
+              it = game::tanks.erase(it);
+            }
+          }
+          logger::info("Cleared all tanks.");
+        }
+        else if (cmd::args_is<std::string>(args_internal))
+        {
+          auto[d] = cmd::args_get<std::string>(args_internal);
+          if (d == "death")
+          {
+            for (auto &r: game::bullets)
+            {
+                auto t = game::id_at(r->get_tank());
+                if (t->is_auto() && !t->is_alive())
+                    r->kill();
+            }
+            for (auto &r: game::tanks) {
+                if (r.second->is_auto() && !r.second->is_alive())
+                    r.second->kill();
+            }
+              game::clear_death();
+            for(auto it = game::tanks.begin(); it != game::tanks.end();)
+            {
+              if(!it->second->is_auto() || it->second->is_alive())
+                ++it;
+              else
+              {
+                delete it->second;
+                it = game::tanks.erase(it);
+              }
+            }
+            logger::info("Cleared all died tanks.");
+          }
+          else
+          {
+            logger::error("Invalid arguments.");
+            return;
+          }
+        }
+        else {
+            auto [id] = cmd::args_get<int>(args_internal);
+            if (game::id_at(id) == nullptr || id == 0) {
+                logger::error("Invalid tank.");
+                return;
+            }
+            for (auto &r: game::bullets) {
+                if (r->get_tank() == id)
+                    r->kill();
+            }
+            auto t = game::id_at(id);
+            t->kill();
+            delete t;
+            game::tanks.erase(id);
+            game::clear_death();
+            logger::info("ID: ", id, " was cleared.");
+        }
+      }
       else if (name == "set")
       {
         std::lock_guard<std::mutex> l(game::mainloop_mtx);

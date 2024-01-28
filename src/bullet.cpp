@@ -19,65 +19,51 @@ extern czh::map::Map czh::game::game_map;
 
 namespace czh::bullet
 {
-  int Bullet::move()
-  {
-    int ret = -1;
-    switch (direction)
-    {
-      case map::Direction::UP:
-        ret = game::game_map.up(map::Status::BULLET, pos);
-        if (ret != 0)
-        {
-          info.hp -= 1;
-          direction = map::Direction::DOWN;
-        }
-        else
-        {
-          info.range -= 1;
-          pos.y++;
-        }
-        break;
-      case map::Direction::DOWN:
-        ret = game::game_map.down(map::Status::BULLET, pos);
-        if (ret != 0)
-        {
-          info.hp -= 1;
-          direction = map::Direction::UP;
-        }
-        else
-        {
-          info.range -= 1;
-          pos.y--;
-        }
-        break;
-      case map::Direction::LEFT:
-        ret = game::game_map.left(map::Status::BULLET, pos);
-        if (ret != 0)
-        {
-          info.hp -= 1;
-          direction = map::Direction::RIGHT;
-        }
-        else
-        {
-          info.range -= 1;
-          pos.x--;
-        }
-        break;
-      case map::Direction::RIGHT:
-        ret = game::game_map.right(map::Status::BULLET, pos);
-        if (ret != 0)
-        {
-          info.hp -= 1;
-          direction = map::Direction::LEFT;
-        }
-        else
-        {
-          info.range -= 1;
-          pos.x++;
-        }
-        break;
-    }
-    return ret;
+  int Bullet::move() {
+      int ret = -1;
+      switch (direction) {
+          case map::Direction::UP:
+              ret = game::game_map.bullet_up(this, pos);
+              if (ret != 0) {
+                  info.hp -= 1;
+                  direction = map::Direction::DOWN;
+              } else {
+                  info.range -= 1;
+                  pos.y++;
+              }
+              break;
+          case map::Direction::DOWN:
+              ret = game::game_map.bullet_down(this, pos);
+              if (ret != 0) {
+                  info.hp -= 1;
+                  direction = map::Direction::UP;
+              } else {
+                  info.range -= 1;
+                  pos.y--;
+              }
+              break;
+          case map::Direction::LEFT:
+              ret = game::game_map.bullet_left(this, pos);
+              if (ret != 0) {
+                  info.hp -= 1;
+                  direction = map::Direction::RIGHT;
+              } else {
+                  info.range -= 1;
+                  pos.x--;
+              }
+              break;
+          case map::Direction::RIGHT:
+              ret = game::game_map.bullet_right(this, pos);
+              if (ret != 0) {
+                  info.hp -= 1;
+                  direction = map::Direction::LEFT;
+              } else {
+                  info.range -= 1;
+                  pos.x++;
+              }
+              break;
+      }
+      return ret;
   }
 
   std::string Bullet::get_text()
@@ -131,18 +117,19 @@ namespace czh::bullet
   {
     return info.lethality;
   }
-  Bullet build_bullet(const map::BulletData& data)
+  Bullet* build_bullet(const map::BulletData& data)
   {
-    return Bullet(data.info, data.from_tank_id, data.pos, data.direction);
+    auto ret = new Bullet(data.info, data.from_tank_id, data.pos, data.direction);
+    return ret;
   }
-  map::BulletData get_bullet_data(const Bullet& b)
+  map::BulletData get_bullet_data(Bullet* b)
   {
     return map::BulletData
         {
-            .pos = b.pos,
-            .direction = b.direction,
-            .from_tank_id =  b.from_tank_id,
-            .info = b.info
+            .pos = b->pos,
+            .direction = b->direction,
+            .from_tank_id =  b->from_tank_id,
+            .info = b->info
         };
   }
 }

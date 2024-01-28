@@ -87,8 +87,10 @@ int main()
             render();
           }
           break;
-        case Input::G_KEY_L:
-          add_auto_tank(utils::randnum<int>(1, 11));
+        case Input::G_KEY_L: {
+            std::lock_guard<std::mutex> l(game::mainloop_mtx);
+            add_auto_tank(utils::randnum<int>(1, 11));
+        }
           break;
         case Input::G_KEY_SLASH:
           curr_page = Page::COMMAND;

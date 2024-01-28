@@ -21,6 +21,7 @@
 #include <vector>
 #include <utility>
 #include <optional>
+#include <list>
 #include <mutex>
 
 namespace czh::game
@@ -41,24 +42,25 @@ namespace czh::game
     int y_min;
     int y_max;
   };
-  
+
+
   extern int keyboard_mode;
   extern std::chrono::milliseconds tick;
   extern bool output_inited;
   extern bool map_size_changed;
+  extern size_t tank_focus;
   extern Zone rendered_zone;
   extern std::mutex render_mtx;
   extern std::mutex mainloop_mtx;
   extern std::size_t screen_height;
   extern std::size_t screen_width;
   extern map::Map game_map;
-  extern std::vector<tank::Tank *> tanks;
-  extern std::vector<bullet::Bullet> bullets;
+  extern std::map<std::size_t, tank::Tank*> tanks;
+  extern std::list<bullet::Bullet*> bullets;
   extern std::vector<std::pair<std::size_t, tank::NormalTankEvent>> normal_tank_events;
   extern Page curr_page;
   extern size_t help_page;
   extern size_t next_id;
-  extern std::map<std::size_t, std::size_t> id_index;
   extern std::vector<std::string> history;
   extern std::string cmd_string;
   extern size_t history_pos;

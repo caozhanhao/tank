@@ -112,7 +112,7 @@ namespace czh::input
             break;
         }
       }
-  
+
       switch (ret)
       {
         case Input::C_KEY_UP:

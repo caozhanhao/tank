@@ -154,14 +154,11 @@ namespace czh::tank
   
     std::vector<AutoTankEvent> way;
     std::size_t waypos;
-    bool found;
-  
-    bool in_retreat;
+
     int gap_count;
   public:
     AutoTank(info::TankInfo info_, map::Pos pos_)
-        : Tank(info_, pos_),
-          found(false), waypos(0), target_id(0), gap_count(0), in_retreat(false) {}
+        : Tank(info_, pos_), waypos(0), target_id(0), gap_count(0){}
   
     virtual ~AutoTank() = default;
   
@@ -173,13 +170,10 @@ namespace czh::tank
   
     void correct_direction(const map::Pos& target);
 
-    void stuck();
-    [[nodiscard]]bool get_found() const;
-    [[nodiscard]]bool has_arrived();
-  
+    [[nodiscard]]bool has_arrived() const;
+
     void attacked(int lethality_) override;
-    void clear_way();
-    bool is_in_retreat() const;
+    void generate_random_way();
   };
 }
 #endif

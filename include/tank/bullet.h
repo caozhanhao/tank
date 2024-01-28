@@ -20,14 +20,14 @@
 namespace czh::bullet
 {
   class Bullet;
-  Bullet build_bullet(const map::BulletData& data);
-  map::BulletData get_bullet_data(const Bullet&);
+  Bullet* build_bullet(const map::BulletData& data);
+  map::BulletData get_bullet_data(Bullet*);
   
   
   class Bullet
   {
-    friend Bullet build_bullet(const map::BulletData& data);
-    friend map::BulletData get_bullet_data(const Bullet&);
+    friend Bullet* build_bullet(const map::BulletData& data);
+    friend map::BulletData get_bullet_data(Bullet*);
   private:
     map::Pos pos;
     map::Direction direction;
@@ -39,7 +39,7 @@ namespace czh::bullet
         : pos(pos_), direction(direction_), info(info_), from_tank_id(from_tank_id_) {}
     
     int move();
-  
+
     std::string get_text();
     
     [[nodiscard]] bool is_alive() const;

@@ -1,0 +1,3 @@
+/home/caozhanhao/tank/build/CMakeFiles/tank.dir
+/home/caozhanhao/tank/build/CMakeFiles/edit_cache.dir
+/home/caozhanhao/tank/build/CMakeFiles/rebuild_cache.dir

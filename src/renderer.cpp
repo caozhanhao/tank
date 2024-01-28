@@ -20,14 +20,17 @@
 #include <vector>
 #include <string>
 #include <cassert>
+#include <map>
+#include <list>
 
 extern bool czh::game::output_inited;
 extern czh::game::Zone czh::game::rendered_zone;
+extern std::mutex czh::game::mainloop_mtx;
 extern std::mutex czh::game::render_mtx;
 extern czh::map::Map czh::game::game_map;
 extern czh::game::Page czh::game::curr_page;
-extern std::vector<czh::tank::Tank *> czh::game::tanks;
-extern std::vector<czh::bullet::Bullet> czh::game::bullets;
+extern std::map<size_t, czh::tank::Tank *> czh::game::tanks;
+extern std::list<czh::bullet::Bullet*> czh::game::bullets;
 extern std::vector<std::string> czh::game::history;
 extern std::string czh::game::cmd_string;
 extern size_t czh::game::history_pos;
@@ -75,17 +78,17 @@ namespace czh::renderer
     else
     {
       std::string s = "  ";
-      if(std::abs(pos.x) % 10 == 0)
-      {
-          s = "||";
-      }
-      if(std::abs(pos.y) % 10 == 0)
-      {
-        if (s == "||")
-          s = "<>";
-        else
-          s = "==";
-      }
+//      if(std::abs(pos.x) % 10 == 0)
+//      {
+//          s = "||";
+//      }
+//      if(std::abs(pos.y) % 10 == 0)
+//      {
+//        if (s == "||")
+//          s = "<>";
+//        else
+//          s = "==";
+//      }
       if (game::game_map.has(map::Status::WALL, pos))
       {
         term::output("\033[0;41;37m" + s + "\033[0m");
@@ -135,7 +138,7 @@ namespace czh::renderer
           ret.x_min++;
         break;
       default:
-        ret = get_visible_zone(0);
+        ret = get_visible_zone(id);
         break;
     }
     return ret;
@@ -150,7 +153,7 @@ namespace czh::renderer
          || (game::rendered_zone.y_min + 10 > pos.y)
          || (game::rendered_zone.y_max - 10 <= pos.y));
   }
-  
+
   bool completely_out_of_zone(size_t id)
   {
     auto pos = game::id_at(id)->get_pos();
@@ -163,7 +166,8 @@ namespace czh::renderer
   
   void render()
   {
-    std::lock_guard<std::mutex> l(game::render_mtx);
+      std::lock_guard<std::mutex> l1(game::render_mtx);
+      std::lock_guard<std::mutex> l2(game::mainloop_mtx);
     if (game::screen_height != term::get_height() || game::screen_width != term::get_width() || game::map_size_changed)
     {
       term::clear();
@@ -177,13 +181,28 @@ namespace czh::renderer
     {
       case game::Page::GAME:
       {
-        if (!game::output_inited || out_of_zone(0))
+        size_t focus = game::tank_focus;
+        if(auto t = game::id_at(focus); t == nullptr || !t->is_alive())
+        {
+            focus = 0;
+            t = game::id_at(focus);
+            while(t == nullptr || !t->is_alive()) {
+                ++focus;
+                if(focus >= game::tanks.size())
+                {
+                    focus = game::tank_focus;
+                    break;
+                }
+                t = game::id_at(focus);
+            }
+        }
+        if (!game::output_inited || out_of_zone(focus))
         {
           term::move_cursor({0, 0});
-          if (completely_out_of_zone(0))
-            game::rendered_zone = get_visible_zone(0);
+          if (completely_out_of_zone(focus))
+            game::rendered_zone = get_visible_zone(focus);
           else
-            game::rendered_zone = next_zone(0);
+            game::rendered_zone = next_zone(focus);
           game::load_zone(game::rendered_zone);
           for (int j = game::rendered_zone.y_max - 1; j >= static_cast<int>(game::rendered_zone.y_min); j--)
           {
@@ -220,8 +239,8 @@ namespace czh::renderer
           size_t name_x = id_x + gap + std::to_string((*std::max_element(game::tanks.begin(), game::tanks.end(),
                                                                          [](auto &&a, auto &&b)
                                                                          {
-                                                                           return a->get_id() < b->get_id();
-                                                                         }))->get_id()).size();
+                                                                           return a.second->get_id() < b.second->get_id();
+                                                                         })).second->get_id()).size();
           auto pos_size = [](const map::Pos &p)
           {
             return std::to_string(p.x).size() + std::to_string(p.y).size() + 3;
@@ -229,31 +248,31 @@ namespace czh::renderer
           size_t pos_x = name_x + gap + (*std::max_element(game::tanks.begin(), game::tanks.end(),
                                                            [](auto &&a, auto &&b)
                                                            {
-                                                             return a->get_name().size() < b->get_name().size();
-                                                           }))->get_name().size();
+                                                             return a.second->get_name().size() < b.second->get_name().size();
+                                                           })).second->get_name().size();
           size_t hp_x = pos_x + gap + pos_size((*std::max_element(game::tanks.begin(), game::tanks.end(),
                                                                   [&pos_size](auto &&a, auto &&b)
                                                                   {
-                                                                    return pos_size(a->get_pos()) <
-                                                                           pos_size(b->get_pos());
+                                                                    return pos_size(a.second->get_pos()) <
+                                                                           pos_size(b.second->get_pos());
                                                                   }
-          ))->get_pos());
+          )).second->get_pos());
           
           size_t lethality_x = hp_x + gap + std::to_string((*std::max_element(game::tanks.begin(), game::tanks.end(),
                                                                               [](auto &&a, auto &&b)
                                                                               {
-                                                                                return a->get_hp() < b->get_hp();
-                                                                              }))->get_hp()).size();
+                                                                                return a.second->get_hp() < b.second->get_hp();
+                                                                              })).second->get_hp()).size();
           
           size_t auto_tank_gap_x =
               lethality_x + gap + std::to_string((*std::max_element(game::tanks.begin(), game::tanks.end(),
                                                                     [](auto &&a, auto &&b)
                                                                     {
                                                                       return
-                                                                          a->get_info().bullet.lethality
+                                                                          a.second->get_info().bullet.lethality
                                                                           <
-                                                                          b->get_info().bullet.lethality;
-                                                                    }))->get_info().bullet.lethality).size();
+                                                                          b.second->get_info().bullet.lethality;
+                                                                    })).second->get_info().bullet.lethality).size();
           
           size_t target_x = auto_tank_gap_x + gap + 2;
           
@@ -266,9 +285,9 @@ namespace czh::renderer
           term::mvoutput({target_x, cursor_y}, "Target");
           
           cursor_y++;
-          for (int i = 0; i < game::tanks.size(); ++i)
+          for (auto it = game::tanks.begin(); it != game::tanks.end(); ++it)
           {
-            auto tank = game::tanks[i];
+            auto tank = it->second;
             std::string x = std::to_string(tank->get_pos().x);
             std::string y = std::to_string(tank->get_pos().y);
             term::mvoutput({id_x, cursor_y}, std::to_string(tank->get_id()));

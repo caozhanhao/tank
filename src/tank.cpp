@@ -18,11 +18,12 @@
 #include "tank/utils.h"
 #include <map>
 #include <set>
+#include <list>
 #include <functional>
 #include <variant>
 
 extern czh::map::Map czh::game::game_map;
-extern std::vector<czh::bullet::Bullet> czh::game::bullets;
+extern std::list<czh::bullet::Bullet*> czh::game::bullets;
 
 namespace czh::tank
 {
@@ -41,7 +42,7 @@ namespace czh::tank
   int Tank::up()
   {
     direction = map::Direction::UP;
-    int ret = game::game_map.up(map::Status::TANK, pos);
+    int ret = game::game_map.tank_up(pos);
     if (ret == 0)
       pos.y++;
     return ret;
@@ -50,7 +51,7 @@ namespace czh::tank
   int Tank::down()
   {
     direction = map::Direction::DOWN;
-    int ret = game::game_map.down(map::Status::TANK, pos);
+    int ret = game::game_map.tank_down(pos);
     if (ret == 0)
       pos.y--;
     return ret;
@@ -59,7 +60,7 @@ namespace czh::tank
   int Tank::left()
   {
     direction = map::Direction::LEFT;
-    int ret = game::game_map.left(map::Status::TANK, pos);
+    int ret = game::game_map.tank_left(pos);
     if (ret == 0)
       pos.x--;
     return ret;
@@ -68,7 +69,7 @@ namespace czh::tank
   int Tank::right()
   {
     direction = map::Direction::RIGHT;
-    int ret = game::game_map.right(map::Status::TANK, pos);
+    int ret = game::game_map.tank_right(pos);
     if (ret == 0)
       pos.x++;
     return ret;
@@ -77,8 +78,8 @@ namespace czh::tank
   int Tank::fire()
   {
     game::bullets.emplace_back(
-        bullet::Bullet(info.bullet, info.id, get_pos(), get_direction()));
-    int ret = game::game_map.add_bullet(&game::bullets.back(), get_pos());
+        new bullet::Bullet(info.bullet, info.id, get_pos(), get_direction()));
+    int ret = game::game_map.add_bullet(game::bullets.back(), get_pos());
     return ret;
   }
   
@@ -211,7 +212,9 @@ namespace czh::tank
   
   std::vector<Node> Node::get_neighbors() const
   {
+    if(G + 10 > 100) return {};
     std::vector<Node> ret;
+
     map::Pos pos_up(pos.x, pos.y + 1);
     map::Pos pos_down(pos.x, pos.y - 1);
     map::Pos pos_left(pos.x - 1, pos.y);
@@ -234,7 +237,7 @@ namespace czh::tank
     }
     return ret;
   }
-  
+
   bool Node::check(map::Pos &pos) const
   {
     return !game::game_map.has(map::Status::WALL, pos) && !game::game_map.has(map::Status::TANK, pos);
@@ -284,181 +287,158 @@ namespace czh::tank
     return true;
   }
   
-  void AutoTank::target(std::size_t target_id_, const map::Pos &target_pos_)
-  {
-    found = false;
-    target_id = target_id_;
-    target_pos = target_pos_;
-    std::multimap<int, Node> open_list;
-    std::map<map::Pos, Node> close_list;
-    // fire_line
-    std::set<map::Pos> fire_line;
-    for (int i = 0; i <= target_pos.x; ++i)
-    {
-      map::Pos tmp(i, target_pos.y);
-      if (is_in_firing_line(info.bullet.range, tmp, target_pos))
-      {
-        fire_line.insert(tmp);
+  void AutoTank::target(std::size_t target_id_, const map::Pos &target_pos_) {
+      if (map::get_distance(target_pos_, pos) > 30) {
+          return;
       }
-    }
-    for (int i = 0; i <= target_pos.y; ++i)
-    {
-      map::Pos tmp(target_pos.x, i);
-      if (is_in_firing_line(info.bullet.range, tmp, target_pos))
-      {
-        fire_line.insert(tmp);
-      }
-    }
-  
-    destination_pos = *std::min_element(fire_line.begin(), fire_line.end(),
-                                  [this](auto&& a, auto&& b)
-                                  {
-                                    return map::get_distance(a, pos) < map::get_distance(b, pos);
-                                  });
-    
-    
-    Node beg(get_pos(), 0, {0, 0}, true);
-    open_list.insert({beg.get_F(destination_pos), beg});
-    while (!open_list.empty())
-    {
-      auto it = open_list.begin();
-      auto curr = close_list.insert({it->second.get_pos(), it->second});
-      open_list.erase(it);
-      auto neighbors = curr.first->second.get_neighbors();
-      for (auto &node: neighbors)
-      {
-        auto cit = close_list.find(node.get_pos());
-        if (cit != close_list.end()) continue;
-        auto oit = std::find_if(open_list.begin(), open_list.end(),
-                                [&node](auto &&p)
-                                {
-                                  return p.second.get_pos() == node.get_pos();
-                                });
-        if (oit == open_list.end())
-        {
-          open_list.insert({node.get_F(destination_pos), node});
-        }
-        else
-        {
-          if (oit->second.get_G() > node.get_G() + 10) //less G
-          {
-            oit->second.get_G() = node.get_G() + 10;
-            oit->second.get_last() = node.get_pos();
-            int F = oit->second.get_F(destination_pos);
-            auto n = open_list.extract(oit);
-            n.key() = F;
-            open_list.insert(std::move(n));
+      target_id = target_id_;
+      target_pos = target_pos_;
+      std::multimap<int, Node> open_list;
+      std::map<map::Pos, Node> close_list;
+      // fire_line
+      std::set<map::Pos> fire_line;
+      for (int i = 0; i <= target_pos.x; ++i) {
+          map::Pos tmp(i, target_pos.y);
+          if (is_in_firing_line(info.bullet.range, tmp, target_pos)) {
+              fire_line.insert(tmp);
           }
-        }
       }
-      auto itt = std::find_if(open_list.begin(), open_list.end(),
-                              [&fire_line](auto &&p) -> bool
-                              {
-                                return fire_line.find(p.second.get_pos()) != fire_line.end();
-                              });
-      if (itt != open_list.end())//found
-      {
-        way.clear();
-        waypos = 0;
-        auto &np = itt->second;
-        while (!np.is_root() && np.get_pos() != np.get_last())
-        {
-          way.insert(way.begin(), get_pos_direction(close_list[np.get_last()].get_pos(), np.get_pos()));
-          np = close_list[np.get_last()];
-        }
-        found = true;
-        return;
+      for (int i = 0; i <= target_pos.y; ++i) {
+          map::Pos tmp(target_pos.x, i);
+          if (is_in_firing_line(info.bullet.range, tmp, target_pos)) {
+              fire_line.insert(tmp);
+          }
       }
-    }
+
+      destination_pos = *std::min_element(fire_line.begin(), fire_line.end(),
+                                          [this](auto &&a, auto &&b) {
+                                              return map::get_distance(a, pos) < map::get_distance(b, pos);
+                                          });
+
+
+      Node beg(get_pos(), 0, {0, 0}, true);
+      open_list.insert({beg.get_F(destination_pos), beg});
+      int i = 0;
+      while (!open_list.empty()) {
+          auto it = open_list.begin();
+          auto curr = close_list.insert({it->second.get_pos(), it->second});
+          open_list.erase(it);
+          auto neighbors = curr.first->second.get_neighbors();
+          for (auto &node: neighbors) {
+              auto cit = close_list.find(node.get_pos());
+              if (cit != close_list.end()) continue;
+              auto oit = std::find_if(open_list.begin(), open_list.end(),
+                                      [&node](auto &&p) {
+                                          return p.second.get_pos() == node.get_pos();
+                                      });
+              if (oit == open_list.end()) {
+                  open_list.insert({node.get_F(destination_pos), node});
+              } else {
+                  if (oit->second.get_G() > node.get_G() + 10) //less G
+                  {
+                      oit->second.get_G() = node.get_G() + 10;
+                      oit->second.get_last() = node.get_pos();
+                      int F = oit->second.get_F(destination_pos);
+                      auto n = open_list.extract(oit);
+                      n.key() = F;
+                      open_list.insert(std::move(n));
+                  }
+              }
+          }
+          auto itt = std::find_if(open_list.begin(), open_list.end(),
+                                  [&fire_line](auto &&p) -> bool {
+                                      return fire_line.find(p.second.get_pos()) != fire_line.end();
+                                  });
+          if (itt != open_list.end())//found
+          {
+              way.clear();
+              waypos = 0;
+              auto &np = itt->second;
+              while (!np.is_root() && np.get_pos() != np.get_last()) {
+                  way.insert(way.begin(), get_pos_direction(close_list[np.get_last()].get_pos(), np.get_pos()));
+                  np = close_list[np.get_last()];
+              }
+              return;
+          }
+      }
+      return;
   }
-  
-  bool AutoTank::is_in_retreat() const
-  {
-    return in_retreat;
-  }
-  
-  void AutoTank::attacked(int lethality_)
-  {
-    Tank::attacked(lethality_);
-    in_retreat = true;
+
+void AutoTank::generate_random_way() {
     way.clear();
     waypos = 0;
-    auto check = [this](map::Pos p)
-    {
-      return !game::game_map.has(map::Status::WALL, p) && !game::game_map.has(map::Status::TANK, p)
-                                                                     && !game::game_map.has(map::Status::BULLET, p);
+    auto check = [this](map::Pos p) {
+        return !game::game_map.has(map::Status::WALL, p) && !game::game_map.has(map::Status::TANK, p);
     };
     auto p = pos;
     int i = 0;
-    while (way.size() < 10 && i++ < 10)
-    {
-      map::Pos pos_up(p.x, p.y + 1);
-      map::Pos pos_down(p.x, p.y - 1);
-      map::Pos pos_left(p.x - 1, p.y);
-      map::Pos pos_right(p.x + 1, p.y);
-      switch (utils::randnum<int>(0, 4))
-      {
-        case 0:
-          if(check(pos_up))
-          {
-            p = pos_up;
-            way.insert(way.end(), 5, AutoTankEvent::UP);
-          }
-          break;
-        case 1:
-          if(check(pos_down))
-          {
-            p = pos_down;
-            way.insert(way.end(), 5, AutoTankEvent::DOWN);
-          }
-          break;
-        case 2:
-          if(check(pos_left))
-          {
-            p = pos_left;
-            way.insert(way.end(), 5, AutoTankEvent::LEFT);
-          }
-          break;
-        case 3:
-          if(check(pos_right))
-          {
-            p = pos_right;
-            way.insert(way.end(), 5, AutoTankEvent::RIGHT);
-          }
-          break;
+    while (way.size() < 10 && i++ < 10) {
+        map::Pos pos_up(p.x, p.y + 1);
+        map::Pos pos_down(p.x, p.y - 1);
+        map::Pos pos_left(p.x - 1, p.y);
+        map::Pos pos_right(p.x + 1, p.y);
+        switch (utils::randnum<int>(0, 4)) {
+            case 0:
+                if (check(pos_up)) {
+                    p = pos_up;
+                    way.insert(way.end(), 5, AutoTankEvent::UP);
+                }
+                break;
+            case 1:
+                if (check(pos_down)) {
+                    p = pos_down;
+                    way.insert(way.end(), 5, AutoTankEvent::DOWN);
+                }
+                break;
+            case 2:
+                if (check(pos_left)) {
+                    p = pos_left;
+                    way.insert(way.end(), 5, AutoTankEvent::LEFT);
+                }
+                break;
+            case 3:
+                if (check(pos_right)) {
+                    p = pos_right;
+                    way.insert(way.end(), 5, AutoTankEvent::RIGHT);
+                }
+                break;
+        }
+    }
+}
+
+  void AutoTank::attacked(int lethality_)
+  {
+    Tank::attacked(lethality_);
+    generate_random_way();
+  }
+  
+  AutoTankEvent AutoTank::next() {
+      if (++gap_count < info.gap)
+          return AutoTankEvent::PASS;
+      else
+          gap_count = 0;
+
+      if (auto tp = game::id_at(target_id);
+              tp != nullptr && tank::is_in_firing_line(info.bullet.range, pos, tp->get_pos())) {
+          gap_count = info.gap - 5;
+          waypos = 0;
+          way.clear();
+          correct_direction(tp->get_pos());
+          return AutoTankEvent::FIRE;
+      } else {
+          if (waypos >= way.size())
+              generate_random_way();
+          auto ret = way[waypos];
+          ++waypos;
+          return ret;
       }
-    }
-  }
-  
-  AutoTankEvent AutoTank::next()
-  {
-    if (!found)
-    {
       return AutoTankEvent::PASS;
-    }
-    if (++gap_count < info.gap)
-      return AutoTankEvent::PASS;
-    else
-      gap_count = 0;
+  }
   
-    if (waypos < way.size())
+    [[nodiscard]]bool AutoTank::has_arrived() const
     {
-      auto ret = way[waypos];
-      ++waypos;
-      return ret;
+        return waypos == way.size();
     }
-    else if(in_retreat) in_retreat = false;
-    
-    gap_count = info.gap - 5;
-    return AutoTankEvent::FIRE;
-  }
-  
-  void AutoTank::clear_way()
-  {
-    waypos = 0;
-    way.clear();
-  }
-  
   
   void AutoTank::correct_direction(const map::Pos& target)
   {
@@ -486,23 +466,7 @@ namespace czh::tank
   {
     return target_id;
   }
-  
-  [[nodiscard]]bool AutoTank::get_found() const
-  {
-    return found;
-  }
-  
-  bool AutoTank::has_arrived()
-  {
-    return waypos == way.size();
-  }
-  
-  void AutoTank::stuck()
-  {
-    if(waypos != 0) --waypos;
-    way.insert(way.begin() + waypos, AutoTankEvent::FIRE);
-  }
-  
+
   Tank* build_tank(const map::TankData& data)
   {
     if(data.is_auto())
@@ -519,9 +483,7 @@ namespace czh::tank
   
       ret->way = d.way;
       ret->waypos = d.waypos;
-      ret->found = d.found;
-  
-      ret->in_retreat = d.in_retreat;
+
       ret->gap_count = d.gap_count;
       return ret;
     }
@@ -555,9 +517,7 @@ namespace czh::tank
   
       data.way = tank->way;
       data.waypos = tank->waypos;
-      data.found = tank->found;
-  
-      data.in_retreat = tank->in_retreat;
+
       data.gap_count = tank->gap_count;
       ret.data.emplace<map::AutoTankData>(data);
     }
@@ -569,4 +529,5 @@ namespace czh::tank
     }
     return ret;
   }
+
 }
