@@ -12,14 +12,12 @@
 //   See the License for the specific language governing permissions and
 //   limitations under the License.
 #include "tank/input.h"
+#include "tank/globals.h"
 #include "tank/game.h"
 #include "tank/logger.h"
 #include "tank/renderer.h"
 #include "tank/term.h"
 #include "tank/command.h"
-
-extern int czh::game::keyboard_mode;
-extern czh::game::Page czh::game::curr_page;
 
 namespace czh::input
 {
@@ -30,17 +28,17 @@ namespace czh::input
     if (ch == -32)
     {
       ch = czh::term::getch();
-      game::keyboard_mode = 0;
+      g::keyboard_mode = 0;
     }
     if (ch == 27)
     {
       czh::term::getch();
       ch = czh::term::getch();
-      game::keyboard_mode = 1;
+      g::keyboard_mode = 1;
     }
-    if (game::curr_page == game::Page::COMMAND)
+    if (g::curr_page == game::Page::COMMAND)
     {
-      if (game::keyboard_mode == 1)
+      if (g::keyboard_mode == 1)
       {
         switch (ch)
         {
@@ -116,65 +114,65 @@ namespace czh::input
       switch (ret)
       {
         case Input::C_KEY_UP:
-          if (!game::history.empty())
+          if (!g::history.empty())
           {
-            game::cmd_string = game::history[game::history_pos];
-            game::cmd_string_pos = game::cmd_string.size() - 1;
-            if (game::history_pos != 0) --game::history_pos;
+            g::cmd_string = g::history[g::history_pos];
+            g::cmd_string_pos = g::cmd_string.size() - 1;
+            if (g::history_pos != 0) --g::history_pos;
           }
           break;
         case Input::C_KEY_DOWN:
-          if (!game::history.empty())
+          if (!g::history.empty())
           {
-            game::cmd_string = game::history[game::history_pos];
-            game::cmd_string_pos = game::cmd_string.size() - 1;
-            if (game::history_pos + 1 < game::history.size()) ++game::history_pos;
+            g::cmd_string = g::history[g::history_pos];
+            g::cmd_string_pos = g::cmd_string.size() - 1;
+            if (g::history_pos + 1 < g::history.size()) ++g::history_pos;
           }
           break;
         case Input::C_KEY_LEFT:
-          if (game::cmd_string_pos != 0)
+          if (g::cmd_string_pos != 0)
           {
-            --game::cmd_string_pos;
+            --g::cmd_string_pos;
           }
           break;
         case Input::C_KEY_RIGHT:
-          if (game::cmd_string_pos + 1 < game::cmd_string.size())
+          if (g::cmd_string_pos + 1 < g::cmd_string.size())
           {
-            ++game::cmd_string_pos;
+            ++g::cmd_string_pos;
           }
           break;
         case Input::C_KEY_BACKSPACE:
-          if (game::cmd_string_pos != 0)
+          if (g::cmd_string_pos != 0)
           {
-            game::cmd_string.erase(game::cmd_string_pos, 1);
-            --game::cmd_string_pos;
+            g::cmd_string.erase(g::cmd_string_pos, 1);
+            --g::cmd_string_pos;
           }
           break;
         case Input::C_KEY_DELETE:
-          if (game::cmd_string_pos + 1 != game::cmd_string.size())
+          if (g::cmd_string_pos + 1 != g::cmd_string.size())
           {
-            game::cmd_string.erase(game::cmd_string_pos + 1, 1);
+            g::cmd_string.erase(g::cmd_string_pos + 1, 1);
           }
           break;
         case Input::C_KEY_HOME:
-          game::cmd_string_pos = 0;
+          g::cmd_string_pos = 0;
           break;
         case Input::C_KEY_END:
-          game::cmd_string_pos = game::cmd_string.size() - 1;
+          g::cmd_string_pos = g::cmd_string.size() - 1;
           break;
         case Input::C_KEY_ENTER:
-          cmd::run_command(game::cmd_string);
-          game::history.emplace_back(game::cmd_string);
-          game::cmd_string = "/";
-          game::cmd_string_pos = 0;
-          game::history_pos = game::history.size() - 1;
+          cmd::run_command(g::cmd_string);
+          g::history.emplace_back(g::cmd_string);
+          g::cmd_string = "/";
+          g::cmd_string_pos = 0;
+          g::history_pos = g::history.size() - 1;
           break;
         case Input::CHAR:
-          game::cmd_string_pos++;
-          game::cmd_string.insert(game::cmd_string.begin() + game::cmd_string_pos, ch);
+          g::cmd_string_pos++;
+          g::cmd_string.insert(g::cmd_string.begin() + g::cmd_string_pos, ch);
           break;
       }
-      game::output_inited = false;
+      g::output_inited = false;
       renderer::render();
     }
     else
@@ -186,7 +184,7 @@ namespace czh::input
           ret = Input::G_UP;
           break;
         case 72:
-          if (game::keyboard_mode == 1)
+          if (g::keyboard_mode == 1)
           {
             logger::warn("Ignored key 72");
           }
@@ -200,7 +198,7 @@ namespace czh::input
           ret = Input::G_DOWN;
           break;
         case 80:
-          if (game::keyboard_mode == 1)
+          if (g::keyboard_mode == 1)
           {
             czh::logger::warn("Ignored key 80");
           }
@@ -210,7 +208,7 @@ namespace czh::input
           }
           break;
         case 'A':
-          if (game::keyboard_mode == 1)
+          if (g::keyboard_mode == 1)
           {
             ret = Input::G_UP;
           }
@@ -223,7 +221,7 @@ namespace czh::input
           ret = Input::G_LEFT;
           break;
         case 75:
-          if (game::keyboard_mode == 1)
+          if (g::keyboard_mode == 1)
           {
             czh::logger::warn("Ignored key 75");
           }
@@ -233,7 +231,7 @@ namespace czh::input
           }
           break;
         case 'D':
-          if (game::keyboard_mode == 1)
+          if (g::keyboard_mode == 1)
           {
             ret = Input::G_LEFT;
           }
@@ -246,7 +244,7 @@ namespace czh::input
           ret = Input::G_RIGHT;
           break;
         case 77:
-          if (game::keyboard_mode == 1)
+          if (g::keyboard_mode == 1)
           {
             czh::logger::warn("Ignored key 77");
           }
@@ -256,7 +254,7 @@ namespace czh::input
           }
           break;
         case 'B':
-          if (game::keyboard_mode == 0)
+          if (g::keyboard_mode == 0)
           {
             czh::logger::warn("Ignored key 76");
           }
@@ -266,7 +264,7 @@ namespace czh::input
           }
           break;
         case 'C':
-          if (game::keyboard_mode == 0)
+          if (g::keyboard_mode == 0)
           {
             czh::logger::warn("Ignored key 77");
           }
@@ -283,7 +281,7 @@ namespace czh::input
           ret = Input::G_KEY_O;
           break;
         case 13:
-          if (game::keyboard_mode == 1)
+          if (g::keyboard_mode == 1)
           {
             czh::logger::warn("Ignored key 13");
           }
@@ -293,7 +291,7 @@ namespace czh::input
           }
           break;
         case 10:
-          if (game::keyboard_mode == 0)
+          if (g::keyboard_mode == 0)
           {
             czh::logger::warn("Ignored key 10");
           }

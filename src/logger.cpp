@@ -13,13 +13,13 @@
 //   limitations under the License.
 #include "tank/term.h"
 #include "tank/logger.h"
+#include "tank/globals.h"
 #include "tank/game.h"
 #include <string>
 #include <chrono>
 #include <ctime>
 #include <cstdio>
 
-extern std::mutex czh::game::render_mtx;
 namespace czh::logger
 {
   std::string get_severity_str(Severity severity)
@@ -80,7 +80,7 @@ namespace czh::logger
   
   void output_at_bottom(const std::string &str)
   {
-    game::render_mtx.lock();
+    g::render_mtx.lock();
     term::move_cursor(term::TermPos(0, term::get_height() - 1));
     int a = term::get_width() - str.size();
     if (a > 0)
@@ -92,7 +92,7 @@ namespace czh::logger
       term::output(str);
     }
     term::flush();
-    game::render_mtx.unlock();
+    g::render_mtx.unlock();
   }
   
   void Logger::add(const Record &record)

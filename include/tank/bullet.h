@@ -42,7 +42,7 @@ namespace czh::bullet
            map::Pos pos_, map::Direction direction_)
         : pos(pos_), direction(direction_), info(info_), from_tank_id(from_tank_id_) {}
     
-    int move();
+    int react();
     
     std::string get_text();
     

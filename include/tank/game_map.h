@@ -35,6 +35,7 @@ namespace czh::tank
   {
     UP, DOWN, LEFT, RIGHT, FIRE, PASS
   };
+  
   class Tank;
 }
 namespace czh::bullet
@@ -49,7 +50,7 @@ namespace czh::map
   };
   enum class Direction
   {
-    UP, DOWN, LEFT, RIGHT
+    UP, DOWN, LEFT, RIGHT, END
   };
   
   class Pos
@@ -122,16 +123,15 @@ namespace czh::map
     }
   };
   
-  struct ActivePointData
+  struct Zone // [X min, X max)   [Y min, Y max)
   {
-    tank::Tank *tank;
-    std::vector<bullet::Bullet *> bullets;
-  };
-  
-  struct InactivePointData
-  {
-    TankData tank;
-    std::vector<BulletData> bullets;
+    int x_min;
+    int x_max;
+    int y_min;
+    int y_max;
+    
+    bool contains(int i, int j) const;
+    bool contains(const Pos& p) const;
   };
   
   class Map;
@@ -139,31 +139,27 @@ namespace czh::map
   class Point
   {
     friend class Map;
-  
   private:
     bool generated;
+    bool temporary;
     std::vector<Status> statuses;
-    std::variant<ActivePointData, InactivePointData> data;
-  public:
-    Point() : generated(false) {}
     
-    Point(std::string, std::vector<Status> s) : generated(true), statuses(std::move(s)) {}
+    tank::Tank *tank;
+    std::vector<bullet::Bullet *> bullets;
+  public:
+    Point() : generated(false), temporary(true) {}
+    
+    Point(std::string, std::vector<Status> s) : generated(true), statuses(std::move(s)), temporary(true) {}
     
     bool is_generated() const;
     
-    bool is_active() const;
+    bool is_temporary() const;
     
-    tank::Tank *get_tank_instance() const;
+    bool is_empty() const;
     
-    const std::vector<bullet::Bullet *> &get_bullets_instance() const;
+    tank::Tank *get_tank() const;
     
-    const TankData &get_tank_data() const;
-    
-    const std::vector<BulletData> &get_bullets_data() const;
-    
-    void activate(const ActivePointData &data);
-    
-    void deactivate(const InactivePointData &data);
+    const std::vector<bullet::Bullet *> &get_bullets() const;
     
     void add_status(const Status &status, void *);
     

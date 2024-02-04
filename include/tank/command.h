@@ -13,12 +13,14 @@
 //   limitations under the License.
 #ifndef TANK_COMMAND_H
 #define TANK_COMMAND_H
+
 #include "type_list.h"
 #include <variant>
 #include <string>
 #include <vector>
 #include <tuple>
 #include <stdexcept>
+
 namespace czh::cmd
 {
   namespace details
@@ -31,7 +33,9 @@ namespace czh::cmd
     T arg_get(const Arg &a)
     {
       if (a.index() != type_list::index_of_v<T, ArgTList>)
+      {
         throw std::runtime_error("Get wrong type.");
+      }
       return std::get<T>(a);
     }
     
@@ -63,7 +67,9 @@ namespace czh::cmd
   auto args_get(const std::vector<details::Arg> &v)
   {
     if (v.size() != sizeof...(Args))
+    {
       throw std::runtime_error("Get wrong size.");
+    }
     return details::args_get_helper<type_list::TypeList<Args...>>
         (v, std::make_index_sequence<sizeof...(Args)>());
   }
@@ -76,7 +82,9 @@ namespace czh::cmd
     for (size_t i = 0; i < v.size(); ++i)
     {
       if (expected[i] != v[i].index())
+      {
         return false;
+      }
     }
     return true;
   }

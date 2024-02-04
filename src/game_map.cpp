@@ -12,7 +12,7 @@
 //   See the License for the specific language governing permissions and
 //   limitations under the License.
 #include "tank/game_map.h"
-#include "tank/utils.h"
+#include "tank/globals.h"
 #include <vector>
 #include <list>
 #include <set>
@@ -20,70 +20,66 @@
 #include <stdexcept>
 #include <variant>
 
+namespace czh::g
+{
+  map::Point empty_point("used for empty point", {});
+  map::Point wall_point("used for wall point", {map::Status::WALL});
+}
 
 namespace czh::map
 {
-  Point empty_point("used for empty point", {});
-  Point wall_point("used for wall point", {Status::WALL});
+  bool Zone::contains(int i, int j) const
+  {
+    return (i >= g::render_zone.x_min
+     && i < g::render_zone.x_max
+     && j >= g::render_zone.y_min
+     && j < g::render_zone.y_max);
+  }
+  
+  bool Zone::contains(const Pos& p) const
+  {
+    return contains(p.x, p.y);
+  }
   
   bool Point::is_generated() const
   {
     return generated;
   }
   
-  bool Point::is_active() const
+  bool Point::is_temporary() const
   {
-    return data.index() == 0;
+    return temporary;
   }
   
-  tank::Tank *Point::get_tank_instance() const
+  bool Point::is_empty() const
   {
-    assert(is_active());
-    return std::get<ActivePointData>(data).tank;
+    return statuses.empty();
   }
   
-  const std::vector<bullet::Bullet *> &Point::get_bullets_instance() const
+  tank::Tank *Point::get_tank() const
   {
-    assert(is_active());
-    return std::get<ActivePointData>(data).bullets;
+    assert(has(Status::TANK));
+    return tank;
   }
   
-  const TankData &Point::get_tank_data() const
+  const std::vector<bullet::Bullet *> &Point::get_bullets() const
   {
-    assert(!is_active());
-    return std::get<InactivePointData>(data).tank;
-  }
-  
-  const std::vector<BulletData> &Point::get_bullets_data() const
-  {
-    assert(!is_active());
-    return std::get<InactivePointData>(data).bullets;
-  }
-  
-  
-  void Point::activate(const ActivePointData &d)
-  {
-    data.emplace<ActivePointData>(d);
-  }
-  
-  void Point::deactivate(const InactivePointData &d)
-  {
-    data.emplace<InactivePointData>(d);
+    assert(has(Status::BULLET));
+    return bullets;
   }
   
   void Point::add_status(const Status &status, void *ptr)
   {
-    assert(is_active());
     statuses.emplace_back(status);
     if (ptr != nullptr)
     {
       switch (status)
       {
         case Status::BULLET:
-          std::get<ActivePointData>(data).bullets.emplace_back(static_cast<bullet::Bullet *>(ptr));
+          bullets.emplace_back(static_cast<bullet::Bullet *>(ptr));
           break;
         case Status::TANK:
-          std::get<ActivePointData>(data).tank = static_cast<tank::Tank *>(ptr);
+          tank = static_cast<tank::Tank *>(ptr);
           break;
       }
     }
@@ -91,36 +87,32 @@ namespace czh::map
   
   void Point::remove_status(const Status &status)
   {
-    assert(is_active());
     statuses.erase(std::remove(statuses.begin(), statuses.end(), status), statuses.end());
     switch (status)
     {
       case Status::BULLET:
-        std::get<ActivePointData>(data).bullets.clear();
+        bullets.clear();
         break;
       case Status::TANK:
-        std::get<ActivePointData>(data).tank = nullptr;
+        tank = nullptr;
         break;
     }
   }
   
   void Point::remove_all_statuses()
   {
-    assert(is_active());
     statuses.clear();
-    std::get<ActivePointData>(data).bullets.clear();
-    std::get<ActivePointData>(data).tank = nullptr;
+    bullets.clear();
+    tank = nullptr;
   }
   
   [[nodiscard]] bool Point::has(const Status &status) const
   {
-    assert(is_active());
     return (std::find(statuses.cbegin(), statuses.cend(), status) != statuses.cend());
   }
   
   [[nodiscard]]std::size_t Point::count(const Status &status) const
   {
-    assert(is_active());
     return std::count(statuses.cbegin(), statuses.cend(), status);
   }
   
@@ -221,7 +213,7 @@ namespace czh::map
   void Map::remove_status(const Status &status, const Pos &pos)
   {
     map[pos].remove_status(status);
-    if (map[pos].statuses.empty())
+    if (map[pos].is_temporary() && map[pos].is_empty())
     {
       map.erase(pos);
     }
@@ -254,13 +246,13 @@ namespace czh::map
       return map.at(i);
     }
     
-    srand(i.x * i.y);
+    srand(i.x * i.y * i.x * i.y);
     if (rand() % 50 == 1)
     {
-      return wall_point;
+      return g::wall_point;
     }
-    
-    return empty_point;
+
+    return g::empty_point;
   }
   
   int Map::fill(const Pos &from, const Pos &to, const Status &status)
@@ -280,6 +272,7 @@ namespace czh::map
         {
           map[p].add_status(status, nullptr);
         }
+        map[p].temporary = false;
         changes.insert(Change{p});
       }
     }
@@ -309,12 +302,11 @@ namespace czh::map
     
     auto &new_point = map[new_pos];
     auto &old_point = map[pos];
-    assert(new_point.is_active() && old_point.is_active());
     
     if (new_point.has(Status::TANK)) return -1;
-    new_point.add_status(Status::TANK, std::get<ActivePointData>(old_point.data).tank);
+    new_point.add_status(Status::TANK, old_point.tank);
     old_point.remove_status(Status::TANK);
-    if (old_point.statuses.empty())
+    if (old_point.is_temporary() && old_point.is_empty())
     {
       map.erase(pos);
     }
@@ -346,8 +338,7 @@ namespace czh::map
     
     auto &new_point = map[new_pos];
     auto &old_point = map[pos];
-    assert(new_point.is_active() && old_point.is_active());
-    auto &old_bullets = std::get<ActivePointData>(old_point.data).bullets;
+    auto &old_bullets = old_point.bullets;
     bool ok = false;
     for (auto it = old_bullets.begin(); it != old_bullets.end();)
     {
@@ -377,7 +368,7 @@ namespace czh::map
     }
     new_point.add_status(Status::BULLET, b);
     
-    if (old_point.statuses.empty())
+    if (old_point.is_temporary() && old_point.is_empty())
     {
       map.erase(pos);
     }

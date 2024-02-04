@@ -173,7 +173,7 @@ namespace czh::tank
     
     void target(std::size_t target_id_, const map::Pos &target_pos_);
     
-    AutoTankEvent next();
+    void react();
     
     std::size_t &get_target_id();
     

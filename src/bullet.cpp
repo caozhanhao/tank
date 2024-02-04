@@ -11,21 +11,19 @@
 //   WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 //   See the License for the specific language governing permissions and
 //   limitations under the License.
-#include "tank/game.h"
+#include "tank/globals.h"
 #include "tank/bullet.h"
 #include "tank/info.h"
 
-extern czh::map::Map czh::game::game_map;
-
 namespace czh::bullet
 {
-  int Bullet::move()
+  int Bullet::react()
   {
     int ret = -1;
     switch (direction)
     {
       case map::Direction::UP:
-        ret = game::game_map.bullet_up(this, pos);
+        ret = g::game_map.bullet_up(this, pos);
         if (ret != 0)
         {
           info.hp -= 1;
@@ -38,7 +36,7 @@ namespace czh::bullet
         }
         break;
       case map::Direction::DOWN:
-        ret = game::game_map.bullet_down(this, pos);
+        ret = g::game_map.bullet_down(this, pos);
         if (ret != 0)
         {
           info.hp -= 1;
@@ -51,7 +49,7 @@ namespace czh::bullet
         }
         break;
       case map::Direction::LEFT:
-        ret = game::game_map.bullet_left(this, pos);
+        ret = g::game_map.bullet_left(this, pos);
         if (ret != 0)
         {
           info.hp -= 1;
@@ -64,7 +62,7 @@ namespace czh::bullet
         }
         break;
       case map::Direction::RIGHT:
-        ret = game::game_map.bullet_right(this, pos);
+        ret = g::game_map.bullet_right(this, pos);
         if (ret != 0)
         {
           info.hp -= 1;

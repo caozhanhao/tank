@@ -12,6 +12,7 @@
 //   See the License for the specific language governing permissions and
 //   limitations under the License.
 #include "tank/term.h"
+#include "tank/globals.h"
 #include "tank/game.h"
 #include "tank/renderer.h"
 #include "tank/input.h"
@@ -26,14 +27,11 @@
 
 
 using namespace czh;
-using namespace czh::game;
-using namespace czh::input;
-using namespace czh::renderer;
 
 int main()
 {
   czh::logger::init_logger(czh::logger::Severity::NONE, czh::logger::Output::console);
-  add_tank();
+  game::add_tank({0,0});
   std::thread game_thread(
       []
       {
@@ -42,69 +40,68 @@ int main()
         while (true)
         {
           beg = std::chrono::high_resolution_clock::now();
-          mainloop();
-          render();
+          game::mainloop();
+          renderer::render();
           end = std::chrono::high_resolution_clock::now();
           cost = std::chrono::duration_cast<std::chrono::milliseconds>(end - beg);
-          if (tick > cost)
+          if (g::tick > cost)
           {
-            std::this_thread::sleep_for(tick - cost);
+            std::this_thread::sleep_for(g::tick - cost);
           }
         }
       }
   );
-  game_thread.detach();
   while (true)
   {
     if (czh::term::kbhit())
     {
-      Input i = get_input();
+      input::Input i = input::get_input();
       switch (i)
       {
-        case Input::G_UP:
-          tank_react(0, tank::NormalTankEvent::UP);
+        case input::Input::G_UP:
+          game::tank_react(0, tank::NormalTankEvent::UP);
           break;
-        case Input::G_DOWN:
-          tank_react(0, tank::NormalTankEvent::DOWN);
+        case input::Input::G_DOWN:
+          game::tank_react(0, tank::NormalTankEvent::DOWN);
           break;
-        case Input::G_LEFT:
-          tank_react(0, tank::NormalTankEvent::LEFT);
+        case input::Input::G_LEFT:
+          game::tank_react(0, tank::NormalTankEvent::LEFT);
           break;
-        case Input::G_RIGHT:
-          tank_react(0, tank::NormalTankEvent::RIGHT);
+        case input::Input::G_RIGHT:
+          game::tank_react(0, tank::NormalTankEvent::RIGHT);
           break;
-        case Input::G_KEY_SPACE:
-          tank_react(0, tank::NormalTankEvent::FIRE);
+        case input::Input::G_KEY_SPACE:
+          game::tank_react(0, tank::NormalTankEvent::FIRE);
           break;
-        case Input::G_KEY_O:
-          if (curr_page == Page::GAME)
+        case input::Input::G_KEY_O:
+          if (g::curr_page == game::Page::GAME)
           {
-            curr_page = Page::TANK_STATUS;
-            output_inited = false;
-            render();
+            g::curr_page = game::Page::TANK_STATUS;
+            g::output_inited = false;
+            renderer::render();
           }
           else
           {
-            curr_page = Page::GAME;
-            output_inited = false;
-            render();
+            g::curr_page = game::Page::GAME;
+            g::output_inited = false;
+            renderer::render();
           }
           break;
-        case Input::G_KEY_L:
+        case input::Input::G_KEY_L:
         {
-          std::lock_guard<std::mutex> l(game::mainloop_mtx);
-          add_auto_tank(utils::randnum<int>(1, 11));
+          std::lock_guard<std::mutex> l(g::mainloop_mtx);
+          game::add_auto_tank(utils::randnum<int>(1, 11));
         }
           break;
-        case Input::G_KEY_SLASH:
-          curr_page = Page::COMMAND;
-          output_inited = false;
-          render();
+        case input::Input::G_KEY_SLASH:
+          g::curr_page = game::Page::COMMAND;
+          g::output_inited = false;
+          renderer::render();
           break;
-        case Input::M_KEY_ENTER:
-          curr_page = Page::GAME;
-          output_inited = false;
-          render();
+        case input::Input::M_KEY_ENTER:
+          g::curr_page = game::Page::GAME;
+          g::output_inited = false;
+          renderer::render();
           break;
       }
     }

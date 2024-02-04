@@ -16,6 +16,7 @@
 #include "tank/bullet.h"
 #include "tank/utils.h"
 #include "tank/term.h"
+#include "tank/globals.h"
 #include <mutex>
 #include <vector>
 #include <string>
@@ -23,22 +24,16 @@
 #include <map>
 #include <list>
 
-extern bool czh::game::output_inited;
-extern czh::game::Zone czh::game::rendered_zone;
-extern std::mutex czh::game::mainloop_mtx;
-extern std::mutex czh::game::render_mtx;
-extern czh::map::Map czh::game::game_map;
-extern czh::game::Page czh::game::curr_page;
-extern std::map<size_t, czh::tank::Tank *> czh::game::tanks;
-extern std::list<czh::bullet::Bullet *> czh::game::bullets;
-extern std::vector<std::string> czh::game::history;
-extern std::string czh::game::cmd_string;
-extern size_t czh::game::history_pos;
-extern size_t czh::game::cmd_string_pos;
-extern czh::game::Page czh::game::curr_page;
-extern size_t czh::game::help_page;
-extern std::size_t czh::game::screen_height;
-extern std::size_t czh::game::screen_width;
+namespace czh::g
+{
+  bool output_inited = false;
+  std::size_t screen_height = term::get_height();
+  std::size_t screen_width = term::get_width();
+  size_t tank_focus = 0;
+  map::Zone render_zone = {-128, 128, -128, 128};
+  std::mutex render_mtx;
+  std::set<map::Change> render_changes{};
+}
 
 namespace czh::renderer
 {
@@ -63,125 +58,207 @@ namespace czh::renderer
   
   void update_point(const map::Pos &pos)
   {
-    term::move_cursor({static_cast<size_t>((pos.x - game::rendered_zone.x_min) * 2),
-                       static_cast<size_t>(game::rendered_zone.y_max - pos.y - 1)});
-    if (game::game_map.has(map::Status::TANK, pos))
+    term::move_cursor({static_cast<size_t>((pos.x - g::render_zone.x_min) * 2),
+                       static_cast<size_t>(g::render_zone.y_max - pos.y - 1)});
+    if (g::game_map.has(map::Status::TANK, pos))
     {
-      term::output(colorify_tank(game::game_map.at(pos).get_tank_instance()->get_id(), "  "));
+      term::output(colorify_tank(g::game_map.at(pos).get_tank()->get_id(), "  "));
     }
-    else if (game::game_map.has(map::Status::BULLET, pos))
+    else if (g::game_map.has(map::Status::BULLET, pos))
     {
-      const auto &bullets = game::game_map.at(pos).get_bullets_instance();
+      const auto &bullets = g::game_map.at(pos).get_bullets();
       assert(!bullets.empty());
       term::output(colorify_text(bullets[0]->get_tank(), std::string{bullets[0]->get_text()}));
     }
     else
     {
-      std::string s = "  ";
-//      if(std::abs(pos.x) % 10 == 0)
-//      {
-//          s = "||";
-//      }
-//      if(std::abs(pos.y) % 10 == 0)
-//      {
-//        if (s == "||")
-//          s = "<>";
-//        else
-//          s = "==";
-//      }
-      if (game::game_map.has(map::Status::WALL, pos))
+      if (g::game_map.has(map::Status::WALL, pos))
       {
-        term::output("\033[0;41;37m" + s + "\033[0m");
+        term::output("\033[0;41;37m  \033[0m");
       }
       else
       {
-        term::output(s);
+        term::output("  ");
       }
     }
     term::output("\033[?25l");
   }
   
   // [X min, X max)   [Y min, Y max)
-  game::Zone get_visible_zone(size_t id)
+  map::Zone get_visible_zone(size_t id)
   {
     auto pos = game::id_at(id)->get_pos();
-    int offset_x = (int) game::screen_width / 4;
+    int offset_x = (int) g::screen_width / 4;
     int x_min = pos.x - offset_x;
-    int x_max = (int) game::screen_width / 2 + x_min;
+    int x_max = (int) g::screen_width / 2 + x_min;
     
-    int offset_y = (int) game::screen_height / 2;
+    int offset_y = (int) g::screen_height / 2;
     int y_min = pos.y - offset_y;
-    int y_max = (int) game::screen_height - 1 + y_min;
+    int y_max = (int) g::screen_height - 1 + y_min;
     return {x_min, x_max, y_min, y_max};
   }
   
-  game::Zone next_zone(size_t id)
+  void get_render_changes(const map::Direction& move)
   {
-    auto ret = game::rendered_zone;
-    auto direction = game::id_at(id)->get_direction();
+    // When the render zone moves, every point in the screen doesn't move, but its corresponding pos changes.
+    // so we need to do something to get the correct changes:
+    // 1.  if there's no difference in the two point in the moving direction, ignore.
+    // 2.  move the map's changes to its corresponding screen position.
+    auto old_zone = g::render_zone;
+    switch (move)
+    {
+      case map::Direction::UP:
+        old_zone.y_max--;
+        old_zone.y_min--;
+        for (int i = g::render_zone.x_min; i < g::render_zone.x_max; i++)
+        {
+          for (int j = g::render_zone.y_min - 1; j < g::render_zone.y_max + 1; j++)
+          {
+            if (!g::game_map.at(i, j + 1).is_empty() || !g::game_map.at(i, j).is_empty())
+            {
+              g::render_changes.insert(map::Change{map::Pos(i, j)});
+              g::render_changes.insert(map::Change{map::Pos(i, j + 1)});
+            }
+          }
+        }
+        for (auto &p: g::game_map.get_changes())
+        {
+          if (g::render_zone.contains(p.get_pos()) || old_zone.contains(p.get_pos()))
+            g::render_changes.insert(map::Change{map::Pos{p.get_pos().x, p.get_pos().y + 1}});
+        }
+        break;
+      case map::Direction::DOWN:
+        old_zone.y_max++;
+        old_zone.y_min++;
+        for (int i = g::render_zone.x_min; i < g::render_zone.x_max; i++)
+        {
+          for (int j = g::render_zone.y_min - 1; j < g::render_zone.y_max + 1; j++)
+          {
+            if (!g::game_map.at(i, j - 1).is_empty() || !g::game_map.at(i, j).is_empty())
+            {
+              g::render_changes.insert(map::Change{map::Pos(i, j)});
+              g::render_changes.insert(map::Change{map::Pos(i, j - 1)});
+            }
+          }
+        }
+        for (auto &p: g::game_map.get_changes())
+        {
+          if (g::render_zone.contains(p.get_pos()) || old_zone.contains(p.get_pos()))
+            g::render_changes.insert(map::Change{map::Pos{p.get_pos().x, p.get_pos().y - 1}});
+        }
+        break;
+      case map::Direction::LEFT:
+        old_zone.x_max++;
+        old_zone.x_min++;
+        for (int i = g::render_zone.x_min - 1; i < g::render_zone.x_max + 1; i++)
+        {
+          for (int j = g::render_zone.y_min; j < g::render_zone.y_max; j++)
+          {
+            if (!g::game_map.at(i - 1, j).is_empty() || !g::game_map.at(i, j).is_empty())
+            {
+              g::render_changes.insert(map::Change{map::Pos(i, j)});
+              g::render_changes.insert(map::Change{map::Pos(i - 1, j)});
+            }
+          }
+        }
+        for (auto &p: g::game_map.get_changes())
+        {
+          if (g::render_zone.contains(p.get_pos()) || old_zone.contains(p.get_pos()))
+            g::render_changes.insert(map::Change{map::Pos{p.get_pos().x - 1, p.get_pos().y}});
+        }
+        break;
+      case map::Direction::RIGHT:
+        old_zone.x_max--;
+        old_zone.x_min--;
+        for (int i = g::render_zone.x_min - 1; i < g::render_zone.x_max + 1; i++)
+        {
+          for (int j = g::render_zone.y_min; j < g::render_zone.y_max; j++)
+          {
+            if (!g::game_map.at(i + 1, j).is_empty() || !g::game_map.at(i, j).is_empty())
+            {
+              g::render_changes.insert(map::Change{map::Pos(i, j)});
+              g::render_changes.insert(map::Change{map::Pos(i + 1, j)});
+            }
+          }
+        }
+        for (auto &p: g::game_map.get_changes())
+        {
+          if (g::render_zone.contains(p.get_pos()) || old_zone.contains(p.get_pos()))
+            g::render_changes.insert(map::Change{map::Pos{p.get_pos().x + 1, p.get_pos().y}});
+        }
+        break;
+      case map::Direction::END:
+        for (auto &p: g::game_map.get_changes())
+        {
+          if (g::render_zone.contains(p.get_pos()))
+            g::render_changes.insert(map::Change{p.get_pos()});
+        }
+        break;
+    }
+    g::game_map.clear_changes();
+  }
+  
+  void next_zone(const map::Direction& direction)
+  {
     switch (direction)
     {
       case map::Direction::UP:
-        ret.y_max++;
-        ret.y_min++;
+        g::render_zone.y_max++;
+        g::render_zone.y_min++;
         break;
       case map::Direction::DOWN:
-        ret.y_max--;
-        ret.y_min--;
+        g::render_zone.y_max--;
+        g::render_zone.y_min--;
         break;
       case map::Direction::LEFT:
-        ret.x_max--;
-        ret.x_min--;
+        g::render_zone.x_max--;
+        g::render_zone.x_min--;
         break;
       case map::Direction::RIGHT:
-        ret.x_max++;
-        ret.x_min++;
-        break;
-      default:
-        ret = get_visible_zone(id);
+        g::render_zone.x_max++;
+        g::render_zone.x_min++;
         break;
     }
-    return ret;
   }
   
   bool out_of_zone(size_t id)
   {
     auto pos = game::id_at(id)->get_pos();
     return
-        ((game::rendered_zone.x_min + 10 > pos.x)
-         || (game::rendered_zone.x_max - 10 <= pos.x)
-         || (game::rendered_zone.y_min + 10 > pos.y)
-         || (game::rendered_zone.y_max - 10 <= pos.y));
+        ((g::render_zone.x_min + 5 > pos.x)
+         || (g::render_zone.x_max - 5 <= pos.x)
+         || (g::render_zone.y_min + 5 > pos.y)
+         || (g::render_zone.y_max - 5 <= pos.y));
   }
   
   bool completely_out_of_zone(size_t id)
   {
     auto pos = game::id_at(id)->get_pos();
     return
-        ((game::rendered_zone.x_min > pos.x)
-         || (game::rendered_zone.x_max <= pos.x)
-         || (game::rendered_zone.y_min > pos.y)
-         || (game::rendered_zone.y_max <= pos.y));
+        ((g::render_zone.x_min > pos.x)
+         || (g::render_zone.x_max <= pos.x)
+         || (g::render_zone.y_min > pos.y)
+         || (g::render_zone.y_max <= pos.y));
   }
   
   void render()
   {
-    std::lock_guard<std::mutex> l1(game::render_mtx);
-    std::lock_guard<std::mutex> l2(game::mainloop_mtx);
-    if (game::screen_height != term::get_height() || game::screen_width != term::get_width() || game::map_size_changed)
+    std::lock_guard<std::mutex> l1(g::render_mtx);
+    std::lock_guard<std::mutex> l2(g::mainloop_mtx);
+    if (g::screen_height != term::get_height() || g::screen_width != term::get_width())
     {
       term::clear();
-      game::help_page = 1;
-      game::output_inited = false;
-      game::map_size_changed = false;
-      game::screen_height = term::get_height();
-      game::screen_width = term::get_width();
+      g::help_page = 1;
+      g::output_inited = false;
+      g::screen_height = term::get_height();
+      g::screen_width = term::get_width();
     }
-    switch (game::curr_page)
+    
+    switch (g::curr_page)
     {
       case game::Page::GAME:
       {
-        size_t focus = game::tank_focus;
+        size_t focus = g::tank_focus;
         if (auto t = game::id_at(focus); t == nullptr || !t->is_alive())
         {
           focus = 0;
@@ -189,61 +266,63 @@ namespace czh::renderer
           while (t == nullptr || !t->is_alive())
           {
             ++focus;
-            if (focus >= game::tanks.size())
+            if (focus >= g::tanks.size())
             {
-              focus = game::tank_focus;
+              focus = g::tank_focus;
               break;
             }
             t = game::id_at(focus);
           }
         }
-        if (!game::output_inited || out_of_zone(focus))
+        
+        auto move = map::Direction::END;
+        
+        if(out_of_zone(focus))
         {
-          term::move_cursor({0, 0});
           if (completely_out_of_zone(focus))
-          {
-            game::rendered_zone = get_visible_zone(focus);
-          }
+            g::output_inited = false;
           else
           {
-            game::rendered_zone = next_zone(focus);
+            move = game::id_at(focus)->get_direction();
+            next_zone(move);
           }
-          game::load_zone(game::rendered_zone);
-          for (int j = game::rendered_zone.y_max - 1; j >= static_cast<int>(game::rendered_zone.y_min); j--)
+        }
+        
+        if (!g::output_inited)
+        {
+          g::render_zone = get_visible_zone(focus);
+          term::move_cursor({0, 0});
+          for (int j = g::render_zone.y_max - 1; j >= g::render_zone.y_min; j--)
           {
-            for (int i = game::rendered_zone.x_min; i < static_cast<int>(game::rendered_zone.x_max); i++)
+            for (int i = g::render_zone.x_min; i < g::render_zone.x_max; i++)
             {
               update_point(map::Pos(i, j));
             }
             term::output("\n");
           }
-          game::output_inited = true;
+          g::output_inited = true;
         }
         else
         {
-          for (auto &p: game::game_map.get_changes())
+          get_render_changes(move);
+          for (auto &p: g::render_changes)
           {
-            if (p.get_pos().x >= game::rendered_zone.x_min
-                && p.get_pos().x < game::rendered_zone.x_max
-                && p.get_pos().y >= game::rendered_zone.y_min
-                && p.get_pos().y < game::rendered_zone.y_max)
-            {
+            if (g::render_zone.contains(p.get_pos()))
               update_point(p.get_pos());
-            }
           }
-          game::game_map.clear_changes();
         }
+        g::render_changes.clear();
       }
         break;
       case game::Page::TANK_STATUS:
-        if (!game::output_inited)
+        if (!g::output_inited)
         {
           term::clear();
           std::size_t cursor_y = 0;
-          term::mvoutput({game::screen_width / 2 - 10, cursor_y++}, "Tank - by caozhanhao");
+          term::mvoutput({g::screen_width / 2 - 10, cursor_y++}, "Tank - by caozhanhao");
           size_t gap = 2;
           size_t id_x = gap;
-          size_t name_x = id_x + gap + std::to_string((*std::max_element(game::tanks.begin(), game::tanks.end(),
+          size_t name_x = id_x + gap + std::to_string((*std::max_element(g::tanks.begin(), g::tanks.end(),
                                                                          [](auto &&a, auto &&b)
                                                                          {
                                                                            return a.second->get_id() <
@@ -253,13 +332,13 @@ namespace czh::renderer
           {
             return std::to_string(p.x).size() + std::to_string(p.y).size() + 3;
           };
-          size_t pos_x = name_x + gap + (*std::max_element(game::tanks.begin(), game::tanks.end(),
+          size_t pos_x = name_x + gap + (*std::max_element(g::tanks.begin(), g::tanks.end(),
                                                            [](auto &&a, auto &&b)
                                                            {
                                                              return a.second->get_name().size() <
                                                                     b.second->get_name().size();
                                                            })).second->get_name().size();
-          size_t hp_x = pos_x + gap + pos_size((*std::max_element(game::tanks.begin(), game::tanks.end(),
+          size_t hp_x = pos_x + gap + pos_size((*std::max_element(g::tanks.begin(), g::tanks.end(),
                                                                   [&pos_size](auto &&a, auto &&b)
                                                                   {
                                                                     return pos_size(a.second->get_pos()) <
@@ -267,7 +346,7 @@ namespace czh::renderer
                                                                   }
           )).second->get_pos());
           
-          size_t lethality_x = hp_x + gap + std::to_string((*std::max_element(game::tanks.begin(), game::tanks.end(),
+          size_t lethality_x = hp_x + gap + std::to_string((*std::max_element(g::tanks.begin(), g::tanks.end(),
                                                                               [](auto &&a, auto &&b)
                                                                               {
                                                                                 return a.second->get_hp() <
@@ -275,7 +354,7 @@ namespace czh::renderer
                                                                               })).second->get_hp()).size();
           
           size_t auto_tank_gap_x =
-              lethality_x + gap + std::to_string((*std::max_element(game::tanks.begin(), game::tanks.end(),
+              lethality_x + gap + std::to_string((*std::max_element(g::tanks.begin(), g::tanks.end(),
                                                                     [](auto &&a, auto &&b)
                                                                     {
                                                                       return
@@ -295,7 +374,7 @@ namespace czh::renderer
           term::mvoutput({target_x, cursor_y}, "Target");
           
           cursor_y++;
-          for (auto it = game::tanks.begin(); it != game::tanks.end(); ++it)
+          for (auto it = g::tanks.begin(); it != g::tanks.end(); ++it)
           {
             auto tank = it->second;
             std::string x = std::to_string(tank->get_pos().x);
@@ -322,7 +401,7 @@ namespace czh::renderer
               term::mvoutput({target_x, cursor_y}, target_name);
             }
             cursor_y++;
-            if (cursor_y == game::screen_height - 1)
+            if (cursor_y == g::screen_height - 1)
             {
               // pos_x = name_x + gap + name_size
               // target_size = name_size
@@ -337,12 +416,12 @@ namespace czh::renderer
               cursor_y = 1;
             }
           }
-          game::output_inited = true;
+          g::output_inited = true;
         }
         break;
       case game::Page::MAIN:
       {
-        if (!game::output_inited)
+        if (!g::output_inited)
         {
           constexpr std::string_view tank = R"(
  _____           _
@@ -352,8 +431,8 @@ namespace czh::renderer
   |_|\__,_|_| |_|_|\_\
 )";
           static const auto splitted = utils::split<std::vector<std::string_view>>(tank, "\n");
-          auto s = utils::fit_to_screen(splitted, game::screen_width);
-          size_t x = game::screen_width / 2 - 12;
+          auto s = utils::fit_to_screen(splitted, g::screen_width);
+          size_t x = g::screen_width / 2 - 12;
           size_t y = 2;
           term::clear();
           for (size_t i = 0; i < s.size(); ++i)
@@ -362,7 +441,7 @@ namespace czh::renderer
           }
           term::mvoutput({x + 5, y + 3}, ">>> Enter <<<");
           term::mvoutput({x + 1, y + 4}, "Use '/help' to get help.");
-          game::output_inited = true;
+          g::output_inited = true;
         }
       }
         break;
@@ -372,7 +451,7 @@ namespace czh::renderer
 Keys:
   Move: WASD
   Attack: space
-  All game::tanks' status: 'o' or 'O'
+  All g::tanks' status: 'o' or 'O'
   Command: '/'
 
 Rules:
@@ -409,25 +488,25 @@ Command:
     
   revive [A id]
     - Revive A.
-    - Default to revive all game::tanks.
+    - Default to revive all g::tanks.
     
   summon [n] [level]
-    - Summon n game::tanks with the given level.
+    - Summon n g::tanks with the given level.
     - e.g. summon 50 10
     
   kill [A id]
     - Kill A.
-    - Default to kill all game::tanks.
+    - Default to kill all g::tanks.
 
   clear [A id]
     - Clear A.(auto tank only)
-    - Default to clear all auto game::tanks.
+    - Default to clear all auto g::tanks.
   clear death
-    - Clear all the died auto game::tanks
+    - Clear all the died auto g::tanks
     Note:
        Clear is to delete rather than to kill.
-       So can't clear the user's tank and cleared game::tanks can't be revived.
-       And the game::bullets  of the cleared tank will also be cleared.
+       So can't clear the user's tank and cleared g::tanks can't be revived.
+       And the g::bullets  of the cleared tank will also be cleared.
 
   set [A id] [key] [value]
     - Set A's attribute below:
@@ -446,37 +525,37 @@ Command:
 )";
         static auto splitted = utils::split<std::vector<std::string_view>>(help, "\n");
         {
-          auto s = utils::fit_to_screen(splitted, game::screen_width);
+          auto s = utils::fit_to_screen(splitted, g::screen_width);
           size_t page_size = term::get_height() - 3;
-          if (!game::output_inited)
+          if (!g::output_inited)
           {
             std::size_t cursor_y = 0;
-            term::mvoutput({game::screen_width / 2 - 10, cursor_y++}, "Tank - by caozhanhao");
-            if ((game::help_page - 1) * page_size > s.size()) game::help_page = 1;
-            for (size_t i = (game::help_page - 1) * page_size; i < std::min(game::help_page * page_size, s.size()); ++i)
+            term::mvoutput({g::screen_width / 2 - 10, cursor_y++}, "Tank - by caozhanhao");
+            if ((g::help_page - 1) * page_size > s.size()) g::help_page = 1;
+            for (size_t i = (g::help_page - 1) * page_size; i < std::min(g::help_page * page_size, s.size()); ++i)
             {
               term::mvoutput({0, cursor_y++}, std::string(s[i]));
             }
-            term::mvoutput({game::screen_width / 2 - 3, cursor_y}, "Page " + std::to_string(game::help_page));
-            game::output_inited = true;
+            term::mvoutput({g::screen_width / 2 - 3, cursor_y}, "Page " + std::to_string(g::help_page));
+            g::output_inited = true;
           }
         }
         break;
       case game::Page::COMMAND:
-        if (!game::output_inited)
+        if (!g::output_inited)
         {
-          term::move_cursor({0, game::screen_height - 1});
-          if (int a = game::screen_width - game::cmd_string.size(); a > 0)
+          term::move_cursor({0, g::screen_height - 1});
+          if (int a = g::screen_width - g::cmd_string.size(); a > 0)
           {
-            term::output(game::cmd_string + std::string(a, ' ') + "\033[?25h");
+            term::output(g::cmd_string + std::string(a, ' ') + "\033[?25h");
           }
           else
           {
-            term::output(game::cmd_string + "\033[?25h");
+            term::output(g::cmd_string + "\033[?25h");
           }
-          term::mvoutput({game::cmd_string_pos, game::screen_height - 1},
-                         game::cmd_string.substr(game::cmd_string_pos, 1));
-          game::output_inited = true;
+          term::mvoutput({g::cmd_string_pos, g::screen_height - 1},
+                         g::cmd_string.substr(g::cmd_string_pos, 1));
+          g::output_inited = true;
         }
         break;
     }

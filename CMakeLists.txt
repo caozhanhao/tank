@@ -14,5 +14,5 @@ add_executable(tank
         src/renderer.cpp
         src/input.cpp
         src/logger.cpp
-        )
+)
 target_link_libraries(tank Threads::Threads)
