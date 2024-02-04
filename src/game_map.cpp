@@ -255,16 +255,11 @@ namespace czh::map
     return g::empty_point;
   }
   
-  int Map::fill(const Pos &from, const Pos &to, const Status &status)
+  int Map::fill(const Zone& zone, const Status &status)
   {
-    int bx = std::max(from.x, to.x);
-    int sx = std::min(from.x, to.x);
-    int by = std::max(from.y, to.y);
-    int sy = std::min(from.y, to.y);
-    
-    for (int i = sx; i <= bx; ++i)
+    for (int i = zone.x_min; i < zone.x_max; ++i)
     {
-      for (int j = sy; j <= by; ++j)
+      for (int j = zone.y_min; j < zone.y_max; ++j)
       {
         Pos p(i, j);
         map[p].remove_all_statuses();

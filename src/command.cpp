@@ -67,32 +67,34 @@ namespace czh::cmd
   
   void run_command(const std::string &str)
   {
-    g::curr_page = game::Page::GAME;
-    auto [name, args_internal] = cmd::parse(str);
-    try
+    auto invalid_arguments = []()
     {
+      logger::error("Invalid arguments.");
+    };
+    g::curr_page = game::Page::GAME;
+    auto [name, args] = cmd::parse(str);
+    
       if (name == "help")
       {
-        term::clear();
-        g::curr_page = game::Page::HELP;
-        g::output_inited = false;
-        if (args_internal.empty())
+        if(args_is<>(args))
         {
-          g::help_page = 1;
+          g::help_page = 0;
+        }
+        else if(args_is<int>(args))
+        {
+          g::help_page = std::get<0>(cmd::args_get<int>(args));
         }
         else
         {
-          g::help_page = std::get<0>(cmd::args_get<int>(args_internal));
+          invalid_arguments();
+          return;
         }
-        return;
+        term::clear();
+        g::curr_page = game::Page::HELP;
+        g::output_inited = false;
       }
       else if (name == "quit")
       {
-        if (!args_internal.empty())
-        {
-          logger::error("Invalid range.");
-          return;
-        }
         term::move_cursor({0, g::screen_height + 1});
         term::output("\033[?25h");
         term::flush();
@@ -107,66 +109,53 @@ namespace czh::cmd
       else if (name == "fill")
       {
         std::lock_guard<std::mutex> l(g::mainloop_mtx);
-        map::Pos from;
-        map::Pos to;
+        int from_x;
+        int from_y;
+        int to_x;
+        int to_y;
         int is_wall = 0;
-        if (cmd::args_is<int, int>(args_internal))
+        if (cmd::args_is<int, int, int>(args))
         {
-          auto args = cmd::args_get<int, int, int>(args_internal);
-          is_wall = std::get<0>(args);
-          from.x = std::get<1>(args);
-          from.y = std::get<2>(args);
-          to = from;
+          std::tie(is_wall, from_x, from_y) = cmd::args_get<int, int, int>(args);
+          to_x = from_x;
+          to_y = from_y;
+        }
+        else if (cmd::args_is<int, int, int, int, int>(args))
+        {
+          std::tie(is_wall, from_x, from_y, to_x, to_y) = cmd::args_get<int, int, int, int, int>(args);
         }
         else
         {
-          auto args = cmd::args_get<int, int, int, int, int>(args_internal);
-          is_wall = std::get<0>(args);
-          from.x = std::get<1>(args);
-          from.y = std::get<2>(args);
-          to.x = std::get<3>(args);
-          to.y = std::get<4>(args);
+          invalid_arguments();
+          return;
         }
         
-        int bx = std::max(from.x, to.x);
-        int sx = std::min(from.x, to.x);
-        int by = std::max(from.y, to.y);
-        int sy = std::min(from.y, to.y);
+        map::Zone zone = {std::min(from_x, to_x), std::max(from_x, to_x) + 1,
+                          std::min(from_y, to_y), std::max(from_y, to_y) + 1};
         
-        for (int i = sx; i <= bx; ++i)
+        for (int i = zone.x_min; i < zone.x_max; ++i)
         {
-          for (int j = sy; j <= by; ++j)
+          for (int j = zone.y_min; j < zone.y_max; ++j)
           {
             if (g::game_map.has(map::Status::TANK, {i, j}))
             {
               if (auto t = g::game_map.at(i, j).get_tank(); t != nullptr)
-              {
                 t->kill();
-                g::game_map.remove_status(map::Status::TANK, {i, j});
-                t->clear();
-              }
             }
             else if (g::game_map.has(map::Status::BULLET, {i, j}))
             {
               auto bullets = g::game_map.at(i, j).get_bullets();
               for (auto &r: bullets)
-              {
                 r->kill();
-              }
-              game::clear_death();
             }
+            game::clear_death();
           }
         }
         if (is_wall)
-        {
-          g::game_map.fill(from, to, map::Status::WALL);
-        }
+          g::game_map.fill(zone, map::Status::WALL);
         else
-        {
-          g::game_map.fill(from, to);
-        }
-        logger::info("Filled from (", from.x, ",", from.y, ") to (", to.x, ",", to.y, ").");
-        return;
+          g::game_map.fill(zone);
+        logger::info("Filled from (", from_x, ",", from_y, ") to (", to_x, ",", to_y, ").");
       }
       else if (name == "tp")
       {
@@ -178,14 +167,14 @@ namespace czh::cmd
           return !g::game_map.has(map::Status::WALL, p) && !g::game_map.has(map::Status::TANK, p);
         };
         
-        if (cmd::args_is<int, int>(args_internal))
+        if (cmd::args_is<int, int>(args))
         {
-          auto args = cmd::args_get<int, int>(args_internal);
-          id = std::get<0>(args);
-          int to_id = std::get<1>(args);
-          if (game::id_at(to_id) == nullptr || !game::id_at(to_id)->is_alive())
+          int to_id;
+          std::tie(id, to_id) = cmd::args_get<int, int>(args);
+          
+          if (game::id_at(id) == nullptr || game::id_at(to_id) == nullptr || !game::id_at(to_id)->is_alive())
           {
-            logger::error("Invalid target tank.");
+            logger::error("Invalid tank.");
             return;
           }
           auto pos = game::id_at(to_id)->get_pos();
@@ -203,12 +192,14 @@ namespace czh::cmd
             return;
           }
         }
-        else if (cmd::args_is<int, int, int>(args_internal))
+        else if (cmd::args_is<int, int, int>(args))
         {
-          auto args = cmd::args_get<int, int, int>(args_internal);
-          id = std::get<0>(args);
-          to_pos.x = std::get<1>(args);
-          to_pos.y = std::get<2>(args);
+          std::tie (id, to_pos.x, to_pos.y) = cmd::args_get<int, int, int>(args);
+          if (game::id_at(id) == nullptr)
+          {
+            logger::error("Invalid tank.");
+            return;
+          }
           if (!check(to_pos))
           {
             logger::error("Target pos has no space.");
@@ -217,13 +208,7 @@ namespace czh::cmd
         }
         else
         {
-          logger::error("Invalid arguments");
-          return;
-        }
-        
-        if (game::id_at(id) == nullptr || !game::id_at(id)->is_alive())
-        {
-          logger::error("Invalid tank");
+          invalid_arguments();
           return;
         }
         
@@ -231,12 +216,12 @@ namespace czh::cmd
         g::game_map.add_tank(game::id_at(id), to_pos);
         game::id_at(id)->get_pos() = to_pos;
         logger::info(game::id_at(id)->get_name(), " has been teleported to (", to_pos.x, ",", to_pos.y, ").");
-        return;
       }
       else if (name == "revive")
       {
         std::lock_guard<std::mutex> l(g::mainloop_mtx);
-        if (args_internal.empty())
+        int id;
+        if (args_is<>(args))
         {
           for (auto &r: g::tanks)
           {
@@ -245,26 +230,39 @@ namespace czh::cmd
           logger::info("Revived all tanks.");
           return;
         }
-        else
+        else if(args_is<int>(args))
         {
-          auto [id] = cmd::args_get<int>(args_internal);
+          std::tie(id) = cmd::args_get<int>(args);
           if (game::id_at(id) == nullptr)
           {
             logger::error("Invalid tank");
             return;
           }
-          game::revive(id);
-          logger::info(game::id_at(id)->get_name(), " revived.");
+        }
+        else
+        {
+          invalid_arguments();
           return;
         }
+        game::revive(id);
+        logger::info(game::id_at(id)->get_name(), " revived.");
       }
       else if (name == "summon")
       {
         std::lock_guard<std::mutex> l(g::mainloop_mtx);
-        auto [num, lvl] = cmd::args_get<int, int>(args_internal);
-        if (num <= 0 || lvl > 10 || lvl < 1)
+        int num, lvl;
+        if(args_is<int, int>(args))
         {
-          logger::error("Invalid num/lvl.");
+          std::tie(num, lvl) = cmd::args_get<int, int>(args);
+          if (num <= 0 || lvl > 10 || lvl < 1)
+          {
+            logger::error("Invalid num/lvl.");
+            return;
+          }
+        }
+        else
+        {
+          invalid_arguments();
           return;
         }
         for (size_t i = 0; i < num; ++i)
@@ -272,36 +270,40 @@ namespace czh::cmd
           game::add_auto_tank(lvl);
         }
         logger::info("Added ", num, " AutoTanks, Level: ", lvl, ".");
-        return;
       }
       else if (name == "observe")
       {
-        auto [id] = cmd::args_get<int>(args_internal);
-        if (game::id_at(id) == nullptr)
+        int id;
+        if(args_is<int>(args))
         {
-          logger::error("Invalid tank");
+          std::tie(id) = cmd::args_get<int>(args);
+          if (game::id_at(id) == nullptr)
+          {
+            logger::error("Invalid tank");
+            return;
+          }
+        }
+        else
+        {
+          invalid_arguments();
           return;
         }
         g::tank_focus = id;
         logger::info("Observing " + game::id_at(id)->get_name());
-        return;
       }
       else if (name == "kill")
       {
         std::lock_guard<std::mutex> l(g::mainloop_mtx);
-        if (args_internal.empty())
+        if (args_is<>(args))
         {
           for (auto &r: g::tanks)
-          {
             if (r.second->is_alive()) r.second->kill();
-          }
           game::clear_death();
           logger::info("Killed all tanks.");
-          return;
         }
-        else
+        else if(args_is<int>(args))
         {
-          auto [id] = cmd::args_get<int>(args_internal);
+          auto [id] = cmd::args_get<int>(args);
           if (game::id_at(id) == nullptr)
           {
             logger::error("Invalid tank.");
@@ -311,27 +313,27 @@ namespace czh::cmd
           t->kill();
           game::clear_death();
           logger::info(t->get_name(), " has been killed.");
+        }
+        else
+        {
+          invalid_arguments();
           return;
         }
       }
       else if (name == "clear")
       {
         std::lock_guard<std::mutex> l(g::mainloop_mtx);
-        if (args_internal.empty())
+        if (args_is<>(args))
         {
           for (auto &r: g::bullets)
           {
             if (game::id_at(r->get_tank())->is_auto())
-            {
               r->kill();
-            }
           }
           for (auto &r: g::tanks)
           {
             if (r.second->is_auto())
-            {
               r.second->kill();
-            }
           }
           game::clear_death();
           for (auto it = g::tanks.begin(); it != g::tanks.end();)
@@ -348,9 +350,9 @@ namespace czh::cmd
           }
           logger::info("Cleared all tanks.");
         }
-        else if (cmd::args_is<std::string>(args_internal))
+        else if (cmd::args_is<std::string>(args))
         {
-          auto [d] = cmd::args_get<std::string>(args_internal);
+          auto [d] = cmd::args_get<std::string>(args);
           if (d == "death")
           {
             for (auto &r: g::bullets)
@@ -389,9 +391,9 @@ namespace czh::cmd
             return;
           }
         }
-        else
+        else if(args_is<int>(args))
         {
-          auto [id] = cmd::args_get<int>(args_internal);
+          auto [id] = cmd::args_get<int>(args);
           if (game::id_at(id) == nullptr || id == 0)
           {
             logger::error("Invalid tank.");
@@ -411,13 +413,18 @@ namespace czh::cmd
           game::clear_death();
           logger::info("ID: ", id, " was cleared.");
         }
+        else
+        {
+          invalid_arguments();
+          return;
+        }
       }
       else if (name == "set")
       {
         std::lock_guard<std::mutex> l(g::mainloop_mtx);
-        if (cmd::args_is<int, std::string, int>(args_internal))
+        if (cmd::args_is<int, std::string, int>(args))
         {
-          auto [id, key, value] = cmd::args_get<int, std::string, int>(args_internal);
+          auto [id, key, value] = cmd::args_get<int, std::string, int>(args);
           if (game::id_at(id) == nullptr)
           {
             logger::error("Invalid tank");
@@ -459,9 +466,9 @@ namespace czh::cmd
             return;
           }
         }
-        else if (cmd::args_is<int, std::string, std::string>(args_internal))
+        else if (cmd::args_is<int, std::string, std::string>(args))
         {
-          auto [id, key, value] = cmd::args_get<int, std::string, std::string>(args_internal);
+          auto [id, key, value] = cmd::args_get<int, std::string, std::string>(args);
           if (game::id_at(id) == nullptr)
           {
             logger::error("Invalid tank");
@@ -480,9 +487,9 @@ namespace czh::cmd
             return;
           }
         }
-        else if (cmd::args_is<std::string, int>(args_internal))
+        else if (cmd::args_is<std::string, int>(args))
         {
-          auto [tickstr, time] = cmd::args_get<std::string, int>(args_internal);
+          auto [tickstr, time] = cmd::args_get<std::string, int>(args);
           if (tickstr != "tick")
           {
             logger::error("Invalid option.");
@@ -496,13 +503,13 @@ namespace czh::cmd
           }
           else
           {
-            logger::error("Invalid arguments.");
+            invalid_arguments();
             return;
           }
         }
-        else if (cmd::args_is<int, std::string, std::string, int>(args_internal))
+        else if (cmd::args_is<int, std::string, std::string, int>(args))
         {
-          auto [id, bulletstr, key, value] = cmd::args_get<int, std::string, std::string, int>(args_internal);
+          auto [id, bulletstr, key, value] = cmd::args_get<int, std::string, std::string, int>(args);
           if (game::id_at(id) == nullptr)
           {
             logger::error("Invalid tank");
@@ -539,7 +546,7 @@ namespace czh::cmd
         }
         else
         {
-          logger::error("Invalid arguments.");
+          invalid_arguments();
           return;
         }
       }
@@ -548,12 +555,5 @@ namespace czh::cmd
         logger::error("Invalid command.");
         return;
       }
-    }
-      // All the arguments whose types are wrong go here.
-    catch (std::runtime_error &err)
-    {
-      logger::error("Invalid arguments.");
-      return;
-    }
   }
 }

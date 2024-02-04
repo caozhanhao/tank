@@ -213,7 +213,7 @@ namespace czh::map
     
     void clear_changes();
     
-    int fill(const Pos &from, const Pos &to, const Status &status = Status::END);
+    int fill(const Zone &zone, const Status &status = Status::END);
     
     const Point &at(const Pos &i) const;
     
