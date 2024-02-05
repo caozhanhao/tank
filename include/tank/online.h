@@ -27,8 +27,9 @@ namespace czh::online
     httplib::Server svr;
   public:
     Server();
-    
     void start(int port);
+    
+    void stop();
   };
   
   class Client
@@ -36,15 +37,18 @@ namespace czh::online
   private:
     std::string host;
     int port;
+    httplib::Client* cli;
   public:
     Client();
-    unsigned long connect(const std::string &addr_, int port_);
-    void tank_react(tank::NormalTankEvent e);
-    void update();
+    ~Client();
+    std::optional<size_t> connect(const std::string &addr_, int port_);
+    void disconnect();
+    int tank_react(tank::NormalTankEvent e);
+    int update();
     
-    void add_auto_tank(size_t l);
+    int add_auto_tank(size_t l);
     
-    void run_command(const std::string &str);
+    int run_command(const std::string &str);
   };
 }
 #endif

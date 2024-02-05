@@ -35,18 +35,59 @@ int main()
       {
         std::chrono::high_resolution_clock::time_point beg, end;
         std::chrono::milliseconds cost;
+        int client_failed_attempts = 0;
         while (true)
         {
           beg = std::chrono::high_resolution_clock::now();
-          if (g::game_mode == czh::game::GameMode::SERVER || g::game_mode == czh::game::GameMode::NATIVE)
+          if (g::game_mode == czh::game::GameMode::NATIVE)
           {
             game::mainloop();
+            renderer::render();
+          }
+          else if(g::game_mode == czh::game::GameMode::SERVER)
+          {
+            game::mainloop();
+            std::vector<size_t> disconnected;
+            for(auto& r : g::userdata)
+            {
+              if(r.first == 0) continue;
+              auto d = std::chrono::duration_cast<std::chrono::milliseconds>
+                  (std::chrono::high_resolution_clock::now() - r.second.last_update);
+              if(d.count() > 500)
+                disconnected.emplace_back(r.first);
+            }
+            for(auto& r : disconnected)
+            {
+              msg::info(-1, std::to_string(r) + " disconnected.");
+              g::tanks[r]->kill();
+              g::tanks[r]->clear();
+              delete g::tanks[r];
+              g::tanks.erase(r);
+              g::userdata.erase(r);
+            }
+            renderer::render();
           }
           else
           {
-            g::online_client.update();
+            int ret = g::online_client.update();
+            if (ret != 0)
+              client_failed_attempts++;
+            else
+            {
+              client_failed_attempts = 0;
+              renderer::render();
+            }
+            if(client_failed_attempts > 10)
+            {
+              g::online_client.disconnect();
+              g::game_mode = game::GameMode::NATIVE;
+              g::user_id = 0;
+              g::tank_focus = g::user_id;
+              g::output_inited = false;
+              client_failed_attempts = 0;
+              msg::error(g::user_id, "Disconnected due to network issues.");
+            }
           }
-          renderer::render();
           end = std::chrono::high_resolution_clock::now();
           cost = std::chrono::duration_cast<std::chrono::milliseconds>(end - beg);
           if (g::tick > cost)

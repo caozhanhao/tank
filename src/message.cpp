@@ -34,16 +34,16 @@ namespace czh::msg
   
   void info(int id, const std::string &c)
   {
-    log_helper(id, "[INFO]", c);
+    log_helper(id, "[INFO] ", c);
   }
   
   void warn(int id, const std::string &c)
   {
-    log_helper(id, "\x1B[93m[WARNING]\x1B[0m\x1B[0K", c);
+    log_helper(id, "\x1B[93m[WARNING]\x1B[0m\x1B[0K ", c);
   }
   
   void error(int id, const std::string &c)
   {
-    log_helper(id, "\x1B[91m[ERROR]\x1B[0m\x1B[0K", c);
+    log_helper(id, "\x1B[91m[ERROR]\x1B[0m\x1B[0K ", c);
   }
 }

@@ -104,13 +104,17 @@ namespace czh::cmd
     {
       term::move_cursor({0, g::screen_height + 1});
       term::output("\033[?25h");
-      term::flush();
       msg::info(user_id, "Quitting.");
+      term::flush();
       for (auto it = g::tanks.begin(); it != g::tanks.end();)
       {
         delete it->second;
         it = g::tanks.erase(it);
       }
+      if (g::game_mode == game::GameMode::CLIENT)
+        g::online_client.disconnect();
+      else if(g::game_mode == game::GameMode::SERVER)
+        g::online_server.stop();
       std::exit(0);
     }
     else if (name == "fill")
@@ -568,15 +572,16 @@ namespace czh::cmd
     }
     else if (name == "server")
     {
-      if (g::game_mode != game::GameMode::NATIVE)
-      {
-        msg::error(user_id, "Invalid request.");
-        return;
-      }
+      std::lock_guard<std::mutex> l(g::mainloop_mtx);
       if (args_is<std::string, int>(args))
       {
-        auto [startstr, port] = args_get<std::string, int>(args);
-        if (startstr != "start")
+        if (g::game_mode != game::GameMode::NATIVE)
+        {
+          msg::error(user_id, "Invalid request.");
+          return;
+        }
+        auto [s, port] = args_get<std::string, int>(args);
+        if (s != "start")
         {
           msg::error(user_id, "Invalid server option.");
           return;
@@ -588,6 +593,32 @@ namespace czh::cmd
           msg::info(user_id, "Server started at " + std::to_string(port));
         }
       }
+      else if(args_is<std::string>(args))
+      {
+        if (g::game_mode != game::GameMode::SERVER)
+        {
+          msg::error(user_id, "Invalid request.");
+          return;
+        }
+        auto [s] = args_get<std::string>(args);
+        if (s != "stop")
+        {
+          msg::error(user_id, "Invalid server option.");
+          return;
+        }
+        g::online_server.stop();
+        for (auto &r: g::userdata)
+        {
+          if (r.first == 0) continue;
+          g::tanks[r.first]->kill();
+          g::tanks[r.first]->clear();
+          delete g::tanks[r.first];
+          g::tanks.erase(r.first);
+        }
+        g::userdata = {{0, g::userdata[0]}};
+        g::game_mode = game::GameMode::NATIVE;
+        msg::info(user_id, "Server stopped");
+      }
       else
       {
         invalid_arguments();
@@ -596,6 +627,7 @@ namespace czh::cmd
     }
     else if (name == "connect")
     {
+      std::lock_guard<std::mutex> l(g::mainloop_mtx);
       if (g::game_mode != game::GameMode::NATIVE)
       {
         msg::error(user_id, "Invalid request.");
@@ -604,12 +636,38 @@ namespace czh::cmd
       if (args_is<std::string, int>(args))
       {
         auto [ip, port] = args_get<std::string, int>(args);
-        g::game_mode = game::GameMode::CLIENT;
-        g::user_id = g::online_client.connect(ip, port);
+        auto try_connect = g::online_client.connect(ip, port);
+        if(try_connect.has_value())
+        {
+          g::game_mode = game::GameMode::CLIENT;
+          g::user_id = *try_connect;
+          g::tank_focus = g::user_id;
+          g::userdata[g::user_id] = game::UserData{.user_id = g::user_id};
+          g::output_inited = false;
+          msg::info(user_id, "Connected to " + ip + ":" + std::to_string(port) + " as " + std::to_string(g::user_id));
+        }
+      }
+      else
+      {
+        invalid_arguments();
+        return;
+      }
+    }
+    else if (name == "disconnect")
+    {
+      if (g::game_mode != game::GameMode::CLIENT)
+      {
+        msg::error(user_id, "Invalid request.");
+        return;
+      }
+      if (args_is<>(args))
+      {
+        g::online_client.disconnect();
+        g::game_mode = game::GameMode::NATIVE;
+        g::user_id = 0;
         g::tank_focus = g::user_id;
-        g::userdata[g::user_id] = game::UserData{.user_id = g::user_id};
         g::output_inited = false;
-        msg::info(user_id, "Connected to " + ip + ":" + std::to_string(port) + " as " + std::to_string(g::user_id));
+        msg::info(g::user_id, "Disconnected.");
       }
       else
       {

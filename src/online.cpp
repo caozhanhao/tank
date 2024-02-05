@@ -23,6 +23,7 @@
 #include "tank/bundled/cpp-httplib/httplib.h"
 
 #include <string>
+#include <chrono>
 #include <vector>
 
 namespace czh::g
@@ -216,15 +217,28 @@ namespace czh::online
                     + "<>" + serialize_messages(g::userdata[id].messages);
                 g::userdata[id].map_changes.clear();
                 g::userdata[id].messages.clear();
+                g::userdata[id].last_update = std::chrono::high_resolution_clock::now();
               });
-      svr.Get("register_tank",
+      svr.Get("register",
+                               [](const httplib::Request &req, httplib::Response &res)
+                               {
+                                 std::lock_guard<std::mutex> l(g::mainloop_mtx);
+                                 auto id = game::add_tank();
+                                 g::userdata[g::user_id] = game::UserData{.user_id = g::user_id};
+                                 msg::info(g::user_id, "Client connected as " + std::to_string(id));
+                                 res.body = std::to_string(id);
+                               });
+      svr.Get("deregister",
               [](const httplib::Request &req, httplib::Response &res)
               {
                 std::lock_guard<std::mutex> l(g::mainloop_mtx);
-                auto id = game::add_tank();
-                g::userdata[g::user_id] = game::UserData{.user_id = g::user_id};
-                msg::info(g::user_id, "Client connected as " + std::to_string(id));
-                res.body = std::to_string(id);
+                int id = std::stoi(req.get_param_value("id"));
+                msg::info(-1, std::to_string(id) + " disconnected.");
+                g::tanks[id]->kill();
+                g::tanks[id]->clear();
+                delete g::tanks[id];
+                g::tanks.erase(id);
+                g::userdata.erase(id);
               });
       svr.Get("add_auto_tank",
               [](const httplib::Request &req, httplib::Response &res)
@@ -252,37 +266,69 @@ namespace czh::online
     th.detach();
   }
   
-  Client::Client() {}
+  void Server::stop()
+  {
+    svr.stop();
+  }
   
-  size_t Client::connect(const std::string &addr_, int port_)
+  Client::Client(): cli(nullptr) {}
+  Client::~Client()
+  {
+    if(cli)
+      delete cli;
+  }
+  std::optional<size_t> Client::connect(const std::string &addr_, int port_)
   {
     host = addr_;
     port = port_;
-    httplib::Client cli(addr_ + ":" + std::to_string(port_));
-    auto ret = cli.Get("register_tank");
-    utils::tank_assert(ret->status == 200);
-    return std::stoul(ret->body);
+    cli = new httplib::Client(addr_ + ":" + std::to_string(port_));
+    cli->set_keep_alive(true);
+    auto ret = cli->Get("register");
+    if (!ret)
+    {
+      msg::error(g::user_id, to_string(ret.error()));
+      return std::nullopt;
+    }
+    else
+    {
+      utils::tank_assert(ret->status == 200);
+      return std::stoul(ret->body);
+    }
   }
   
-  void Client::tank_react(tank::NormalTankEvent e)
+  void Client::disconnect()
   {
-    httplib::Client cli(host + ":" + std::to_string(port));
+    if(cli)
+    {
+      cli->set_keep_alive(false);
+      cli->Get("deregister",
+               httplib::Params{{"id", std::to_string(g::user_id)}}, httplib::Headers{});
+      cli->stop();
+      delete cli;
+      cli = nullptr;
+    }
+  }
+  
+  int Client::tank_react(tank::NormalTankEvent e)
+  {
     httplib::Params params{
         {"id",    std::to_string(g::user_id)},
         {"event", std::to_string(static_cast<int>(e))}
     };
-    auto ret = cli.Get("tank_react", params, httplib::Headers{});
+    auto ret = cli->Get("tank_react", params, httplib::Headers{});
+    if(ret) return 0;
+    msg::error(g::user_id, to_string(ret.error()));
+    return -1;
   }
   
-  void Client::update()
+  int Client::update()
   {
-    httplib::Client cli(host + ":" + std::to_string(port));
     httplib::Params params{
-        {"id", std::to_string(g::user_id)},
+        {"id",   std::to_string(g::user_id)},
         {"zone", serialize_zone(g::render_zone.bigger_zone(3))}
     };
-    auto ret = cli.Get("update", params, httplib::Headers{});
-    if(ret->status == 200)
+    auto ret = cli->Get("update", params, httplib::Headers{});
+    if (ret && ret->status == 200)
     {
       auto s = utils::split<std::vector<std::string_view>>(ret->body, "<>");
       g::userdata[g::user_id].map_changes = deserialize_changes(std::string{s[0]});
@@ -291,21 +337,20 @@ namespace czh::online
       auto msgs = deserialize_messages(std::string{s[3]});
       g::userdata[g::user_id].messages.insert(g::userdata[g::user_id].messages.end(),
                                               msgs.begin(), msgs.end());
+      return 0;
     }
-    else
-    {
-      g::output_inited = false;
-    }
+    msg::error(g::user_id, to_string(ret.error()));
+    g::output_inited = false;
+    return -1;
   }
   
-  void Client::add_auto_tank(size_t lvl)
+  int Client::add_auto_tank(size_t lvl)
   {
-    httplib::Client cli(host + ":" + std::to_string(port));
     auto pos = game::get_available_pos();
     if (!pos.has_value())
     {
       msg::error(g::user_id, "No available space.");
-      return;
+      return -1;
     }
     httplib::Params params{
         {"id",    std::to_string(g::user_id)},
@@ -313,16 +358,21 @@ namespace czh::online
         {"pos_y", std::to_string(pos->y)},
         {"lvl", std::to_string(lvl)}
     };
-    cli.Get("add_auto_tank", params, httplib::Headers{});
+    auto ret = cli->Get("add_auto_tank", params, httplib::Headers{});
+    if(ret) return 0;
+    msg::error(g::user_id, to_string(ret.error()));
+    return -1;
   }
   
-  void Client::run_command(const std::string & str)
+  int Client::run_command(const std::string & str)
   {
-    httplib::Client cli(host + ":" + std::to_string(port));
     httplib::Params params{
         {"id",    std::to_string(g::user_id)},
         {"cmd", str}
     };
-    cli.Get("run_command", params, httplib::Headers{});
+    auto ret = cli->Get("run_command", params, httplib::Headers{});
+    if(ret) return 0;
+    msg::error(g::user_id, to_string(ret.error()));
+    return -1;
   }
 }

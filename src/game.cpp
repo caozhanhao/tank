@@ -187,7 +187,6 @@ namespace czh::game
       auto tank = *it;
       if (!tank.second->is_alive() && !tank.second->has_cleared())
       {
-        g::game_map.remove_status(map::Status::TANK, tank.second->get_pos());
         tank.second->clear();
       }
     }

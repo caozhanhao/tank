@@ -129,7 +129,11 @@ namespace czh::tank
     return hascleared;
   }
   
-  void Tank::clear() { hascleared = true; }
+  void Tank::clear()
+  {
+    g::game_map.remove_status(map::Status::TANK, get_pos());
+    hascleared = true;
+  }
   
   map::Pos &Tank::get_pos()
   {
