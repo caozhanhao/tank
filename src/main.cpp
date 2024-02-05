@@ -40,7 +40,14 @@ int main()
         while (true)
         {
           beg = std::chrono::high_resolution_clock::now();
-          game::mainloop();
+          if (g::game_mode == czh::game::GameMode::SERVER || g::game_mode == czh::game::GameMode::NATIVE)
+          {
+            game::mainloop();
+          }
+          else
+          {
+            g::online_client.update();
+          }
           renderer::render();
           end = std::chrono::high_resolution_clock::now();
           cost = std::chrono::duration_cast<std::chrono::milliseconds>(end - beg);
@@ -59,19 +66,34 @@ int main()
       switch (i)
       {
         case input::Input::G_UP:
-          game::tank_react(0, tank::NormalTankEvent::UP);
+          if(g::game_mode == game::GameMode::CLIENT)
+            g::online_client.tank_react(tank::NormalTankEvent::UP);
+          else
+            game::tank_react(g::user_id, tank::NormalTankEvent::UP);
           break;
         case input::Input::G_DOWN:
-          game::tank_react(0, tank::NormalTankEvent::DOWN);
+          if(g::game_mode == game::GameMode::CLIENT)
+            g::online_client.tank_react(tank::NormalTankEvent::DOWN);
+          else
+            game::tank_react(g::user_id, tank::NormalTankEvent::DOWN);
           break;
         case input::Input::G_LEFT:
-          game::tank_react(0, tank::NormalTankEvent::LEFT);
+          if(g::game_mode == game::GameMode::CLIENT)
+            g::online_client.tank_react(tank::NormalTankEvent::LEFT);
+          else
+            game::tank_react(g::user_id, tank::NormalTankEvent::LEFT);
           break;
         case input::Input::G_RIGHT:
-          game::tank_react(0, tank::NormalTankEvent::RIGHT);
+          if(g::game_mode == game::GameMode::CLIENT)
+            g::online_client.tank_react(tank::NormalTankEvent::RIGHT);
+          else
+            game::tank_react(g::user_id, tank::NormalTankEvent::RIGHT);
           break;
         case input::Input::G_KEY_SPACE:
-          game::tank_react(0, tank::NormalTankEvent::FIRE);
+          if(g::game_mode == game::GameMode::CLIENT)
+            g::online_client.tank_react(tank::NormalTankEvent::FIRE);
+          else
+            game::tank_react(g::user_id, tank::NormalTankEvent::FIRE);
           break;
         case input::Input::G_KEY_O:
           if (g::curr_page == game::Page::GAME)

@@ -13,12 +13,15 @@
 //   limitations under the License.
 #ifndef TANK_GLOBALS_H
 #define TANK_GLOBALS_H
+#pragma once
 
-#include "game_map.h"
 #include "game.h"
+#include "game_map.h"
 #include "tank.h"
+#include "online.h"
 #include <functional>
 #include <string>
+#include <map>
 #include <mutex>
 #include <chrono>
 #include <list>
@@ -26,9 +29,13 @@
 namespace czh::g
 {
   // game.cpp
+  extern game::GameMode game_mode;
+  extern std::map<size_t, game::UserData> userdata;
+  extern size_t user_id;
   extern int keyboard_mode;
   extern std::chrono::milliseconds tick;
   extern std::mutex mainloop_mtx;
+  extern std::mutex tank_reacting_mtx;
   extern map::Map game_map;
   extern std::map<std::size_t, tank::Tank *> tanks;
   extern std::list<bullet::Bullet *> bullets;
@@ -44,14 +51,20 @@ namespace czh::g
   // renderer.cpp
   extern bool output_inited;
   extern size_t tank_focus;
+  extern map::MapView map_view;
+  extern std::map<size_t, game::TankView> tanks_view;
   extern map::Zone render_zone;
   extern std::mutex render_mtx;
-  extern std::set<map::Change> render_changes;
+  extern std::set<map::Pos> render_changes;
   extern std::size_t screen_height;
   extern std::size_t screen_width;
   
   // game_map.cpp
   extern map::Point empty_point;
   extern map::Point wall_point;
+  
+  // online.cpp
+  extern online::Server online_server;
+  extern online::Client online_client;
 }
 #endif

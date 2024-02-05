@@ -13,6 +13,7 @@
 //   limitations under the License.
 #ifndef TANK_GAME_MAP_H
 #define TANK_GAME_MAP_H
+#pragma once
 
 #include "info.h"
 #include <vector>
@@ -72,20 +73,6 @@ namespace czh::map
   
   std::size_t get_distance(const map::Pos &from, const map::Pos &to);
   
-  class Change
-  {
-  private:
-    Pos pos;
-  public:
-    explicit Change(Pos pos_) : pos(pos_) {}
-    
-    const Pos &get_pos() const;
-    
-    Pos &get_pos();
-  };
-  
-  bool operator<(const Change &c1, const Change &c2);
-  
   struct BulletData
   {
     map::Pos pos;
@@ -132,6 +119,7 @@ namespace czh::map
     
     bool contains(int i, int j) const;
     bool contains(const Pos& p) const;
+    Zone bigger_zone(int i) const;
   };
   
   class Map;
@@ -175,11 +163,32 @@ namespace czh::map
   extern Point empty_point;
   extern Point wall_point;
   
+  
+  struct PointView
+  {
+    Pos pos;
+    Status status;
+    int tank_id;
+    std::string text;
+    
+    bool is_empty() const;
+    
+    PointView(const Pos& p);
+    PointView();
+  };
+  
+  bool operator<(const PointView &c1, const PointView &c2);
+  struct MapView
+  {
+    std::map<Pos, PointView> view;
+    const PointView &at(const Pos &i) const;
+    const PointView &at(int x, int y) const;
+  };
+  
   class Map
   {
   private:
     std::map<Pos, Point> map;
-    std::set<Change> changes;
   public:
     Map();
     
@@ -209,16 +218,14 @@ namespace czh::map
     
     int count(const Status &status, const Pos &pos) const;
     
-    const std::set<Change> &get_changes() const;
-    
-    void clear_changes();
-    
     int fill(const Zone &zone, const Status &status = Status::END);
     
     const Point &at(const Pos &i) const;
     
     const Point &at(int x, int y) const;
-  
+    
+    MapView extract(const Zone& zone) const;
+    
   private:
     int tank_move(const Pos &pos, int direction);
     

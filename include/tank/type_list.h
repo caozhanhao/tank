@@ -13,6 +13,7 @@
 //   limitations under the License.
 #ifndef TANK_TYPE_LIST_H
 #define TANK_TYPE_LIST_H
+#pragma once
 
 #include <string>
 #include <variant>

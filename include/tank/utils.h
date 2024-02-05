@@ -13,8 +13,12 @@
 //   limitations under the License.
 #ifndef TANK_UTILS_H
 #define TANK_UTILS_H
+#pragma once
 
 #include <string_view>
+#include <source_location>
+#include <string>
+#include <stdexcept>
 #include <random>
 
 namespace czh::utils
@@ -85,5 +89,13 @@ namespace czh::utils
     }
     return ret;
   }
+  
+  std::string location_to_str(const std::source_location &l);
+  
+  
+  void tank_assert(bool b,
+                    const std::string &detail_ = "Assertion failed.",
+                    const std::source_location &l =
+                    std::source_location::current());
 }
 #endif

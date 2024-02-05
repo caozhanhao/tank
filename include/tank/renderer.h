@@ -13,6 +13,8 @@
 //   limitations under the License.
 #ifndef TANK_RENDERER_H
 #define TANK_RENDERER_H
+#pragma once
+
 namespace czh::renderer
 {
   std::string colorify_text(int id, std::string str);

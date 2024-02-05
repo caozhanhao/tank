@@ -13,6 +13,7 @@
 //   limitations under the License.
 #ifndef TANK_BULLET_H
 #define TANK_BULLET_H
+#pragma once
 
 #include "info.h"
 #include "game_map.h"

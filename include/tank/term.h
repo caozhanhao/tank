@@ -13,6 +13,7 @@
 //   limitations under the License.
 #ifndef TANK_TERM_H
 #define TANK_TERM_H
+#pragma once
 
 #include <iostream>
 

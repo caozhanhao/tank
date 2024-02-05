@@ -13,6 +13,7 @@
 //   limitations under the License.
 #ifndef TANK_COMMAND_H
 #define TANK_COMMAND_H
+#pragma once
 
 #include "type_list.h"
 #include <variant>

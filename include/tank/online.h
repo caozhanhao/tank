@@ -11,24 +11,36 @@
 //   WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 //   See the License for the specific language governing permissions and
 //   limitations under the License.
-#ifndef TANK_INPUT_H
-#define TANK_INPUT_H
+#ifndef TANK_ONLINE_H
+#define TANK_ONLINE_H
 #pragma once
 
-#include <string>
+#include "tank.h"
+#include "game_map.h"
+#include "bundled/cpp-httplib/httplib.h"
 
-namespace czh::input
+namespace czh::online
 {
-  enum class Input
+  class Server
   {
-    CHAR,
-    C_KEY_UP, C_KEY_DOWN, C_KEY_LEFT, C_KEY_RIGHT, C_KEY_ENTER,
-    C_KEY_BACKSPACE, C_KEY_DELETE, C_KEY_HOME, C_KEY_END,
-    G_UP, G_DOWN, G_LEFT, G_RIGHT, G_KEY_SPACE, G_KEY_O, G_KEY_L, G_KEY_SLASH,
-    M_KEY_ENTER,
-    EMPTY
+  private:
+    httplib::Server svr;
+  public:
+    Server();
+    
+    void start(int port);
   };
   
-  Input get_input();
+  class Client
+  {
+  private:
+    std::string host;
+    int port;
+  public:
+    Client();
+    unsigned long connect(const std::string &addr_, int port_);
+    void tank_react(tank::NormalTankEvent e);
+    void update();
+  };
 }
 #endif

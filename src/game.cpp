@@ -22,20 +22,23 @@
 #include "tank/globals.h"
 #include <optional>
 #include <mutex>
-#include <cassert>
 #include <variant>
 #include <vector>
 #include <list>
 
 namespace czh::g
 {
+  game::GameMode game_mode = game::GameMode::NATIVE;
 #if defined (CZH_TANK_KEYBOARD_MODE_1)
   int keyboard_mode = 1;
 #else
   int keyboard_mode = 0;
 #endif
+  size_t user_id = 0;
+  std::map<size_t, game::UserData> userdata{{0, game::UserData{.user_id = 0}}};
   std::chrono::milliseconds tick(20);
   std::mutex mainloop_mtx;
+  std::mutex tank_reacting_mtx;
   map::Map game_map;
   std::map<std::size_t, tank::Tank *> tanks;
   std::list<bullet::Bullet *> bullets;
@@ -78,14 +81,6 @@ namespace czh::game
     return it->second;
   }
   
-  void tank_assert(bool a, const std::string &err)
-  {
-    if (!a)
-    {
-      throw std::runtime_error(err);
-    }
-  }
-  
   std::size_t add_tank(const map::Pos& pos)
   {
     g::tanks.insert({g::next_id, new tank::NormalTank
@@ -108,7 +103,7 @@ namespace czh::game
   std::size_t add_tank()
   {
     auto pos = get_available_pos();
-    tank_assert(pos.has_value(), "No available space.");
+    utils::tank_assert(pos.has_value(), "No available space.");
     return add_tank(*pos);
   }
   
@@ -201,30 +196,10 @@ namespace czh::game
   
   void tank_react(std::size_t id, tank::NormalTankEvent event)
   {
+    std::lock_guard<std::mutex> l(g::tank_reacting_mtx);
     if (g::curr_page != Page::GAME || !id_at(id)->is_alive())
-    {
       return;
-    }
-    auto tank = id_at(id);
-    switch (event)
-    {
-      case tank::NormalTankEvent::UP:
-        tank->up();
-        break;
-      case tank::NormalTankEvent::DOWN:
-        tank->down();
-        break;
-      case tank::NormalTankEvent::LEFT:
-        tank->left();
-        break;
-      case tank::NormalTankEvent::RIGHT:
-        tank->right();
-        break;
-      case tank::NormalTankEvent::FIRE:
-        tank->fire();
-        break;
-    }
-    return;
+    g::normal_tank_events.emplace_back(std::make_pair(id, event));
   }
   
   void mainloop()
@@ -232,10 +207,35 @@ namespace czh::game
     if (g::curr_page == Page::GAME)
     {
       std::lock_guard<std::mutex> l(g::mainloop_mtx);
+      //normal tank
+      for (auto &r: g::normal_tank_events)
+      {
+        auto tank = id_at(r.first);
+        switch (r.second)
+        {
+          case tank::NormalTankEvent::UP:
+            tank->up();
+            break;
+          case tank::NormalTankEvent::DOWN:
+            tank->down();
+            break;
+          case tank::NormalTankEvent::LEFT:
+            tank->left();
+            break;
+          case tank::NormalTankEvent::RIGHT:
+            tank->right();
+            break;
+          case tank::NormalTankEvent::FIRE:
+            tank->fire();
+            break;
+        }
+      }
+    g::normal_tank_events.clear();
+    
+    //auto tank
       for (auto it = g::tanks.begin(); it != g::tanks.end(); ++it)
       {
-        //auto tank
-        assert(it->second != nullptr);
+        utils::tank_assert(it->second != nullptr);
         if (!it->second->is_alive() || !it->second->is_auto()) continue;
         auto tank = dynamic_cast<tank::AutoTank *>(it->second);
         if (tank->has_arrived())
@@ -252,7 +252,7 @@ namespace czh::game
               if (g::game_map.at(i, j).has(map::Status::TANK))
               {
                 auto t = g::game_map.at(i, j).get_tank();
-                assert(t != nullptr);
+                utils::tank_assert(t != nullptr);
                 if (t->is_alive())
                 {
                   tank->target(t->get_id(), t->get_pos());
@@ -281,7 +281,7 @@ namespace czh::game
           int lethality = 0;
           int attacker = -1;
           auto bullets_instance = g::game_map.at((*it)->get_pos()).get_bullets();
-          assert(!bullets_instance.empty());
+          utils::tank_assert(!bullets_instance.empty());
           for (auto it = bullets_instance.begin(); it != bullets_instance.end(); ++it)
           {
             if ((*it)->is_alive())
@@ -297,7 +297,7 @@ namespace czh::game
             if (auto tank = g::game_map.at((*it)->get_pos()).get_tank(); tank != nullptr)
             {
               auto tank_attacker = id_at(attacker);
-              assert(tank_attacker != nullptr);
+              utils::tank_assert(tank_attacker != nullptr);
               if (tank->is_auto())
               {
                 auto t = dynamic_cast<tank::AutoTank *>(tank);
@@ -319,5 +319,22 @@ namespace czh::game
       clear_death();
     }
     return;
+  }
+  std::map<size_t, TankView> extract_tanks()
+  {
+    std::map<size_t, TankView> view;
+    for (auto &r: g::tanks)
+    {
+      view.insert(std::make_pair(r.second->get_id(),
+                                 TankView{
+                                     .info = r.second->get_info(),
+                                     .hp = r.second->get_hp(),
+                                     .pos = r.second->get_pos(),
+                                     .direction = r.second->get_direction(),
+                                     .is_auto = r.second->is_auto(),
+                                     .is_alive = r.second->is_alive()
+                                 }));
+    }
+    return view;
   }
 }

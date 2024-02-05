@@ -11,14 +11,13 @@
 //   WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 //   See the License for the specific language governing permissions and
 //   limitations under the License.
+#include "tank/game.h"
 #include "tank/game_map.h"
 #include "tank/globals.h"
+#include "tank/utils.h"
 #include <vector>
-#include <list>
 #include <set>
-#include <cassert>
 #include <stdexcept>
-#include <variant>
 
 namespace czh::g
 {
@@ -28,15 +27,24 @@ namespace czh::g
 
 namespace czh::map
 {
+  void add_changes(const Pos& p)
+  {
+    for(auto& r : g::userdata)
+      r.second.map_changes.insert(p);
+  }
+  Zone Zone::bigger_zone(int i) const
+  {
+    return {x_min - i, x_max + i, y_min - i, y_max + i};
+  }
   bool Zone::contains(int i, int j) const
   {
     return (i >= g::render_zone.x_min
-     && i < g::render_zone.x_max
-     && j >= g::render_zone.y_min
-     && j < g::render_zone.y_max);
+            && i < g::render_zone.x_max
+            && j >= g::render_zone.y_min
+            && j < g::render_zone.y_max);
   }
   
-  bool Zone::contains(const Pos& p) const
+  bool Zone::contains(const Pos &p) const
   {
     return contains(p.x, p.y);
   }
@@ -58,13 +66,13 @@ namespace czh::map
   
   tank::Tank *Point::get_tank() const
   {
-    assert(has(Status::TANK));
+    utils::tank_assert(has(Status::TANK));
     return tank;
   }
   
   const std::vector<bullet::Bullet *> &Point::get_bullets() const
   {
-    assert(has(Status::BULLET));
+    utils::tank_assert(has(Status::BULLET));
     return bullets;
   }
   
@@ -135,21 +143,51 @@ namespace czh::map
     return pos1.x < pos2.x;
   }
   
-  
-  bool operator<(const Change &c1, const Change &c2)
+  PointView::PointView()
   {
-    return c1.get_pos() < c2.get_pos();
+    pos = {0, 0};
+    status = Status::END;
+    tank_id = -1;
+  }
+  
+  PointView::PointView(const Pos &p) : pos(p)
+  {
+    if (g::game_map.has(Status::TANK, p))
+    {
+      status = Status::TANK;
+      tank_id = g::game_map.at(p).get_tank()->get_id();
+      return;
+    }
+    else if (g::game_map.has(Status::BULLET, p))
+    {
+      status = Status::BULLET;
+      tank_id = g::game_map.at(p).get_bullets()[0]->get_tank();
+      text = g::game_map.at(p).get_bullets()[0]->get_text();
+      return;
+    }
+    else if (g::game_map.has(Status::WALL, p))
+    {
+      status = Status::WALL;
+      tank_id = -1;
+      return;
+    }
+    else
+    {
+      status = Status::END;
+      tank_id = -1;
+      return;
+    }
+  }
+  
+  bool operator<(const PointView &c1, const PointView &c2)
+  {
+    return c1.pos < c2.pos;
   }
   
   std::size_t get_distance(const map::Pos &from, const map::Pos &to)
   {
     return std::abs(int(from.x - to.x)) + std::abs(int(from.y - to.y));
   }
-  
-  
-  const Pos &Change::get_pos() const { return pos; }
-  
-  Pos &Change::get_pos() { return pos; }
   
   Map::Map() {}
   
@@ -197,7 +235,7 @@ namespace czh::map
   int Map::add_tank(tank::Tank *t, const Pos &pos)
   {
     map[pos].add_status(Status::TANK, t);
-    changes.insert(Change{pos});
+    add_changes(pos);
     return 0;
   }
   
@@ -206,7 +244,7 @@ namespace czh::map
     auto &p = map[pos];
     if (p.has(Status::WALL)) return -1;
     p.add_status(Status::BULLET, b);
-    changes.insert(Change{pos});
+    add_changes(pos);
     return 0;
   }
   
@@ -217,7 +255,7 @@ namespace czh::map
     {
       map.erase(pos);
     }
-    changes.insert(Change{pos});
+    add_changes(pos);
   }
   
   bool Map::has(const Status &status, const Pos &pos) const
@@ -229,10 +267,6 @@ namespace czh::map
   {
     return at(pos).count(status);
   }
-  
-  const std::set<Change> &Map::get_changes() const { return changes; };
-  
-  void Map::clear_changes() { changes.clear(); };
   
   const Point &Map::at(int x, int y) const
   {
@@ -251,11 +285,11 @@ namespace czh::map
     {
       return g::wall_point;
     }
-
+    
     return g::empty_point;
   }
   
-  int Map::fill(const Zone& zone, const Status &status)
+  int Map::fill(const Zone &zone, const Status &status)
   {
     for (int i = zone.x_min; i < zone.x_max; ++i)
     {
@@ -268,7 +302,7 @@ namespace czh::map
           map[p].add_status(status, nullptr);
         }
         map[p].temporary = false;
-        changes.insert(Change{p});
+        add_changes(p);
       }
     }
     return 0;
@@ -305,8 +339,8 @@ namespace czh::map
     {
       map.erase(pos);
     }
-    changes.insert(Change{pos});
-    changes.insert(Change{new_pos});
+    add_changes(pos);
+    add_changes(new_pos);
     return 0;
   }
   
@@ -348,7 +382,7 @@ namespace czh::map
         ++it;
       }
     }
-    assert(ok);
+    utils::tank_assert(ok);
     for (auto it = old_point.statuses.begin(); it != old_point.statuses.end();)
     {
       if (*it == Status::BULLET)
@@ -367,8 +401,36 @@ namespace czh::map
     {
       map.erase(pos);
     }
-    changes.insert(Change{pos});
-    changes.insert(Change{new_pos});
+    add_changes(pos);
+    add_changes(new_pos);
     return 0;
+  }
+  
+  MapView Map::extract(const Zone &zone) const
+  {
+    MapView ret;
+    for (int i = zone.x_min; i < zone.x_max; ++i)
+    {
+      for (int j = zone.y_min; j < zone.y_max; ++j)
+      {
+        ret.view.insert(std::make_pair(Pos{i, j}, PointView{Pos{i, j}}));
+      }
+    }
+    return ret;
+  }
+  
+  bool PointView::is_empty() const
+  {
+    return status == Status::END;
+  }
+  
+  const PointView &MapView::at(int x, int y) const
+  {
+    return at(Pos(x, y));
+  }
+  
+  const PointView &MapView::at(const Pos &i) const
+  {
+    return view.at(i);
   }
 }

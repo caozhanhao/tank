@@ -13,6 +13,7 @@
 //   limitations under the License.
 #ifndef TANK_LOGGER_H
 #define TANK_LOGGER_H
+#pragma once
 
 #include "term.h"
 #include <string>

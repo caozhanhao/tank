@@ -13,6 +13,7 @@
 //   limitations under the License.
 #ifndef TANK_GAME_H
 #define TANK_GAME_H
+#pragma once
 
 #include "tank.h"
 #include <string>
@@ -23,6 +24,11 @@
 
 namespace czh::game
 {
+  enum class GameMode
+  {
+    NATIVE, SERVER, CLIENT,
+  };
+  
   enum class Page
   {
     GAME,
@@ -32,9 +38,23 @@ namespace czh::game
     COMMAND
   };
   
-  std::optional<map::Pos> get_available_pos();
+  struct UserData
+  {
+    size_t user_id;
+    std::set<map::Pos> map_changes;
+  };
   
-  void tank_assert(bool a, const std::string &err = "Assertion Failed.");
+  struct TankView
+  {
+    info::TankInfo info;
+    int hp;
+    map::Pos pos;
+    map::Direction direction;
+    bool is_auto;
+    bool is_alive;
+  };
+  
+  std::optional<map::Pos> get_available_pos();
   
   tank::Tank *id_at(size_t id);
   
@@ -53,5 +73,7 @@ namespace czh::game
   void mainloop();
   
   void tank_react(std::size_t id, tank::NormalTankEvent event);
+  
+  std::map<size_t, TankView> extract_tanks();
 }
 #endif

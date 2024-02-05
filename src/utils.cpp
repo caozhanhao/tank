@@ -11,24 +11,24 @@
 //   WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 //   See the License for the specific language governing permissions and
 //   limitations under the License.
-#ifndef TANK_INPUT_H
-#define TANK_INPUT_H
-#pragma once
+#include "tank/utils.h"
 
-#include <string>
-
-namespace czh::input
+namespace czh::utils
 {
-  enum class Input
+  std::string location_to_str(const std::source_location &l)
   {
-    CHAR,
-    C_KEY_UP, C_KEY_DOWN, C_KEY_LEFT, C_KEY_RIGHT, C_KEY_ENTER,
-    C_KEY_BACKSPACE, C_KEY_DELETE, C_KEY_HOME, C_KEY_END,
-    G_UP, G_DOWN, G_LEFT, G_RIGHT, G_KEY_SPACE, G_KEY_O, G_KEY_L, G_KEY_SLASH,
-    M_KEY_ENTER,
-    EMPTY
-  };
+    return std::string(l.file_name()) + ":" + std::to_string(l.line()) +
+           ":" + l.function_name() + "()";
+  }
   
-  Input get_input();
+  
+  void tank_assert(bool b,
+                   const std::string &detail_,
+                   const std::source_location &l)
+  {
+    if (!b)
+    {
+      throw std::runtime_error(location_to_str(l) + ":\n" + detail_);
+    }
+  }
 }
-#endif

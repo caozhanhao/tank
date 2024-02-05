@@ -13,6 +13,7 @@
 //   limitations under the License.
 #ifndef TANK_INFO_H
 #define TANK_INFO_H
+#pragma once
 
 #include <functional>
 #include <string>
