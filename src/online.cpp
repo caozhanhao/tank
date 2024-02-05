@@ -13,7 +13,8 @@
 //   limitations under the License.
 
 #include "tank/online.h"
-#include "tank/logger.h"
+#include "tank/message.h"
+#include "tank/command.h"
 #include "tank/game_map.h"
 #include "tank/game.h"
 #include "tank/globals.h"
@@ -75,6 +76,7 @@ namespace czh::online
   
   std::string serialize_tanksview(const std::map<size_t, game::TankView>& view)
   {
+    if(view.empty()) return "empty";
     std::string ret;
     for(auto& b : view)
     {
@@ -98,6 +100,7 @@ namespace czh::online
   
   std::map<size_t, game::TankView> deserialize_tanksview(const std::string &str)
   {
+    if(str == "empty") return {};
     auto s1 = czh::utils::split<std::vector<std::string_view>>(str, "\n");
     std::map<size_t, game::TankView> ret;
     for (auto &r: s1)
@@ -126,6 +129,7 @@ namespace czh::online
   
   std::string serialize_mapview(const map::MapView& view)
   {
+    if(view.view.empty()) return "empty";
     std::string ret;
     for(auto& b : view.view)
     {
@@ -138,6 +142,7 @@ namespace czh::online
   
   map::MapView deserialize_mapview(const std::string &str)
   {
+    if(str == "empty") return {};
     auto s1 = czh::utils::split<std::vector<std::string_view>>(str, "\n");
     map::MapView ret;
     for (auto &r: s1)
@@ -150,6 +155,34 @@ namespace czh::online
       c.text = s2[3] == "empty text" ? "" : std::string{s2[3]};
       c.status = static_cast<czh::map::Status>(std::stoi(std::string{s2[4]}));
       ret.view.insert({c.pos, c});
+    }
+    return ret;
+  }
+  
+  
+  std::string serialize_messages(const std::vector<msg::Message>& msg)
+  {
+    if(msg.empty()) return "empty";
+    std::string ret;
+    for (auto &b: msg)
+    {
+      ret += std::to_string(b.from) + "," + b.content +"\n";
+    }
+    return ret;
+  }
+  
+  std::vector<msg::Message> deserialize_messages(const std::string &str)
+  {
+    if(str == "empty") return {};
+    auto s1 = czh::utils::split<std::vector<std::string_view>>(str, "\n");
+    std::vector<msg::Message> ret;
+    for (auto &r: s1)
+    {
+      auto s2 = czh::utils::split<std::vector<std::string_view>>(r, ",");
+      msg::Message c;
+      c.from = std::stoi(std::string{s2[0]});
+      c.content = std::string{s2[1]};
+      ret.emplace_back(c);
     }
     return ret;
   }
@@ -177,9 +210,12 @@ namespace czh::online
                   if (zone.contains(r))
                     changes.insert(r);
                 }
+                res.body = serialize_changes(changes)
+                    + "<>" + serialize_mapview(map_view)
+                    + "<>" + serialize_tanksview(game::extract_tanks())
+                    + "<>" + serialize_messages(g::userdata[id].messages);
                 g::userdata[id].map_changes.clear();
-                res.body = serialize_changes(changes) + "<>" + serialize_mapview(map_view)
-                    + "<>" + serialize_tanksview(game::extract_tanks());
+                g::userdata[id].messages.clear();
               });
       svr.Get("register_tank",
               [](const httplib::Request &req, httplib::Response &res)
@@ -187,8 +223,24 @@ namespace czh::online
                 std::lock_guard<std::mutex> l(g::mainloop_mtx);
                 auto id = game::add_tank();
                 g::userdata[g::user_id] = game::UserData{.user_id = g::user_id};
-                logger::info("Client connected as ", id);
+                msg::info(g::user_id, "Client connected as " + std::to_string(id));
                 res.body = std::to_string(id);
+              });
+      svr.Get("add_auto_tank",
+              [](const httplib::Request &req, httplib::Response &res)
+              {
+                std::lock_guard<std::mutex> l(g::mainloop_mtx);
+                int lvl = std::stoi(req.get_param_value("lvl"));
+                int pos_x = std::stoi(req.get_param_value("pos_x"));
+                int pos_y = std::stoi(req.get_param_value("pos_y"));
+                game::add_auto_tank(lvl, {pos_x, pos_y});
+              });
+      svr.Get("run_command",
+              [](const httplib::Request &req, httplib::Response &res)
+              {
+                int id = std::stoi(req.get_param_value("id"));
+                std::string command = req.get_param_value("cmd");
+                cmd::run_command(id, command);
               });
     }
   
@@ -220,7 +272,6 @@ namespace czh::online
         {"event", std::to_string(static_cast<int>(e))}
     };
     auto ret = cli.Get("tank_react", params, httplib::Headers{});
-    utils::tank_assert(ret->status == 200);
   }
   
   void Client::update()
@@ -237,10 +288,41 @@ namespace czh::online
       g::userdata[g::user_id].map_changes = deserialize_changes(std::string{s[0]});
       g::map_view = deserialize_mapview(std::string{s[1]});
       g::tanks_view = deserialize_tanksview(std::string{s[2]});
+      auto msgs = deserialize_messages(std::string{s[3]});
+      g::userdata[g::user_id].messages.insert(g::userdata[g::user_id].messages.end(),
+                                              msgs.begin(), msgs.end());
     }
     else
     {
       g::output_inited = false;
     }
+  }
+  
+  void Client::add_auto_tank(size_t lvl)
+  {
+    httplib::Client cli(host + ":" + std::to_string(port));
+    auto pos = game::get_available_pos();
+    if (!pos.has_value())
+    {
+      msg::error(g::user_id, "No available space.");
+      return;
+    }
+    httplib::Params params{
+        {"id",    std::to_string(g::user_id)},
+        {"pos_x", std::to_string(pos->x)},
+        {"pos_y", std::to_string(pos->y)},
+        {"lvl", std::to_string(lvl)}
+    };
+    cli.Get("add_auto_tank", params, httplib::Headers{});
+  }
+  
+  void Client::run_command(const std::string & str)
+  {
+    httplib::Client cli(host + ":" + std::to_string(port));
+    httplib::Params params{
+        {"id",    std::to_string(g::user_id)},
+        {"cmd", str}
+    };
+    cli.Get("run_command", params, httplib::Headers{});
   }
 }

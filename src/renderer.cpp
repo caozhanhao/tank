@@ -29,7 +29,6 @@ namespace czh::g
   std::size_t screen_width = term::get_width();
   size_t tank_focus = 0;
   map::Zone render_zone = {-128, 128, -128, 128};
-  std::mutex render_mtx;
   std::set<map::Pos> render_changes{};
   map::MapView map_view{};
   std::map<size_t, game::TankView> tanks_view{};
@@ -240,8 +239,7 @@ namespace czh::renderer
   
   void render()
   {
-    std::lock_guard<std::mutex> l1(g::render_mtx);
-    std::lock_guard<std::mutex> l2(g::mainloop_mtx);
+    std::lock_guard<std::mutex> l(g::mainloop_mtx);
     if (g::screen_height != term::get_height() || g::screen_width != term::get_width())
     {
       term::clear();
@@ -319,6 +317,24 @@ namespace czh::renderer
           }
         }
         g::render_changes.clear();
+        
+        // msg
+        if (!g::userdata[g::user_id].messages.empty())
+        {
+          term::move_cursor(term::TermPos(0, term::get_height() - 1));
+          auto &msg = g::userdata[g::user_id].messages.back();
+          std::string str = (msg.from == -1) ? msg.content : "From " + std::to_string(msg.from) + ": " + msg.content;
+          int a = g::screen_width - str.size();
+          if (a > 0)
+          {
+            term::output(str + std::string(a, ' '));
+          }
+          else
+          {
+            term::output(str.substr(0, g::screen_width));
+          }
+          g::userdata[g::user_id].messages.clear();
+        }
       }
         break;
       case game::Page::TANK_STATUS:
@@ -326,7 +342,7 @@ namespace czh::renderer
         {
           term::clear();
           std::size_t cursor_y = 0;
-          term::mvoutput({g::screen_width / 2 - 10, cursor_y++}, "Tank - by caozhanhao");
+          term::mvoutput({g::screen_width / 2 - 10, cursor_y++}, "Tank");
           size_t gap = 2;
           size_t id_x = gap;
           size_t name_x = id_x + gap + std::to_string((*std::max_element(g::tanks_view.begin(), g::tanks_view.end(),
@@ -353,12 +369,13 @@ namespace czh::renderer
                                                                   }
           )).second.pos);
           
-          size_t lethality_x = hp_x + gap + std::to_string((*std::max_element(g::tanks_view.begin(), g::tanks_view.end(),
-                                                                              [](auto &&a, auto &&b)
-                                                                              {
-                                                                                return a.second.hp <
-                                                                                       b.second.hp;
-                                                                              })).second.hp).size();
+          size_t lethality_x =
+              hp_x + gap + std::to_string((*std::max_element(g::tanks_view.begin(), g::tanks_view.end(),
+                                                             [](auto &&a, auto &&b)
+                                                             {
+                                                               return a.second.hp <
+                                                                      b.second.hp;
+                                                             })).second.hp).size();
           
           size_t auto_tank_gap_x =
               lethality_x + gap + std::to_string((*std::max_element(g::tanks_view.begin(), g::tanks_view.end(),
@@ -370,7 +387,6 @@ namespace czh::renderer
                                                                           b.second.info.bullet.lethality;
                                                                     })).second.info.bullet.lethality).size();
           
-          size_t target_x = auto_tank_gap_x + gap + 2;
           
           term::mvoutput({id_x, cursor_y}, "ID");
           term::mvoutput({name_x, cursor_y}, "Name");
@@ -378,8 +394,6 @@ namespace czh::renderer
           term::mvoutput({hp_x, cursor_y}, "HP");
           term::mvoutput({lethality_x, cursor_y}, "ATK");
           term::mvoutput({auto_tank_gap_x, cursor_y}, "Gap");
-          term::mvoutput({target_x, cursor_y}, "Target");
-          
           cursor_y++;
           for (auto it = g::tanks_view.begin(); it != g::tanks_view.end(); ++it)
           {
@@ -391,35 +405,20 @@ namespace czh::renderer
             term::mvoutput({pos_x, cursor_y}, "(" + x + "," + y + ")");
             term::mvoutput({hp_x, cursor_y}, std::to_string(tank.hp));
             term::mvoutput({lethality_x, cursor_y}, std::to_string(tank.info.bullet.lethality));
-            if (tank.is_auto)
-            {
+            if(tank.is_auto)
               term::mvoutput({auto_tank_gap_x, cursor_y}, std::to_string(tank.info.gap));
-              //auto at = dynamic_cast<tank::AutoTank *>(tank);
-              //std::string target_name;
-              //auto target = game::id_at(at->get_target_id());
-              //if (target != nullptr)
-              //{
-              //  target_name = colorify_text(target->get_id(), target->get_name());
-              //}
-              //else
-              //{
-              //  target_name = "Cleared";
-              //}
-              //term::mvoutput({target_x, cursor_y}, target_name);
-            }
+            else
+              term::mvoutput({auto_tank_gap_x, cursor_y}, "-");
+              
             cursor_y++;
             if (cursor_y == g::screen_height - 1)
             {
-              // pos_x = name_x + gap + name_size
-              // target_size = name_size
-              // then offset = target_x + gap + target_size
-              size_t offset = target_x + pos_x - name_x;
+              size_t offset = pos_x - name_x;
               id_x += offset;
               name_x += offset;
               pos_x += offset;
               hp_x += offset;
               lethality_x += offset;
-              target_x += offset;
               cursor_y = 1;
             }
           }

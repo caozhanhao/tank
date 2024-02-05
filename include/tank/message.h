@@ -11,40 +11,27 @@
 //   WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 //   See the License for the specific language governing permissions and
 //   limitations under the License.
-#ifndef TANK_ONLINE_H
-#define TANK_ONLINE_H
+#ifndef TANK_MESSAGE_H
+#define TANK_MESSAGE_H
 #pragma once
 
-#include "tank.h"
-#include "game_map.h"
-#include "bundled/cpp-httplib/httplib.h"
+#include <vector>
+#include <string>
 
-namespace czh::online
+namespace czh::msg
 {
-  class Server
+  struct Message
   {
-  private:
-    httplib::Server svr;
-  public:
-    Server();
-    
-    void start(int port);
+    int from;
+    std::string content;
   };
   
-  class Client
-  {
-  private:
-    std::string host;
-    int port;
-  public:
-    Client();
-    unsigned long connect(const std::string &addr_, int port_);
-    void tank_react(tank::NormalTankEvent e);
-    void update();
-    
-    void add_auto_tank(size_t l);
-    
-    void run_command(const std::string &str);
-  };
+  void info(int id, const std::string& c);
+  
+  void warn(int id, const std::string& c);
+  
+  void error(int id, const std::string &c);
+  
+  void send_message(int from, int to, const std::string &msg);
 }
 #endif

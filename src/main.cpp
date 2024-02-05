@@ -18,7 +18,6 @@
 #include "tank/input.h"
 #include "tank/utils.h"
 #include "tank/tank.h"
-#include "tank/logger.h"
 #include <chrono>
 #include <thread>
 
@@ -30,8 +29,7 @@ using namespace czh;
 
 int main()
 {
-  czh::logger::init_logger(czh::logger::Severity::NONE, czh::logger::Output::console);
-  game::add_tank({0,0});
+  game::add_tank({0, 0});
   std::thread game_thread(
       []
       {
@@ -66,31 +64,31 @@ int main()
       switch (i)
       {
         case input::Input::G_UP:
-          if(g::game_mode == game::GameMode::CLIENT)
+          if (g::game_mode == game::GameMode::CLIENT)
             g::online_client.tank_react(tank::NormalTankEvent::UP);
           else
             game::tank_react(g::user_id, tank::NormalTankEvent::UP);
           break;
         case input::Input::G_DOWN:
-          if(g::game_mode == game::GameMode::CLIENT)
+          if (g::game_mode == game::GameMode::CLIENT)
             g::online_client.tank_react(tank::NormalTankEvent::DOWN);
           else
             game::tank_react(g::user_id, tank::NormalTankEvent::DOWN);
           break;
         case input::Input::G_LEFT:
-          if(g::game_mode == game::GameMode::CLIENT)
+          if (g::game_mode == game::GameMode::CLIENT)
             g::online_client.tank_react(tank::NormalTankEvent::LEFT);
           else
             game::tank_react(g::user_id, tank::NormalTankEvent::LEFT);
           break;
         case input::Input::G_RIGHT:
-          if(g::game_mode == game::GameMode::CLIENT)
+          if (g::game_mode == game::GameMode::CLIENT)
             g::online_client.tank_react(tank::NormalTankEvent::RIGHT);
           else
             game::tank_react(g::user_id, tank::NormalTankEvent::RIGHT);
           break;
         case input::Input::G_KEY_SPACE:
-          if(g::game_mode == game::GameMode::CLIENT)
+          if (g::game_mode == game::GameMode::CLIENT)
             g::online_client.tank_react(tank::NormalTankEvent::FIRE);
           else
             game::tank_react(g::user_id, tank::NormalTankEvent::FIRE);
@@ -111,8 +109,15 @@ int main()
           break;
         case input::Input::G_KEY_L:
         {
-          std::lock_guard<std::mutex> l(g::mainloop_mtx);
-          game::add_auto_tank(utils::randnum<int>(1, 11));
+          if (g::game_mode == game::GameMode::CLIENT)
+          {
+            g::online_client.add_auto_tank(utils::randnum<int>(1, 11));
+          }
+          else
+          {
+            std::lock_guard<std::mutex> l(g::mainloop_mtx);
+            game::add_auto_tank(utils::randnum<int>(1, 11));
+          }
         }
           break;
         case input::Input::G_KEY_SLASH:
@@ -123,11 +128,9 @@ int main()
         case input::Input::M_KEY_ENTER:
           g::curr_page = game::Page::GAME;
           g::output_inited = false;
-          renderer::render();
           break;
       }
     }
   }
 }
-
 #pragma clang diagnostic pop

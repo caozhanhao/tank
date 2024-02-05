@@ -15,20 +15,11 @@
 
 namespace czh::utils
 {
-  std::string location_to_str(const std::source_location &l)
-  {
-    return std::string(l.file_name()) + ":" + std::to_string(l.line()) +
-           ":" + l.function_name() + "()";
-  }
-  
-  
-  void tank_assert(bool b,
-                   const std::string &detail_,
-                   const std::source_location &l)
+  void tank_assert(bool b, const std::string &detail_)
   {
     if (!b)
     {
-      throw std::runtime_error(location_to_str(l) + ":\n" + detail_);
+      throw std::runtime_error(detail_);
     }
   }
 }

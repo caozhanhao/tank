@@ -13,8 +13,8 @@ add_executable(tank
         src/term.cpp
         src/renderer.cpp
         src/input.cpp
-        src/logger.cpp
         src/online.cpp
         src/utils.cpp
+        src/message.cpp
 )
 target_link_libraries(tank Threads::Threads)

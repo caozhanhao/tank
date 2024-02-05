@@ -18,7 +18,6 @@
 #include "tank/utils.h"
 #include "tank/tank.h"
 #include "tank/bullet.h"
-#include "tank/logger.h"
 #include "tank/globals.h"
 #include <optional>
 #include <mutex>
@@ -132,7 +131,7 @@ namespace czh::game
     auto pos = get_available_pos();
     if (!pos.has_value())
     {
-      logger::error("No available space.");
+      msg::error(g::user_id, "No available space.");
       return 0;
     }
     return add_auto_tank(lvl, *pos);
@@ -143,7 +142,7 @@ namespace czh::game
     auto pos = get_available_pos();
     if (!pos.has_value())
     {
-      logger::error("No available space");
+      msg::error(g::user_id, "No available space");
       return;
     }
     id_at(id)->revive(*pos);
@@ -310,7 +309,7 @@ namespace czh::game
               tank->attacked(lethality);
               if (!tank->is_alive())
               {
-                logger::info(tank->get_name() + " was killed by " + tank_attacker->get_name());
+                msg::info(-1, tank->get_name() + " was killed by " + tank_attacker->get_name());
               }
             }
           }

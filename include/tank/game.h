@@ -16,6 +16,7 @@
 #pragma once
 
 #include "tank.h"
+#include "message.h"
 #include <string>
 #include <map>
 #include <vector>
@@ -42,6 +43,7 @@ namespace czh::game
   {
     size_t user_id;
     std::set<map::Pos> map_changes;
+    std::vector<msg::Message> messages;
   };
   
   struct TankView

@@ -38,10 +38,10 @@ namespace czh::map
   }
   bool Zone::contains(int i, int j) const
   {
-    return (i >= g::render_zone.x_min
-            && i < g::render_zone.x_max
-            && j >= g::render_zone.y_min
-            && j < g::render_zone.y_max);
+    return (i >= x_min
+            && i < x_max
+            && j >= y_min
+            && j < y_max);
   }
   
   bool Zone::contains(const Pos &p) const

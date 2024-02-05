@@ -90,6 +90,6 @@ namespace czh::cmd
     return true;
   }
   
-  void run_command(const std::string &str);
+  void run_command(size_t userid, const std::string &str);
 }
 #endif //TANK_COMMAND_H

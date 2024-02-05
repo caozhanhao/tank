@@ -14,10 +14,10 @@
 #include "tank/input.h"
 #include "tank/globals.h"
 #include "tank/game.h"
-#include "tank/logger.h"
 #include "tank/renderer.h"
 #include "tank/term.h"
 #include "tank/command.h"
+#include "tank/message.h"
 
 namespace czh::input
 {
@@ -161,7 +161,8 @@ namespace czh::input
           g::cmd_string_pos = g::cmd_string.size() - 1;
           break;
         case Input::C_KEY_ENTER:
-          cmd::run_command(g::cmd_string);
+          cmd::run_command(g::user_id, g::cmd_string);
+ 
           g::history.emplace_back(g::cmd_string);
           g::cmd_string = "/";
           g::cmd_string_pos = 0;
@@ -186,7 +187,7 @@ namespace czh::input
         case 72:
           if (g::keyboard_mode == 1)
           {
-            logger::warn("Ignored key 72");
+            msg::warn(g::user_id, "Ignored key 72");
           }
           else
           {
@@ -200,7 +201,7 @@ namespace czh::input
         case 80:
           if (g::keyboard_mode == 1)
           {
-            czh::logger::warn("Ignored key 80");
+            msg::warn(g::user_id,"Ignored key 80");
           }
           else
           {
@@ -223,7 +224,7 @@ namespace czh::input
         case 75:
           if (g::keyboard_mode == 1)
           {
-            czh::logger::warn("Ignored key 75");
+            msg::warn(g::user_id,"Ignored key 75");
           }
           else
           {
@@ -246,7 +247,7 @@ namespace czh::input
         case 77:
           if (g::keyboard_mode == 1)
           {
-            czh::logger::warn("Ignored key 77");
+            msg::warn(g::user_id,"Ignored key 77");
           }
           else
           {
@@ -256,7 +257,7 @@ namespace czh::input
         case 'B':
           if (g::keyboard_mode == 0)
           {
-            czh::logger::warn("Ignored key 76");
+            msg::warn(g::user_id,"Ignored key 76");
           }
           else
           {
@@ -266,7 +267,7 @@ namespace czh::input
         case 'C':
           if (g::keyboard_mode == 0)
           {
-            czh::logger::warn("Ignored key 77");
+            msg::warn(g::user_id,"Ignored key 77");
           }
           else
           {
@@ -283,7 +284,7 @@ namespace czh::input
         case 13:
           if (g::keyboard_mode == 1)
           {
-            czh::logger::warn("Ignored key 13");
+            msg::warn(g::user_id,"Ignored key 13");
           }
           else
           {
@@ -293,7 +294,7 @@ namespace czh::input
         case 10:
           if (g::keyboard_mode == 0)
           {
-            czh::logger::warn("Ignored key 10");
+            msg::warn(g::user_id,"Ignored key 10");
           }
           else
           {
@@ -308,7 +309,7 @@ namespace czh::input
           ret = Input::G_KEY_SLASH;
           break;
         default:
-          czh::logger::warn("Ignored key ", static_cast<int>(ch), ".");
+          msg::warn(g::user_id,"Ignored key " +  std::to_string(static_cast<int>(ch)) + ".");
           break;
       }
     }

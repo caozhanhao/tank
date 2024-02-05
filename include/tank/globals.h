@@ -54,7 +54,6 @@ namespace czh::g
   extern map::MapView map_view;
   extern std::map<size_t, game::TankView> tanks_view;
   extern map::Zone render_zone;
-  extern std::mutex render_mtx;
   extern std::set<map::Pos> render_changes;
   extern std::size_t screen_height;
   extern std::size_t screen_width;
