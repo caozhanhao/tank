@@ -38,7 +38,7 @@ namespace czh::renderer
   bool operator<(const PointView &c1, const PointView &c2);
   struct MapView
   {
-    std::map<const map::Pos, PointView> view;
+    std::map<map::Pos, PointView> view;
     
     const PointView &at(const map::Pos &i) const;
     const PointView &at(int x, int y) const;
