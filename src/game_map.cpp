@@ -14,6 +14,8 @@
 #include "tank/game.h"
 #include "tank/game_map.h"
 #include "tank/globals.h"
+#include "tank/renderer.h"
+#include "tank/info.h"
 #include "tank/utils.h"
 #include <vector>
 #include <set>
@@ -141,47 +143,6 @@ namespace czh::map
       return pos1.y < pos2.y;
     }
     return pos1.x < pos2.x;
-  }
-  
-  PointView::PointView()
-  {
-    pos = {0, 0};
-    status = Status::END;
-    tank_id = -1;
-  }
-  
-  PointView::PointView(const Pos &p) : pos(p)
-  {
-    if (g::game_map.has(Status::TANK, p))
-    {
-      status = Status::TANK;
-      tank_id = g::game_map.at(p).get_tank()->get_id();
-      return;
-    }
-    else if (g::game_map.has(Status::BULLET, p))
-    {
-      status = Status::BULLET;
-      tank_id = g::game_map.at(p).get_bullets()[0]->get_tank();
-      text = g::game_map.at(p).get_bullets()[0]->get_text();
-      return;
-    }
-    else if (g::game_map.has(Status::WALL, p))
-    {
-      status = Status::WALL;
-      tank_id = -1;
-      return;
-    }
-    else
-    {
-      status = Status::END;
-      tank_id = -1;
-      return;
-    }
-  }
-  
-  bool operator<(const PointView &c1, const PointView &c2)
-  {
-    return c1.pos < c2.pos;
   }
   
   std::size_t get_distance(const map::Pos &from, const map::Pos &to)
@@ -367,13 +328,12 @@ namespace czh::map
     
     auto &new_point = map[new_pos];
     auto &old_point = map[pos];
-    auto &old_bullets = old_point.bullets;
     bool ok = false;
-    for (auto it = old_bullets.begin(); it != old_bullets.end();)
+    for (auto it = old_point.bullets.begin(); it != old_point.bullets.end();)
     {
       if (*it == b)
       {
-        it = old_bullets.erase(it);
+        it = old_point.bullets.erase(it);
         ok = true;
         break;
       }
@@ -404,33 +364,5 @@ namespace czh::map
     add_changes(pos);
     add_changes(new_pos);
     return 0;
-  }
-  
-  MapView Map::extract(const Zone &zone) const
-  {
-    MapView ret;
-    for (int i = zone.x_min; i < zone.x_max; ++i)
-    {
-      for (int j = zone.y_min; j < zone.y_max; ++j)
-      {
-        ret.view.insert(std::make_pair(Pos{i, j}, PointView{Pos{i, j}}));
-      }
-    }
-    return ret;
-  }
-  
-  bool PointView::is_empty() const
-  {
-    return status == Status::END;
-  }
-  
-  const PointView &MapView::at(int x, int y) const
-  {
-    return at(Pos(x, y));
-  }
-  
-  const PointView &MapView::at(const Pos &i) const
-  {
-    return view.at(i);
   }
 }

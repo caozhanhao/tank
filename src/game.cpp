@@ -80,7 +80,7 @@ namespace czh::game
     return it->second;
   }
   
-  std::size_t add_tank(const map::Pos& pos)
+  std::size_t add_tank(const map::Pos &pos)
   {
     g::tanks.insert({g::next_id, new tank::NormalTank
         (info::TankInfo{
@@ -106,7 +106,7 @@ namespace czh::game
     return add_tank(*pos);
   }
   
-  std::size_t add_auto_tank(std::size_t lvl, const map::Pos& pos)
+  std::size_t add_auto_tank(std::size_t lvl, const map::Pos &pos)
   {
     g::tanks.insert({g::next_id,
                      new tank::AutoTank(
@@ -202,137 +202,116 @@ namespace czh::game
   
   void mainloop()
   {
-    if (g::curr_page == Page::GAME)
+    std::lock_guard<std::mutex> l(g::mainloop_mtx);
+    //normal tank
+    for (auto &r: g::normal_tank_events)
     {
-      std::lock_guard<std::mutex> l(g::mainloop_mtx);
-      //normal tank
-      for (auto &r: g::normal_tank_events)
+      auto tank = id_at(r.first);
+      switch (r.second)
       {
-        auto tank = id_at(r.first);
-        switch (r.second)
-        {
-          case tank::NormalTankEvent::UP:
-            tank->up();
-            break;
-          case tank::NormalTankEvent::DOWN:
-            tank->down();
-            break;
-          case tank::NormalTankEvent::LEFT:
-            tank->left();
-            break;
-          case tank::NormalTankEvent::RIGHT:
-            tank->right();
-            break;
-          case tank::NormalTankEvent::FIRE:
-            tank->fire();
-            break;
-        }
+        case tank::NormalTankEvent::UP:
+          tank->up();
+          break;
+        case tank::NormalTankEvent::DOWN:
+          tank->down();
+          break;
+        case tank::NormalTankEvent::LEFT:
+          tank->left();
+          break;
+        case tank::NormalTankEvent::RIGHT:
+          tank->right();
+          break;
+        case tank::NormalTankEvent::FIRE:
+          tank->fire();
+          break;
       }
+    }
     g::normal_tank_events.clear();
     
     //auto tank
-      for (auto it = g::tanks.begin(); it != g::tanks.end(); ++it)
-      {
-        utils::tank_assert(it->second != nullptr);
-        if (!it->second->is_alive() || !it->second->is_auto()) continue;
-        auto tank = dynamic_cast<tank::AutoTank *>(it->second);
-        if (tank->has_arrived())
-        {
-          for (int i = tank->get_pos().x - 15; i < tank->get_pos().x + 15; ++i)
-          {
-            for (int j = tank->get_pos().y - 15; j < tank->get_pos().y + 15; ++j)
-            {
-              if (i == tank->get_pos().x && j == tank->get_pos().y)
-              {
-                continue;
-              }
-              
-              if (g::game_map.at(i, j).has(map::Status::TANK))
-              {
-                auto t = g::game_map.at(i, j).get_tank();
-                utils::tank_assert(t != nullptr);
-                if (t->is_alive())
-                {
-                  tank->target(t->get_id(), t->get_pos());
-                  break;
-                }
-              }
-            }
-          }
-        }
-        tank->react();
-      }
-      // bullet move
-      for (auto it = g::bullets.begin(); it != g::bullets.end(); ++it)
-      {
-        if ((*it)->is_alive())
-          (*it)->react();
-      }
-      
-      for (auto it = g::bullets.begin(); it != g::bullets.end(); ++it)
-      {
-        if (!(*it)->is_alive()) continue;
-        
-        if ((g::game_map.count(map::Status::BULLET, (*it)->get_pos()) > 1)
-            || g::game_map.has(map::Status::TANK, (*it)->get_pos()))
-        {
-          int lethality = 0;
-          int attacker = -1;
-          auto bullets_instance = g::game_map.at((*it)->get_pos()).get_bullets();
-          utils::tank_assert(!bullets_instance.empty());
-          for (auto it = bullets_instance.begin(); it != bullets_instance.end(); ++it)
-          {
-            if ((*it)->is_alive())
-            {
-              lethality += (*it)->get_lethality();
-            }
-            (*it)->kill();
-            attacker = (*it)->get_tank();
-          }
-          
-          if (g::game_map.has(map::Status::TANK, (*it)->get_pos()))
-          {
-            if (auto tank = g::game_map.at((*it)->get_pos()).get_tank(); tank != nullptr)
-            {
-              auto tank_attacker = id_at(attacker);
-              utils::tank_assert(tank_attacker != nullptr);
-              if (tank->is_auto())
-              {
-                auto t = dynamic_cast<tank::AutoTank *>(tank);
-                if (attacker != t->get_id()
-                    && map::get_distance(tank_attacker->get_pos(), tank->get_pos()) < 30)
-                {
-                  t->target(attacker, tank_attacker->get_pos());
-                }
-              }
-              tank->attacked(lethality);
-              if (!tank->is_alive())
-              {
-                msg::info(-1, tank->get_name() + " was killed by " + tank_attacker->get_name());
-              }
-            }
-          }
-        }
-      }
-      clear_death();
-    }
-    return;
-  }
-  std::map<size_t, TankView> extract_tanks()
-  {
-    std::map<size_t, TankView> view;
-    for (auto &r: g::tanks)
+    for (auto it = g::tanks.begin(); it != g::tanks.end(); ++it)
     {
-      view.insert(std::make_pair(r.second->get_id(),
-                                 TankView{
-                                     .info = r.second->get_info(),
-                                     .hp = r.second->get_hp(),
-                                     .pos = r.second->get_pos(),
-                                     .direction = r.second->get_direction(),
-                                     .is_auto = r.second->is_auto(),
-                                     .is_alive = r.second->is_alive()
-                                 }));
+      utils::tank_assert(it->second != nullptr);
+      if (!it->second->is_alive() || !it->second->is_auto()) continue;
+      auto tank = dynamic_cast<tank::AutoTank *>(it->second);
+      if (tank->has_arrived())
+      {
+        for (int i = tank->get_pos().x - 15; i < tank->get_pos().x + 15; ++i)
+        {
+          for (int j = tank->get_pos().y - 15; j < tank->get_pos().y + 15; ++j)
+          {
+            if (i == tank->get_pos().x && j == tank->get_pos().y)
+            {
+              continue;
+            }
+            
+            if (g::game_map.at(i, j).has(map::Status::TANK))
+            {
+              auto t = g::game_map.at(i, j).get_tank();
+              utils::tank_assert(t != nullptr);
+              if (t->is_alive())
+              {
+                tank->target(t->get_id(), t->get_pos());
+                break;
+              }
+            }
+          }
+        }
+      }
+      tank->react();
     }
-    return view;
+    // bullet move
+    for (auto it = g::bullets.begin(); it != g::bullets.end(); ++it)
+    {
+      if ((*it)->is_alive())
+        (*it)->react();
+    }
+    
+    for (auto it = g::bullets.begin(); it != g::bullets.end(); ++it)
+    {
+      if (!(*it)->is_alive()) continue;
+      
+      if ((g::game_map.count(map::Status::BULLET, (*it)->get_pos()) > 1)
+          || g::game_map.has(map::Status::TANK, (*it)->get_pos()))
+      {
+        int lethality = 0;
+        int attacker = -1;
+        auto bullets_instance = g::game_map.at((*it)->get_pos()).get_bullets();
+        utils::tank_assert(!bullets_instance.empty());
+        for (auto it = bullets_instance.begin(); it != bullets_instance.end(); ++it)
+        {
+          if ((*it)->is_alive())
+          {
+            lethality += (*it)->get_lethality();
+          }
+          (*it)->kill();
+          attacker = (*it)->get_tank();
+        }
+        
+        if (g::game_map.has(map::Status::TANK, (*it)->get_pos()))
+        {
+          if (auto tank = g::game_map.at((*it)->get_pos()).get_tank(); tank != nullptr)
+          {
+            auto tank_attacker = id_at(attacker);
+            utils::tank_assert(tank_attacker != nullptr);
+            if (tank->is_auto())
+            {
+              auto t = dynamic_cast<tank::AutoTank *>(tank);
+              if (attacker != t->get_id()
+                  && map::get_distance(tank_attacker->get_pos(), tank->get_pos()) < 30)
+              {
+                t->target(attacker, tank_attacker->get_pos());
+              }
+            }
+            tank->attacked(lethality);
+            if (!tank->is_alive())
+            {
+              msg::info(-1, tank->get_name() + " was killed by " + tank_attacker->get_name());
+            }
+          }
+        }
+      }
+    }
+    clear_death();
   }
 }

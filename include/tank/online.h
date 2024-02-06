@@ -17,6 +17,7 @@
 
 #include "tank.h"
 #include "game_map.h"
+#include "renderer.h"
 #include "bundled/cpp-httplib/httplib.h"
 
 namespace czh::online
@@ -44,7 +45,7 @@ namespace czh::online
     std::optional<size_t> connect(const std::string &addr_, int port_);
     void disconnect();
     int tank_react(tank::NormalTankEvent e);
-    int update();
+    std::tuple<int, renderer::Frame> update();
     
     int add_auto_tank(size_t l);
     

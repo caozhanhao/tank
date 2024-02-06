@@ -164,27 +164,6 @@ namespace czh::map
   extern Point wall_point;
   
   
-  struct PointView
-  {
-    Pos pos;
-    Status status;
-    int tank_id;
-    std::string text;
-    
-    bool is_empty() const;
-    
-    PointView(const Pos& p);
-    PointView();
-  };
-  
-  bool operator<(const PointView &c1, const PointView &c2);
-  struct MapView
-  {
-    std::map<Pos, PointView> view;
-    const PointView &at(const Pos &i) const;
-    const PointView &at(int x, int y) const;
-  };
-  
   class Map
   {
   private:
@@ -223,8 +202,6 @@ namespace czh::map
     const Point &at(const Pos &i) const;
     
     const Point &at(int x, int y) const;
-    
-    MapView extract(const Zone& zone) const;
     
   private:
     int tank_move(const Pos &pos, int direction);

@@ -18,6 +18,7 @@
 #include "tank/game_map.h"
 #include "tank/game.h"
 #include "tank/globals.h"
+#include "tank/renderer.h"
 #include "tank/utils.h"
 
 #include "tank/bundled/cpp-httplib/httplib.h"
@@ -30,6 +31,8 @@ namespace czh::g
 {
   online::Server online_server{};
   online::Client online_client{};
+  int client_failed_attempts = 0;
+  int delay = 0;
 }
 namespace czh::online
 {
@@ -75,7 +78,7 @@ namespace czh::online
     return ret;
   }
   
-  std::string serialize_tanksview(const std::map<size_t, game::TankView>& view)
+  std::string serialize_tanksview(const std::map<size_t, renderer::TankView>& view)
   {
     if(view.empty()) return "empty";
     std::string ret;
@@ -99,15 +102,15 @@ namespace czh::online
     return ret;
   }
   
-  std::map<size_t, game::TankView> deserialize_tanksview(const std::string &str)
+  std::map<size_t, renderer::TankView> deserialize_tanksview(const std::string &str)
   {
     if(str == "empty") return {};
     auto s1 = czh::utils::split<std::vector<std::string_view>>(str, "\n");
-    std::map<size_t, game::TankView> ret;
+    std::map<size_t, renderer::TankView> ret;
     for (auto &r: s1)
     {
       auto s2 = czh::utils::split<std::vector<std::string_view>>(r, ",");
-      game::TankView c;
+      renderer::TankView c;
       c.info.name = s2[0];
       c.info.bullet.hp = std::stoi(std::string {s2[1]});
       c.info.bullet.lethality = std::stoi(std::string {s2[2]});
@@ -128,7 +131,7 @@ namespace czh::online
     return ret;
   }
   
-  std::string serialize_mapview(const map::MapView& view)
+  std::string serialize_mapview(const renderer::MapView& view)
   {
     if(view.view.empty()) return "empty";
     std::string ret;
@@ -141,15 +144,15 @@ namespace czh::online
     return ret;
   }
   
-  map::MapView deserialize_mapview(const std::string &str)
+  renderer::MapView deserialize_mapview(const std::string &str)
   {
     if(str == "empty") return {};
     auto s1 = czh::utils::split<std::vector<std::string_view>>(str, "\n");
-    map::MapView ret;
+    renderer::MapView ret;
     for (auto &r: s1)
     {
       auto s2 = czh::utils::split<std::vector<std::string_view>>(r, ",");
-      czh::map::PointView c;
+      czh::renderer::PointView c;
       c.pos.x = std::stoi(std::string{s2[0]});
       c.pos.y = std::stoi(std::string{s2[1]});
       c.tank_id = std::stoi(std::string{s2[2]});
@@ -201,19 +204,23 @@ namespace czh::online
       svr.Get("update",
               [](const httplib::Request &req, httplib::Response &res)
               {
+                auto beg  = std::chrono::high_resolution_clock::now();
                 std::lock_guard<std::mutex> l(g::mainloop_mtx);
                 size_t id = std::stoi(req.get_param_value("id"));
                 map::Zone zone = deserialize_zone(req.get_param_value("zone"));
-                map::MapView map_view = g::game_map.extract(zone);
+                renderer::MapView map_view = renderer::extract_map(zone);
                 std::set<map::Pos> changes;
                 for (auto &r: g::userdata[id].map_changes)
                 {
                   if (zone.contains(r))
                     changes.insert(r);
                 }
-                res.body = serialize_changes(changes)
+                auto d = std::chrono::duration_cast<std::chrono::milliseconds>
+                    (std::chrono::high_resolution_clock::now() - beg);
+                res.body = std::to_string(d.count())
+                    + "<>" + serialize_changes(changes)
                     + "<>" + serialize_mapview(map_view)
-                    + "<>" + serialize_tanksview(game::extract_tanks())
+                    + "<>" + serialize_tanksview(renderer::extract_tanks())
                     + "<>" + serialize_messages(g::userdata[id].messages);
                 g::userdata[id].map_changes.clear();
                 g::userdata[id].messages.clear();
@@ -321,27 +328,34 @@ namespace czh::online
     return -1;
   }
   
-  int Client::update()
+  std::tuple<int, renderer::Frame> Client::update()
   {
+    auto beg  = std::chrono::high_resolution_clock::now();
+    renderer::Frame f;
     httplib::Params params{
         {"id",   std::to_string(g::user_id)},
-        {"zone", serialize_zone(g::render_zone.bigger_zone(3))}
+        {"zone", serialize_zone(g::render_zone.bigger_zone(10))}
     };
     auto ret = cli->Get("update", params, httplib::Headers{});
+    
     if (ret && ret->status == 200)
     {
       auto s = utils::split<std::vector<std::string_view>>(ret->body, "<>");
-      g::userdata[g::user_id].map_changes = deserialize_changes(std::string{s[0]});
-      g::map_view = deserialize_mapview(std::string{s[1]});
-      g::tanks_view = deserialize_tanksview(std::string{s[2]});
-      auto msgs = deserialize_messages(std::string{s[3]});
+      g::delay = std::chrono::duration_cast<std::chrono::milliseconds>
+          (std::chrono::high_resolution_clock::now() - beg).count() - std::stoi(std::string{s[0]});
+      g::userdata[g::user_id].map_changes = deserialize_changes(std::string{s[1]});
+      f.map = deserialize_mapview(std::string{s[2]});
+      f.tanks = deserialize_tanksview(std::string{s[3]});
+      f.zone = g::render_zone.bigger_zone(10);
+      auto msgs = deserialize_messages(std::string{s[4]});
       g::userdata[g::user_id].messages.insert(g::userdata[g::user_id].messages.end(),
                                               msgs.begin(), msgs.end());
-      return 0;
+      return {0, f};
     }
+    g::delay = -1;
     msg::error(g::user_id, to_string(ret.error()));
     g::output_inited = false;
-    return -1;
+    return {-1, f};
   }
   
   int Client::add_auto_tank(size_t lvl)

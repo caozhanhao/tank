@@ -51,10 +51,7 @@ namespace czh::g
   // renderer.cpp
   extern bool output_inited;
   extern size_t tank_focus;
-  extern map::MapView map_view;
-  extern std::map<size_t, game::TankView> tanks_view;
   extern map::Zone render_zone;
-  extern std::set<map::Pos> render_changes;
   extern std::size_t screen_height;
   extern std::size_t screen_width;
   
@@ -65,5 +62,7 @@ namespace czh::g
   // online.cpp
   extern online::Server online_server;
   extern online::Client online_client;
+  extern int client_failed_attempts;
+  extern int delay; // ms
 }
 #endif

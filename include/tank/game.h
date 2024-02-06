@@ -48,16 +48,6 @@ namespace czh::game
     std::chrono::high_resolution_clock::time_point last_update;
   };
   
-  struct TankView
-  {
-    info::TankInfo info;
-    int hp;
-    map::Pos pos;
-    map::Direction direction;
-    bool is_auto;
-    bool is_alive;
-  };
-  
   std::optional<map::Pos> get_available_pos();
   
   tank::Tank *id_at(size_t id);
@@ -77,7 +67,5 @@ namespace czh::game
   void mainloop();
   
   void tank_react(std::size_t id, tank::NormalTankEvent event);
-  
-  std::map<size_t, TankView> extract_tanks();
 }
 #endif

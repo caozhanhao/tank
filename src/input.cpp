@@ -174,7 +174,6 @@ namespace czh::input
           break;
       }
       g::output_inited = false;
-      renderer::render();
     }
     else
     {

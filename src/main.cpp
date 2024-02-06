@@ -29,20 +29,17 @@ using namespace czh;
 
 int main()
 {
-  game::add_tank({0, 0});
   std::thread game_thread(
       []
       {
         std::chrono::high_resolution_clock::time_point beg, end;
         std::chrono::milliseconds cost;
-        int client_failed_attempts = 0;
         while (true)
         {
           beg = std::chrono::high_resolution_clock::now();
           if (g::game_mode == czh::game::GameMode::NATIVE)
           {
             game::mainloop();
-            renderer::render();
           }
           else if(g::game_mode == czh::game::GameMode::SERVER)
           {
@@ -53,7 +50,7 @@ int main()
               if(r.first == 0) continue;
               auto d = std::chrono::duration_cast<std::chrono::milliseconds>
                   (std::chrono::high_resolution_clock::now() - r.second.last_update);
-              if(d.count() > 500)
+              if(d.count() > 2000)
                 disconnected.emplace_back(r.first);
             }
             for(auto& r : disconnected)
@@ -65,29 +62,23 @@ int main()
               g::tanks.erase(r);
               g::userdata.erase(r);
             }
-            renderer::render();
           }
           else
           {
-            int ret = g::online_client.update();
-            if (ret != 0)
-              client_failed_attempts++;
-            else
-            {
-              client_failed_attempts = 0;
-              renderer::render();
-            }
-            if(client_failed_attempts > 10)
+            if(g::client_failed_attempts > 10)
             {
               g::online_client.disconnect();
               g::game_mode = game::GameMode::NATIVE;
               g::user_id = 0;
               g::tank_focus = g::user_id;
               g::output_inited = false;
-              client_failed_attempts = 0;
+              g::client_failed_attempts = 0;
               msg::error(g::user_id, "Disconnected due to network issues.");
             }
           }
+          auto frame = renderer::get_frame();
+          if(frame.has_value()) renderer::render(*frame);
+          
           end = std::chrono::high_resolution_clock::now();
           cost = std::chrono::duration_cast<std::chrono::milliseconds>(end - beg);
           if (g::tick > cost)
@@ -97,6 +88,7 @@ int main()
         }
       }
   );
+  game::add_tank({0, 0});
   while (true)
   {
     if (czh::term::kbhit())
@@ -139,13 +131,11 @@ int main()
           {
             g::curr_page = game::Page::TANK_STATUS;
             g::output_inited = false;
-            renderer::render();
           }
           else
           {
             g::curr_page = game::Page::GAME;
             g::output_inited = false;
-            renderer::render();
           }
           break;
         case input::Input::G_KEY_L:
@@ -164,7 +154,6 @@ int main()
         case input::Input::G_KEY_SLASH:
           g::curr_page = game::Page::COMMAND;
           g::output_inited = false;
-          renderer::render();
           break;
         case input::Input::M_KEY_ENTER:
           g::curr_page = game::Page::GAME;
