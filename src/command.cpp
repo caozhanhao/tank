@@ -87,7 +87,7 @@ namespace czh::cmd
     if (g::game_mode == game::GameMode::CLIENT)
     {
       if (name == "fill" || name == "tp" || name == "kill" || name == "clear" || name == "summon"
-          || name == "revive" || name == "set")
+          || name == "revive" || name == "set" || name == "tell")
       {
         g::online_client.run_command(str);
         return;
@@ -716,7 +716,7 @@ namespace czh::cmd
       if (args_is<int, std::string>(args))
       {
         auto [id, msg] = args_get<int, std::string>(args);
-        int ret = msg::send_message(g::user_id, id, msg);
+        int ret = msg::send_message(user_id, id, msg);
         if(ret != 0)
           msg::error(user_id, "Invalid user id.");
         else
@@ -725,7 +725,7 @@ namespace czh::cmd
       else if(args_is<std::string>(args))
       {
         auto [msg] = args_get<std::string>(args);
-        msg::send_message(g::user_id, -1, msg);
+        msg::send_message(user_id, -1, msg);
         msg::info(user_id, "Message sent.");
       }
       else
