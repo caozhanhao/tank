@@ -32,7 +32,7 @@ namespace czh::g
   online::Server online_server{};
   online::Client online_client{};
   int client_failed_attempts = 0;
-  int delay = 0;
+  int delay = -1;
 }
 namespace czh::online
 {

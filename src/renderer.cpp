@@ -377,6 +377,7 @@ namespace czh::renderer
       else
       {
         g::client_failed_attempts++;
+        g::output_inited = false;
         return std::nullopt;
       }
     }
