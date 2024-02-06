@@ -74,6 +74,8 @@ namespace czh::bullet
           pos.x++;
         }
         break;
+      default:
+        break;
     }
     return ret;
   }

@@ -482,6 +482,8 @@ namespace czh::tank
         case tank::AutoTankEvent::RIGHT:
           right();
           break;
+        default:
+          break;
       }
     }
   }

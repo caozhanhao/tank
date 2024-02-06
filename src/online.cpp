@@ -204,7 +204,7 @@ namespace czh::online
       svr.Get("update",
               [](const httplib::Request &req, httplib::Response &res)
               {
-                auto beg  = std::chrono::high_resolution_clock::now();
+                auto beg  = std::chrono::steady_clock::now();
                 std::lock_guard<std::mutex> l(g::mainloop_mtx);
                 size_t id = std::stoi(req.get_param_value("id"));
                 map::Zone zone = deserialize_zone(req.get_param_value("zone"));
@@ -216,7 +216,7 @@ namespace czh::online
                     changes.insert(r);
                 }
                 auto d = std::chrono::duration_cast<std::chrono::milliseconds>
-                    (std::chrono::high_resolution_clock::now() - beg);
+                    (std::chrono::steady_clock::now() - beg);
                 res.body = std::to_string(d.count())
                     + "<>" + serialize_changes(changes)
                     + "<>" + serialize_mapview(map_view)
@@ -224,8 +224,9 @@ namespace czh::online
                     + "<>" + serialize_messages(g::userdata[id].messages);
                 g::userdata[id].map_changes.clear();
                 g::userdata[id].messages.clear();
-                g::userdata[id].last_update = std::chrono::high_resolution_clock::now();
+                g::userdata[id].last_update = std::chrono::steady_clock::now();
               });
+      
       svr.Get("register",
                                [](const httplib::Request &req, httplib::Response &res)
                                {
@@ -330,8 +331,7 @@ namespace czh::online
   
   std::tuple<int, renderer::Frame> Client::update()
   {
-    auto beg  = std::chrono::high_resolution_clock::now();
-    renderer::Frame f;
+    auto beg  = std::chrono::steady_clock::now();
     httplib::Params params{
         {"id",   std::to_string(g::user_id)},
         {"zone", serialize_zone(g::render_zone.bigger_zone(10))}
@@ -341,12 +341,15 @@ namespace czh::online
     if (ret && ret->status == 200)
     {
       auto s = utils::split<std::vector<std::string_view>>(ret->body, "<>");
-      g::delay = std::chrono::duration_cast<std::chrono::milliseconds>
-          (std::chrono::high_resolution_clock::now() - beg).count() - std::stoi(std::string{s[0]});
-      g::userdata[g::user_id].map_changes = deserialize_changes(std::string{s[1]});
-      f.map = deserialize_mapview(std::string{s[2]});
-      f.tanks = deserialize_tanksview(std::string{s[3]});
-      f.zone = g::render_zone.bigger_zone(10);
+      auto curr_delay = std::chrono::duration_cast<std::chrono::milliseconds>
+                            (std::chrono::steady_clock::now() - beg).count() - std::stoi(std::string{s[0]});
+      g::delay = (g::delay + 0.1 * curr_delay) / 1.1;
+      renderer::Frame f{
+          .map = deserialize_mapview(std::string{s[2]}),
+          .tanks = deserialize_tanksview(std::string{s[3]}),
+          .changes = deserialize_changes(std::string{s[1]}),
+          .zone = g::render_zone.bigger_zone(10)
+      };
       auto msgs = deserialize_messages(std::string{s[4]});
       g::userdata[g::user_id].messages.insert(g::userdata[g::user_id].messages.end(),
                                               msgs.begin(), msgs.end());
@@ -355,7 +358,7 @@ namespace czh::online
     g::delay = -1;
     msg::error(g::user_id, to_string(ret.error()));
     g::output_inited = false;
-    return {-1, f};
+    return {-1, {}};
   }
   
   int Client::add_auto_tank(size_t lvl)

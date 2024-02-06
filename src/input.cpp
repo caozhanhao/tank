@@ -25,12 +25,12 @@ namespace czh::input
   {
     Input ret = Input::EMPTY;
     char ch = czh::term::getch();
-    if (ch == -32)
+    if (static_cast<int>(ch) == -32)
     {
       ch = czh::term::getch();
       g::keyboard_mode = 0;
     }
-    if (ch == 27)
+    if (static_cast<int>(ch) == 27)
     {
       czh::term::getch();
       ch = czh::term::getch();
@@ -171,6 +171,8 @@ namespace czh::input
         case Input::CHAR:
           g::cmd_string_pos++;
           g::cmd_string.insert(g::cmd_string.begin() + g::cmd_string_pos, ch);
+          break;
+        default:
           break;
       }
       g::output_inited = false;

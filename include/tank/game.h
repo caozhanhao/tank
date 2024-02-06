@@ -45,7 +45,7 @@ namespace czh::game
     size_t user_id;
     std::set<map::Pos> map_changes;
     std::vector<msg::Message> messages;
-    std::chrono::high_resolution_clock::time_point last_update;
+    std::chrono::steady_clock::time_point last_update;
   };
   
   std::optional<map::Pos> get_available_pos();

@@ -52,7 +52,20 @@ namespace czh::cmd
       {
         if (is_int)
         {
-          args.emplace_back(std::stoi(temp));
+          bool stoi_success = true;
+          int a = 0;
+          try
+          {
+            a = std::stoi(temp);
+          }
+          catch (...)
+          {
+            stoi_success = false;
+          }
+          if(stoi_success)
+            args.emplace_back(a);
+          else
+            args.emplace_back(temp);
         }
         else
         {
@@ -505,21 +518,30 @@ namespace czh::cmd
       }
       else if (args_is<std::string, int>(args))
       {
-        auto [tickstr, time] = args_get<std::string, int>(args);
-        if (tickstr != "tick")
+        auto [option, arg] = args_get<std::string, int>(args);
+        if (option == "tick")
         {
-          msg::error(user_id, "Invalid option.");
-          return;
+          if (arg > 0)
+          {
+            g::tick = std::chrono::milliseconds(arg);
+            msg::info(user_id, "Tick was set to " + std::to_string(arg) + ".");
+            return;
+          }
+          else
+          {
+            invalid_arguments();
+            return;
+          }
         }
-        if (time > 0)
+        else if(option == "seed")
         {
-          g::tick = std::chrono::milliseconds(time);
-          msg::info(user_id, "Tick was set to " + std::to_string(time) + ".");
-          return;
+          g::seed = arg;
+          g::output_inited = false;
+          msg::info(user_id, "Seed was set to " + std::to_string(arg) + ".");
         }
         else
         {
-          invalid_arguments();
+          msg::error(user_id, "Invalid option.");
           return;
         }
       }

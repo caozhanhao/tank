@@ -54,8 +54,11 @@ namespace czh::g
   extern map::Zone render_zone;
   extern std::size_t screen_height;
   extern std::size_t screen_width;
+  extern int fps;
+  extern std::chrono::steady_clock::time_point last_render;
   
   // game_map.cpp
+  extern size_t seed;
   extern map::Point empty_point;
   extern map::Point wall_point;
   

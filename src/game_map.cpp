@@ -14,15 +14,14 @@
 #include "tank/game.h"
 #include "tank/game_map.h"
 #include "tank/globals.h"
-#include "tank/renderer.h"
 #include "tank/info.h"
 #include "tank/utils.h"
 #include <vector>
-#include <set>
 #include <stdexcept>
 
 namespace czh::g
 {
+  size_t seed = utils::randnum<size_t>(100000000, 1000000000);
   map::Point empty_point("used for empty point", {});
   map::Point wall_point("used for wall point", {map::Status::WALL});
 }
@@ -91,6 +90,8 @@ namespace czh::map
         case Status::TANK:
           tank = static_cast<tank::Tank *>(ptr);
           break;
+        default:
+          break;
       }
     }
   }
@@ -105,6 +106,8 @@ namespace czh::map
         break;
       case Status::TANK:
         tank = nullptr;
+        break;
+      default:
         break;
     }
   }
@@ -240,13 +243,20 @@ namespace czh::map
     {
       return map.at(i);
     }
+
+//    srand(i.x * i.y * i.x * i.y);
+//    if (rand() % 50 == 1)
+//      return g::wall_point;
+//    Using rand() to generate map may be unstable.
+//    When there is too many AutoTanks or connected to a Client,
+//    the value of rand() % 50 may unexpectedly change (I don't know why),
+//    thus making the wall "suddenly disappears".
     
-    srand(i.x * i.y * i.x * i.y);
-    if (rand() % 50 == 1)
+    if (auto a = i.x * i.y * i.x * i.y; a != 0)
     {
-      return g::wall_point;
+      if (auto b = g::seed % a; b % 50 == 1)
+        return g::wall_point;
     }
-    
     return g::empty_point;
   }
   

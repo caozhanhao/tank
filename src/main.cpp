@@ -24,7 +24,6 @@
 #pragma clang diagnostic push
 #pragma ide diagnostic ignored "EndlessLoop"
 
-
 using namespace czh;
 
 int main()
@@ -32,11 +31,11 @@ int main()
   std::thread game_thread(
       []
       {
-        std::chrono::high_resolution_clock::time_point beg, end;
+        std::chrono::steady_clock::time_point beg, end;
         std::chrono::milliseconds cost;
         while (true)
         {
-          beg = std::chrono::high_resolution_clock::now();
+          beg = std::chrono::steady_clock::now();
           if (g::game_mode == czh::game::GameMode::NATIVE)
           {
             game::mainloop();
@@ -49,7 +48,7 @@ int main()
             {
               if(r.first == 0) continue;
               auto d = std::chrono::duration_cast<std::chrono::milliseconds>
-                  (std::chrono::high_resolution_clock::now() - r.second.last_update);
+                  (std::chrono::steady_clock::now() - r.second.last_update);
               if(d.count() > 2000)
                 disconnected.emplace_back(r.first);
             }
@@ -79,7 +78,7 @@ int main()
           auto frame = renderer::get_frame();
           if(frame.has_value()) renderer::render(*frame);
           
-          end = std::chrono::high_resolution_clock::now();
+          end = std::chrono::steady_clock::now();
           cost = std::chrono::duration_cast<std::chrono::milliseconds>(end - beg);
           if (g::tick > cost)
           {
@@ -158,6 +157,8 @@ int main()
         case input::Input::M_KEY_ENTER:
           g::curr_page = game::Page::GAME;
           g::output_inited = false;
+          break;
+        default:
           break;
       }
     }
