@@ -17,6 +17,7 @@
 
 #include <vector>
 #include <string>
+#include <chrono>
 
 namespace czh::msg
 {
@@ -32,6 +33,6 @@ namespace czh::msg
   
   void error(int id, const std::string &c);
   
-  void send_message(int from, int to, const std::string &msg);
+  int send_message(int from, int to, const std::string &msg);
 }
 #endif

@@ -22,4 +22,13 @@ namespace czh::utils
       throw std::runtime_error(detail_);
     }
   }
+  std::string to_str(const std::string& a)
+  {
+    return a;
+  }
+  
+  std::string to_str(const char*& a)
+  {
+    return {a};
+  }
 }

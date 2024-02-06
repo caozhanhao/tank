@@ -19,6 +19,7 @@
 #include <string>
 #include <stdexcept>
 #include <random>
+#include <type_traits>
 
 namespace czh::utils
 {
@@ -48,6 +49,27 @@ namespace czh::utils
     { value.end() };
     requires ItRange<decltype(value.begin()), decltype(value.end())>;
   };
+  
+  template<Container T>
+  T split(std::string_view str, char delim)
+  {
+    T ret;
+    size_t first = 0;
+    while (first < str.size())
+    {
+      const auto second = str.find_first_of(delim, first);
+      if (first != second)
+      {
+        ret.insert(ret.end(), str.substr(first, second - first));
+      }
+      if (second == std::string_view::npos)
+      {
+        break;
+      }
+      first = second + 1;
+    }
+    return ret;
+  }
   
   template<Container T>
   T split(std::string_view str, std::string_view delims = " ")
@@ -90,5 +112,35 @@ namespace czh::utils
   }
   
   void tank_assert(bool b, const std::string &detail_ = "Assertion failed.");
+  
+  template<typename T>
+  requires (!std::is_same_v<std::string, std::decay_t<T>>) &&
+  (!std::is_same_v<const char*, std::decay_t<T>>)
+  std::string to_str(T &&a)
+  {
+    return std::to_string(std::forward<T>(a));
+  }
+  
+  std::string to_str(const std::string& a);
+  
+  std::string to_str(const char*& a);
+  
+  template<typename T, typename ...Args>
+  std::string join(char, T&& arg)
+  {
+    return to_str(arg);
+  }
+  
+  template<typename T, typename ...Args>
+  std::string join(char delim, T&& arg, Args&& ...args)
+  {
+    return to_str(arg) + delim + join(delim, std::forward<Args>(args)...);
+  }
+  
+  template<typename ...Args>
+  std::string join(char delim, Args&& ...args)
+  {
+    return join(delim, std::forward<Args>(args)...);
+  }
 }
 #endif

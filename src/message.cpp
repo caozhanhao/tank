@@ -14,17 +14,27 @@
 #include "tank/message.h"
 #include "tank/globals.h"
 
+#include <string>
+#include <chrono>
+
 namespace czh::msg
 {
-  void send_message(int from, int to, const std::string &msg)
+  int send_message(int from, int to, const std::string &msg_content)
   {
-    if(to == -1)
+    Message msg{.from = from, .content = msg_content};
+    if (to == -1)
     {
-      for(auto& r : g::userdata)
-        r.second.messages.emplace_back(Message{.from = from, .content = msg});
+      for (auto &r: g::userdata)
+        r.second.messages.push_back(msg);
     }
     else
-      g::userdata[to].messages.emplace_back(Message{.from = from, .content = msg});
+    {
+      auto t = g::userdata.find(to);
+      if (t == g::userdata.end())
+        return -1;
+      t->second.messages.push_back(msg);
+    }
+    return 0;
   }
   
   void log_helper(int id, const std::string &s, const std::string &content)

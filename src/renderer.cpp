@@ -32,6 +32,7 @@ namespace czh::g
   map::Zone render_zone = {-128, 128, -128, 128};
   int fps = 0;
   std::chrono::steady_clock::time_point last_render = std::chrono::steady_clock::now();
+  std::chrono::steady_clock::time_point last_message_displayed  = std::chrono::steady_clock::now();
 }
 
 namespace czh::renderer
@@ -470,10 +471,10 @@ namespace czh::renderer
           }
         }
         
-        auto n  = std::chrono::steady_clock::now();
-        auto d = std::chrono::duration_cast<std::chrono::milliseconds>(n - g::last_render);
+        auto now  = std::chrono::steady_clock::now();
+        auto d = std::chrono::duration_cast<std::chrono::milliseconds>(now - g::last_render);
         g::fps = (g::fps + 0.1 * (1.0 / (static_cast<double>(d.count()) / 1000.0))) / 1.1;
-        g::last_render = n;
+        g::last_render = now;
         
         // status bar
         auto& focus_tank = f.tanks[focus];
@@ -492,21 +493,28 @@ namespace czh::renderer
           term::output((left + right).substr(0, g::screen_width));
         
         // msg
-        if (!g::userdata[g::user_id].messages.empty())
+        auto d2 = std::chrono::duration_cast<std::chrono::milliseconds>(now - g::last_message_displayed);
+        if (d2 > g::message_displaying_time)
         {
-          term::move_cursor(term::TermPos(0, g::screen_height - 1));
-          auto &msg = g::userdata[g::user_id].messages.back();
-          std::string str = (msg.from == -1) ? msg.content : "From " + std::to_string(msg.from) + ": " + msg.content;
-          int a = g::screen_width - str.size();
-          if (a > 0)
+          if(!g::userdata[g::user_id].messages.empty())
           {
-            term::output(str + std::string(a, ' '));
+            term::move_cursor(term::TermPos(0, g::screen_height - 1));
+            auto msg = g::userdata[g::user_id].messages.front();
+            g::userdata[g::user_id].messages.pop_front();
+            std::string str = ((msg.from == -1) ? "" : std::to_string(msg.from) + ": ") + msg.content;
+            int a2 = g::screen_width - str.size();
+            if (a2 > 0)
+            {
+              term::output(str + std::string(a2, ' '));
+            }
+            else
+            {
+              term::output(str.substr(0, g::screen_width));
+            }
+            g::last_message_displayed = now;
           }
           else
-          {
-            term::output(str.substr(0, g::screen_width));
-          }
-          g::userdata[g::user_id].messages.clear();
+            term::output(std::string(g::screen_width, ' '));
         }
       }
         break;

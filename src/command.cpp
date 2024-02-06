@@ -539,6 +539,20 @@ namespace czh::cmd
           g::output_inited = false;
           msg::info(user_id, "Seed was set to " + std::to_string(arg) + ".");
         }
+        else if(option == "message_displaying_time")
+        {
+          if (arg > 0)
+          {
+            g::message_displaying_time = std::chrono::milliseconds(arg);
+            msg::info(user_id, "Message displaying time was set to " + std::to_string(arg) + ".");
+            return;
+          }
+          else
+          {
+            invalid_arguments();
+            return;
+          }
+        }
         else
         {
           msg::error(user_id, "Invalid option.");
@@ -690,6 +704,29 @@ namespace czh::cmd
         g::tank_focus = g::user_id;
         g::output_inited = false;
         msg::info(g::user_id, "Disconnected.");
+      }
+      else
+      {
+        invalid_arguments();
+        return;
+      }
+    }
+    else if(name == "tell")
+    {
+      if (args_is<int, std::string>(args))
+      {
+        auto [id, msg] = args_get<int, std::string>(args);
+        int ret = msg::send_message(g::user_id, id, msg);
+        if(ret != 0)
+          msg::error(user_id, "Invalid user id.");
+        else
+          msg::info(user_id, "Message sent.");
+      }
+      else if(args_is<std::string>(args))
+      {
+        auto [msg] = args_get<std::string>(args);
+        msg::send_message(g::user_id, -1, msg);
+        msg::info(user_id, "Message sent.");
       }
       else
       {

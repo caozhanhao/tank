@@ -34,6 +34,7 @@ namespace czh::g
   extern size_t user_id;
   extern int keyboard_mode;
   extern std::chrono::milliseconds tick;
+  extern std::chrono::milliseconds message_displaying_time;
   extern std::mutex mainloop_mtx;
   extern std::mutex tank_reacting_mtx;
   extern map::Map game_map;
@@ -56,6 +57,7 @@ namespace czh::g
   extern std::size_t screen_width;
   extern int fps;
   extern std::chrono::steady_clock::time_point last_render;
+  extern std::chrono::steady_clock::time_point last_message_displayed;
   
   // game_map.cpp
   extern size_t seed;
@@ -63,8 +65,9 @@ namespace czh::g
   extern map::Point wall_point;
   
   // online.cpp
-  extern online::Server online_server;
-  extern online::Client online_client;
+  extern online::TankServer online_server;
+  extern online::TankClient online_client;
+  extern std::map<uint32_t, std::tuple<online::MsgHeader, std::string>> buffer;
   extern int client_failed_attempts;
   extern int delay; // ms
 }
