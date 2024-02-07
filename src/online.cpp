@@ -31,7 +31,7 @@ namespace czh::g
   online::TankServer online_server{};
   online::TankClient online_client{};
   int client_failed_attempts = 0;
-  int delay = -1;
+  int delay = 0;
   std::mutex online_mtx;
 }
 namespace czh::online
@@ -654,6 +654,7 @@ namespace czh::online
                      .screen_width = std::stoul(std::string{s[2]}),
                      .screen_height = std::stoul(std::string{s[3]})
                  };
+                 g::userdata[id].last_update = std::chrono::steady_clock::now();
                  msg::info(-1, req.get_addr().ip() + " connected as " + std::to_string(id));
                  res.set_content(utils::join(delim::res, "register_res", id));
                }
@@ -737,6 +738,8 @@ namespace czh::online
   void TankClient::disconnect()
   {
     std::lock_guard<std::mutex> l(g::online_mtx);
+    std::string content = utils::join(delim::req, "deregister", g::user_id);
+    cli->send(content);
     cli->disconnect();
     cli->reset();
     delete cli;

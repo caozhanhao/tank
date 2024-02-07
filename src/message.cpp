@@ -13,9 +13,9 @@
 //   limitations under the License.
 #include "tank/message.h"
 #include "tank/globals.h"
+#include "tank/utils.h"
 
 #include <string>
-#include <chrono>
 
 namespace czh::msg
 {
@@ -49,11 +49,11 @@ namespace czh::msg
   
   void warn(int id, const std::string &c)
   {
-    log_helper(id, "\x1B[93m[WARNING]\x1B[0m\x1B[0K ", c);
+    log_helper(id, utils::yellow("[WARNING] "), c);
   }
   
   void error(int id, const std::string &c)
   {
-    log_helper(id, "\x1B[91m[ERROR]\x1B[0m\x1B[0K ", c);
+    log_helper(id, utils::red("[ERROR] "), c);
   }
 }

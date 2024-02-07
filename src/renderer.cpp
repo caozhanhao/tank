@@ -30,7 +30,7 @@ namespace czh::g
   size_t tank_focus = 0;
   map::Zone render_zone = {-128, 128, -128, 128};
   renderer::Frame frame{};
-  int fps = 0;
+  int fps = 60;
   renderer::PointView empty_point_view{.status = map::Status::END, .tank_id = -1, .text = ""};
   renderer::PointView wall_point_view{.status = map::Status::WALL, .tank_id = -1, .text = ""};
   std::chrono::steady_clock::time_point last_render = std::chrono::steady_clock::now();
@@ -411,36 +411,6 @@ namespace czh::renderer
     return -1;
   }
   
-  void render_msg()
-  {
-    auto now = std::chrono::steady_clock::now();
-    auto d2 = std::chrono::duration_cast<std::chrono::milliseconds>(now - g::last_message_displayed);
-    if (d2 > g::message_displaying_time)
-    {
-      if (!g::userdata[g::user_id].messages.empty())
-      {
-        term::move_cursor(term::TermPos(0, g::screen_height - 1));
-        auto msg = g::userdata[g::user_id].messages.front();
-        g::userdata[g::user_id].messages.pop_front();
-        std::string str = ((msg.from == -1) ? "" : std::to_string(msg.from) + ": ") + msg.content;
-        int a2 = g::screen_width - str.size();
-        if (a2 > 0)
-        {
-          term::output(str + std::string(a2, ' '));
-        }
-        else
-        {
-          term::output(str.substr(0, g::screen_width));
-        }
-        g::last_message_displayed = now;
-      }
-      else
-      {
-        term::output(std::string(g::screen_width, ' '));
-      }
-    }
-  }
-  
   void render()
   {
     std::lock_guard<std::mutex> l(g::mainloop_mtx);
@@ -539,19 +509,40 @@ namespace czh::renderer
                            + " HP: " + std::to_string(focus_tank.hp) + "/" + std::to_string(focus_tank.info.max_hp)
                            + " Pos: (" + std::to_string(focus_tank.pos.x) + ", " + std::to_string(focus_tank.pos.y) +
                            ")";
-        std::string right = std::to_string(g::fps) + "fps "
-                            + (g::delay == -1 ? "-" : std::to_string(g::delay)) + "ms";
-        int a = g::screen_width - left.size() - right.size();
-        if (a > 0)
-        {
-          term::output(left + std::string(a, ' ') + right);
-        }
-        else
-        {
-          term::output((left + right).substr(0, g::screen_width));
-        }
+        std::string right = std::to_string(g::fps) + "fps ";
         
-        render_msg();
+        if(g::delay < 50)
+          right += utils::green(std::to_string(g::delay) + " ms");
+        else if(g::delay < 100)
+          right += utils::yellow(std::to_string(g::delay) + " ms");
+        else
+          right += utils::red(std::to_string(g::delay) + " ms");
+          
+        int a = g::screen_width - utils::escape_code_len(left, right);
+        if (a > 0)
+          term::output(left + std::string(a, ' ') + right);
+        else
+          term::output((left + right).substr(0, left.size() + right.size() + a));
+        
+        auto d2 = std::chrono::duration_cast<std::chrono::milliseconds>(now - g::last_message_displayed);
+        if (d2 > g::message_displaying_time)
+        {
+          if (!g::userdata[g::user_id].messages.empty())
+          {
+            term::move_cursor(term::TermPos(0, g::screen_height - 1));
+            auto msg = g::userdata[g::user_id].messages.front();
+            g::userdata[g::user_id].messages.pop_front();
+            std::string str = ((msg.from == -1) ? "" : std::to_string(msg.from) + ": ") + msg.content;
+            int a2 = g::screen_width - utils::escape_code_len(str);
+            if (a2 > 0)
+              term::output(str + std::string(a2, ' '));
+            else
+              term::output(str.substr(0, str.size() + a));
+            g::last_message_displayed = now;
+          }
+          else
+            term::output(std::string(g::screen_width, ' '));
+        }
       }
         break;
       case game::Page::TANK_STATUS:

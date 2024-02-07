@@ -43,24 +43,24 @@ int main()
           else if(g::game_mode == czh::game::GameMode::SERVER)
           {
             game::mainloop();
-//            std::vector<size_t> disconnected;
-//            for(auto& r : g::userdata)
-//            {
-//              if(r.first == 0) continue;
-//              auto d = std::chrono::duration_cast<std::chrono::milliseconds>
-//                  (std::chrono::steady_clock::now() - r.second.last_update);
-//              if(d.count() > 2000)
-//                disconnected.emplace_back(r.first);
-//            }
-//            for(auto& r : disconnected)
-//            {
-//              msg::info(-1, std::to_string(r) + " disconnected.");
-//              g::tanks[r]->kill();
-//              g::tanks[r]->clear();
-//              delete g::tanks[r];
-//              g::tanks.erase(r);
-//              g::userdata.erase(r);
-//            }
+            std::vector<size_t> disconnected;
+            for(auto& r : g::userdata)
+            {
+              if(r.first == 0) continue;
+              auto d = std::chrono::duration_cast<std::chrono::milliseconds>
+                  (std::chrono::steady_clock::now() - r.second.last_update);
+              if(d.count() > 5000)
+                disconnected.emplace_back(r.first);
+            }
+            for(auto& r : disconnected)
+            {
+              msg::info(-1, g::userdata[r].ip + " (" + std::to_string(r) + ") disconnected.");
+              g::tanks[r]->kill();
+              g::tanks[r]->clear();
+              delete g::tanks[r];
+              g::tanks.erase(r);
+              g::userdata.erase(r);
+            }
           }
           else
           {
