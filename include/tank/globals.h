@@ -47,7 +47,7 @@ namespace czh::g
   extern size_t user_id;
   extern int keyboard_mode;
   extern std::chrono::milliseconds tick;
-  extern std::chrono::milliseconds message_displaying_time;
+  extern std::chrono::milliseconds msg_ttl;
   extern std::mutex mainloop_mtx;
   extern std::mutex tank_reacting_mtx;
   extern map::Map game_map;

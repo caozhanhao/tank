@@ -21,7 +21,7 @@
 
 namespace czh::g
 {
-  size_t seed = utils::randnum<size_t>(100000000, 1000000000);
+  size_t seed = utils::randnum<size_t>(100000, 1000000);
   map::Point empty_point("used for empty point", {});
   map::Point wall_point("used for wall point", {map::Status::WALL});
 }

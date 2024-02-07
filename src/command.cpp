@@ -539,12 +539,12 @@ namespace czh::cmd
           g::output_inited = false;
           msg::info(user_id, "Seed was set to " + std::to_string(arg) + ".");
         }
-        else if(option == "message_displaying_time")
+        else if(option == "msg_ttl")
         {
           if (arg > 0)
           {
-            g::message_displaying_time = std::chrono::milliseconds(arg);
-            msg::info(user_id, "Message displaying time was set to " + std::to_string(arg) + ".");
+            g::msg_ttl = std::chrono::milliseconds(arg);
+            msg::info(user_id, "Msg_ttl was set to " + std::to_string(arg) + ".");
             return;
           }
           else
