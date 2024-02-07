@@ -3,7 +3,7 @@ Tank
 </h2> 
 
 <p align="center">
-<strong>A multiplayer cross-platform Game.</strong>
+<strong>A multiplayer cross-platform Game</strong>
 </p>
 
 ### Intro:
