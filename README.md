@@ -13,10 +13,8 @@ overcome unpredictable obstacles. You can play solo or team up with friends.
 
 ### Example
 
-![Start](examples/start-example.png)
 ![Game](examples/game-example.png)
 ![Status](examples/status-example.png)
-![Help](examples/help-example.png)
 
 ### Tutorial
 
