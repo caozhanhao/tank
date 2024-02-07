@@ -42,14 +42,6 @@ namespace czh::game
     COMMAND
   };
   
-  struct UserData
-  {
-    size_t user_id;
-    std::set<map::Pos> map_changes;
-    std::deque<msg::Message> messages;
-    std::chrono::steady_clock::time_point last_update;
-  };
-  
   std::optional<map::Pos> get_available_pos();
   
   tank::Tank *id_at(size_t id);

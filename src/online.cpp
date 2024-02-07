@@ -32,7 +32,7 @@ namespace czh::g
   online::TankClient online_client{};
   int client_failed_attempts = 0;
   int delay = -1;
-  std::map<uint32_t, std::tuple<online::MsgHeader, std::string>> buffer;
+  std::mutex online_mtx;
 }
 namespace czh::online
 {
@@ -98,7 +98,7 @@ namespace czh::online
     len = sizeof(addr);
   }
   
-  std::string Addr::to_string() const
+  std::string Addr::ip() const
   {
     std::string str(16, '\0');
 #ifdef _WIN32
@@ -106,48 +106,18 @@ namespace czh::online
 #else
     inet_ntop(AF_INET, &addr.sin_addr, str.data(), len);
 #endif
-    str += ":" + std::to_string(ntohs(addr.sin_port));
     return str;
   }
   
-  SocketHandle::SocketHandle() : fd(-1)
+  int Addr::port() const
   {
-    fd = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
-    utils::tank_assert(fd != -1, "socket initialize failed.");
-    int on = 1;
-    setsockopt(fd, SOL_SOCKET, SO_REUSEADDR, reinterpret_cast<char *>(&on), sizeof(on));
-    utils::tank_assert(fd != -1, "socket initialize failed.");
+    return ntohs(addr.sin_port);
   }
   
-  SocketHandle::SocketHandle(Socket_t fd_) : fd(fd_) {}
-  
-  SocketHandle::SocketHandle(SocketHandle && soc) noexcept: fd(soc.fd)
+  std::string Addr::to_string() const
   {
-    soc.fd = -1;
+    return ip() + ":" + std::to_string(port());
   }
-  
-  SocketHandle::~SocketHandle()
-  {
-    if (fd != -1)
-    {
-      ::close(fd);
-      fd = -1;
-    }
-  }
-  
-  std::tuple<SocketHandle, Addr> SocketHandle::accept() const
-  {
-    Addr addr;
-#ifdef _WIN32
-    return {std::move(SocketHandle{::accept(fd, reinterpret_cast<sockaddr *>(&addr.addr),
-                                          reinterpret_cast<int *> (&addr.len))}), addr};
-#else
-    return {std::move(SocketHandle{::accept(fd, reinterpret_cast<sockaddr *>(&addr.addr), reinterpret_cast<socklen_t *>(&addr.len))}), addr};
-#endif
-  }
-  
-  Socket_t SocketHandle::get_fd() const { return fd; }
-  
   bool check(bool a)
   {
     if (!a)
@@ -156,6 +126,110 @@ namespace czh::online
     }
     return a;
   }
+  
+//  UDPSocket::UDPSocket() : fd(-1)
+//  {
+//    fd = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
+//    utils::tank_assert(fd != -1, "socket initialize failed.");
+//    int on = 1;
+//    setsockopt(fd, SOL_SOCKET, SO_REUSEADDR, reinterpret_cast<char *>(&on), sizeof(on));
+//    utils::tank_assert(fd != -1, "socket initialize failed.");
+//  }
+//
+//  UDPSocket::~UDPSocket()
+//  {
+//    if (fd != -1)
+//    {
+//      ::close(fd);
+//      fd = -1;
+//    }
+//  }
+//
+//
+//  int UDPSocket::send(Addr addr, const std::string &str) const
+//  {
+//    if (!check(::sendto(fd, str.data(), str.size(), 0, (sockaddr *) &addr.addr, addr.len) > 0))
+//      return -1;
+//    return 0;
+//  }
+//
+//  std::optional<std::tuple<Addr, std::string>> UDPSocket::recv() const
+//  {
+//    char buf[10240];
+//    Addr addr;
+//    if (!check(::recvfrom(fd, buf, sizeof(buf), 0,
+//                          (sockaddr *) &addr.addr,
+//                          reinterpret_cast<socklen_t *>(&addr.len)) > 0))
+//      return std::nullopt;
+//    return std::make_tuple(addr, std::string{buf});
+//  }
+//
+//  int UDPSocket::bind(Addr addr) const
+//  {
+//    if (!check(::bind(fd, (sockaddr *) &addr.addr, addr.len) == 0))
+//    {
+//      return -1;
+//    }
+//    return 0;
+//  }
+//
+//  std::optional<Addr> UDPSocket::get_peer_addr() const
+//  {
+//    struct sockaddr_in peer_addr{};
+//    decltype(Addr::len) peer_len;
+//    peer_len = sizeof(peer_addr);
+//    if (!check(getpeername(fd, (struct sockaddr *) &peer_addr, &peer_len) != -1))
+//    {
+//      return std::nullopt;
+//    }
+//    return Addr{peer_addr, peer_len};
+//  }
+//
+//  Socket_t UDPSocket::release()
+//  {
+//    int f = fd;
+//    fd = -1;
+//    return f;
+//  }
+//
+//
+  TCPSocket::TCPSocket() : fd(-1)
+  {
+    fd = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
+    utils::tank_assert(fd != -1, "socket initialize failed.");
+    int on = 1;
+    setsockopt(fd, SOL_SOCKET, SO_REUSEADDR, reinterpret_cast<char *>(&on), sizeof(on));
+    utils::tank_assert(fd != -1, "socket initialize failed.");
+  }
+  
+  TCPSocket::TCPSocket(Socket_t fd_) : fd(fd_) {}
+  
+  TCPSocket::TCPSocket(TCPSocket && soc) noexcept: fd(soc.fd)
+  {
+    soc.fd = -1;
+  }
+  
+  TCPSocket::~TCPSocket()
+  {
+    if (fd != -1)
+    {
+      ::close(fd);
+      fd = -1;
+    }
+  }
+  
+  std::tuple<TCPSocket, Addr> TCPSocket::accept() const
+  {
+    Addr addr;
+#ifdef _WIN32
+    return {std::move(TCPSocket{::accept(fd, reinterpret_cast<sockaddr *>(&addr.addr),
+                                          reinterpret_cast<int *> (&addr.len))}), addr};
+#else
+    return {std::move(TCPSocket{::accept(fd, reinterpret_cast<sockaddr *>(&addr.addr), reinterpret_cast<socklen_t *>(&addr.len))}), addr};
+#endif
+  }
+  
+  Socket_t TCPSocket::get_fd() const { return fd; }
   
   int send_all_data(Socket_t sock, const char* buf, int size)
   {
@@ -181,63 +255,36 @@ namespace czh::online
     return 0;
   }
   
-  int SocketHandle::send(const std::string &str, uint32_t id) const
+  int TCPSocket::send(const std::string &str) const
   {
-    MsgHeader msg{.magic = htonl(MAGIC), .id = htonl(id), .content_length = htonl(str.size())};
-    if (send_all_data(fd, reinterpret_cast<const char *>(&msg), sizeof(MsgHeader)) != 0) return -1;
+    MsgHeader header{.magic = htonl(HEADER_MAGIC), .content_length = htonl(str.size())};
+    if (send_all_data(fd, reinterpret_cast<const char *>(&header), sizeof(MsgHeader)) != 0) return -1;
     if (send_all_data(fd, str.data(), str.size()) != 0) return -1;
     return 0;
   }
   
-  std::optional<std::tuple<MsgHeader, std::string>> SocketHandle::recv(uint32_t id) const
+  std::optional<std::string> TCPSocket::recv() const
   {
-    if(auto it = g::buffer.find(id); it!= g::buffer.end())
-    {
-      auto ret = it->second;
-      g::buffer.erase(it);
-      return ret;
-    }
-    
     MsgHeader header{};
     std::string recv_result;
-    while (true)
+    if (receive_all_data(fd, reinterpret_cast<char *>(&header), sizeof(MsgHeader)) != 0)
+      return std::nullopt;
+    
+    if (ntohl(header.magic) != HEADER_MAGIC)
     {
-      if (receive_all_data(fd, reinterpret_cast<char *>(&header), sizeof(MsgHeader)) != 0)
-        return std::nullopt;
-      
-      if (ntohl(header.magic) != MAGIC)
-      {
-        msg::warn(g::user_id, "Ignore invalid data");
-        return std::nullopt;
-      }
-      
-      recv_result.resize(ntohl(header.content_length), 0);
-      
-      if (receive_all_data(fd, reinterpret_cast<char *>(recv_result.data()), recv_result.size()) != 0)
-        return std::nullopt;
-      
-      if(id == 0)
-      {
-        return std::make_tuple(header, recv_result);
-      }
-      else
-      {
-        if (ntohl(header.id) != id)
-          break;
-        else
-        {
-          g::buffer[ntohl(header.id)] = std::make_tuple(header, recv_result);
-          recv_result.clear();
-          header.id = 0;
-          header.magic = 0;
-          header.content_length = 0;
-        }
-      }
+      msg::warn(g::user_id, "Ignore invalid data");
+      return std::nullopt;
     }
-    return std::make_tuple(header, recv_result);
+    
+    recv_result.resize(ntohl(header.content_length), 0);
+    
+    if (receive_all_data(fd, reinterpret_cast<char *>(recv_result.data()), recv_result.size()) != 0)
+      return std::nullopt;
+    
+    return recv_result;
   }
   
-  int SocketHandle::bind(Addr addr) const
+  int TCPSocket::bind(Addr addr) const
   {
     if (!check(::bind(fd, (sockaddr *) &addr.addr, addr.len) == 0))
     {
@@ -246,7 +293,7 @@ namespace czh::online
     return 0;
   }
   
-  int SocketHandle::listen() const
+  int TCPSocket::listen() const
   {
     if (!check(::listen(fd, 0) != -1))
     {
@@ -255,7 +302,7 @@ namespace czh::online
     return 0;
   }
   
-  int SocketHandle::connect(Addr addr) const
+  int TCPSocket::connect(Addr addr) const
   {
     if (!check(::connect(fd, (sockaddr *) &addr.addr, addr.len) != -1))
     {
@@ -264,7 +311,7 @@ namespace czh::online
     return 0;
   }
   
-  std::optional<Addr> SocketHandle::get_peer_addr() const
+  std::optional<Addr> TCPSocket::get_peer_addr() const
   {
     struct sockaddr_in peer_addr{};
     decltype(Addr::len) peer_len;
@@ -276,7 +323,7 @@ namespace czh::online
     return Addr{peer_addr, peer_len};
   }
   
-  void SocketHandle::reset()
+  void TCPSocket::reset()
   {
     if (fd != -1)
       ::close(fd);
@@ -286,17 +333,17 @@ namespace czh::online
     utils::tank_assert(fd != -1, "socket reset failed.");
   }
   
-  Socket_t SocketHandle::release()
+  Socket_t TCPSocket::release()
   {
     int f = fd;
     fd = -1;
     return f;
   }
   
-  Req::Req(std::string ip_, std::string content_)
-      : ip(std::move(ip_)), content(std::move(content_)) {}
+  Req::Req(Addr addr_, std::string content_)
+      : addr(std::move(addr_)), content(std::move(content_)) {}
   
-  const auto &Req::get_ip() const { return ip; }
+  const Addr&  Req::get_addr() const {return addr;}
   
   const auto &Req::get_content() const { return content; }
   
@@ -304,21 +351,21 @@ namespace czh::online
   
   const auto &Res::get_content() const { return content; }
   
-  SocketServer::SocketServer() : thpool(16) {}
+  TCPServer::TCPServer() : thpool(16) {}
   
-  SocketServer::SocketServer(const std::function<void(const Req &, Res &)> &router_)
+  TCPServer::TCPServer(const std::function<void(const Req &, Res &)> &router_)
       : router(router_), thpool(16), running(false) {}
   
-  void SocketServer::init(const std::function<void(const Req &, Res &)> &router_)
+  void TCPServer::init(const std::function<void(const Req &, Res &)> &router_)
   {
     router = router_;
     running = false;
   }
   
-  void SocketServer::start(int port)
+  void TCPServer::start(int port)
   {
     running = true;
-    SocketHandle socket;
+    TCPSocket socket;
     socket.bind({port});
     socket.listen();
     while (running)
@@ -331,74 +378,67 @@ namespace czh::online
       thpool.add_task(
           [this, fd]
           {
-            SocketHandle clnt_socket{fd};
+            TCPSocket clnt_socket{fd};
             while (running)
             {
               auto request = clnt_socket.recv();
-              auto [header, content] = *request;
-              if (!request.has_value() || content == "quit")
-                break;
+              if (!request.has_value() || *request == "quit") break;
               Res response;
               auto addr = clnt_socket.get_peer_addr();
               if (!addr.has_value())
                 break;
-              router(Req{addr->to_string(), content}, response);
+              router(Req{*addr, *request}, response);
               if (!response.get_content().empty())
               {
-                clnt_socket.send(response.get_content(), header.id);
+                clnt_socket.send(response.get_content());
               }
             }
           });
     }
   }
   
-  void SocketServer::stop()
+  void TCPServer::stop()
   {
     running = false;
   }
   
-  SocketClient::~SocketClient()
+  TCPClient::~TCPClient()
   {
     disconnect();
   }
   
-  int SocketClient::disconnect()
+  int TCPClient::disconnect()
   {
     return socket.send("quit");
   }
   
   
-  int SocketClient::connect(const std::string &addr, int port)
+  int TCPClient::connect(const std::string &addr, int port)
   {
     return socket.connect({addr, port});
   }
   
-  int SocketClient::send(const std::string &str)
+  int TCPClient::send(const std::string &str)
   {
     return socket.send(str);
   }
   
-  std::optional<std::string> SocketClient::recv()
+  std::optional<std::string> TCPClient::recv()
   {
-    auto a = socket.recv();
-    if(a.has_value())
-      return std::get<1>(*a);
-    return std::nullopt;
+    return socket.recv();
   }
   
-  std::optional<std::string> SocketClient::send_and_recv(const std::string &str)
+  std::optional<std::string> TCPClient::send_and_recv(const std::string &str)
   {
-    uint16_t id = std::chrono::high_resolution_clock::now().time_since_epoch().count();
-    int ret = socket.send(str, id);
+    int ret = socket.send(str);
     if (ret != 0) return std::nullopt;
-    return std::get<1>(*socket.recv(id));
+    return socket.recv();
   }
   
-  void SocketClient::reset()
+  void TCPClient::reset()
   {
     socket.reset();
   }
-  
   
   std::string serialize_zone(const czh::map::Zone &b)
   {
@@ -493,38 +533,37 @@ namespace czh::online
     }
     return ret;
   }
-  
+
   std::string serialize_mapview(const renderer::MapView &view)
   {
-    if (view.view.empty()) return "e";
-    std::string ret;
+    std::string ret = std::to_string(view.seed) + delim::mv;
     for (auto &b: view.view)
     {
       ret += utils::join(delim::pv,
-                  b.second.pos.x,
-                  b.second.pos.y,
-                  b.second.tank_id,
-                  (b.second.text.empty() ? "et" : b.second.text),
-                  static_cast<int>(b.second.status)) + delim::mv;
+                         b.first.x,
+                         b.first.y,
+                         b.second.tank_id,
+                         (b.second.text.empty() ? "et" : b.second.text),
+                         static_cast<int>(b.second.status)) + delim::mv;
     }
     return ret;
   }
-  
+
   renderer::MapView deserialize_mapview(const std::string &str)
   {
-    if (str == "e") return {};
     auto s1 = czh::utils::split<std::vector<std::string_view>>(str, delim::mv);
     renderer::MapView ret;
-    for (auto &r: s1)
+    ret.seed = std::stoul(std::string {s1[0]});
+    for (size_t i = 1; i < s1.size(); ++i)
     {
-      auto s2 = czh::utils::split<std::vector<std::string_view>>(r, delim::pv);
+      auto s2 = czh::utils::split<std::vector<std::string_view>>(s1[i], delim::pv);
       czh::renderer::PointView c;
-      c.pos.x = std::stoi(std::string{s2[0]});
-      c.pos.y = std::stoi(std::string{s2[1]});
+      int x = std::stoi(std::string{s2[0]});
+      int y = std::stoi(std::string{s2[1]});
       c.tank_id = std::stoi(std::string{s2[2]});
       c.text = s2[3] == "et" ? "" : std::string{s2[3]};
       c.status = static_cast<czh::map::Status>(std::stoi(std::string{s2[4]}));
-      ret.view.insert({c.pos, c});
+      ret.view.insert({map::Pos{x, y}, c});
     }
     return ret;
   }
@@ -556,9 +595,15 @@ namespace czh::online
     return ret;
   }
   
-  TankServer::TankServer()
+  void TankServer::init()
   {
-    svr.init([](const Req &req, Res &res)
+    if(svr != nullptr)
+    {
+      svr->stop();
+      delete svr;
+    }
+    svr = new TCPServer{};
+    svr->init([](const Req &req, Res &res)
              {
                auto s = utils::split<std::vector<std::string_view>>(req.get_content(), delim::req);
                if (s[0] == "tank_react")
@@ -568,7 +613,7 @@ namespace czh::online
                      static_cast<tank::NormalTankEvent>(std::stoi(std::string{s[2]}));
                  game::tank_react(id, event);
                }
-               else if (s[0] == "update")
+               else if(s[0] == "update")
                {
                  auto beg = std::chrono::steady_clock::now();
                  std::lock_guard<std::mutex> l(g::mainloop_mtx);
@@ -583,14 +628,15 @@ namespace czh::online
                      changes.insert(r);
                    }
                  }
-                 auto d = std::chrono::duration_cast<std::chrono::milliseconds>
-                     (std::chrono::steady_clock::now() - beg);
-                 res.set_content(utils::join(delim::res,
-                                             d.count(),
-                                             serialize_changes(changes),
-                                             serialize_mapview(map_view),
-                                             serialize_tanksview(renderer::extract_tanks()),
-                                             serialize_messages(g::userdata[id].messages)));
+                   auto d = std::chrono::duration_cast<std::chrono::milliseconds>
+                       (std::chrono::steady_clock::now() - beg);
+                  res.set_content(utils::join(delim::res,
+                                                     "update_res",
+                                                     d.count(),
+                                                     serialize_changes(changes),
+                                                     serialize_tanksview(renderer::extract_tanks()),
+                                                     serialize_messages(g::userdata[id].messages),
+                                                     serialize_mapview(renderer::extract_map(zone))));
                  g::userdata[id].map_changes.clear();
                  g::userdata[id].messages.clear();
                  g::userdata[id].last_update = std::chrono::steady_clock::now();
@@ -599,15 +645,21 @@ namespace czh::online
                {
                  std::lock_guard<std::mutex> l(g::mainloop_mtx);
                  auto id = game::add_tank();
-                 g::userdata[g::user_id] = game::UserData{.user_id = g::user_id};
-                 msg::info(g::user_id, req.get_ip() + " connected as " + std::to_string(id));
-                 res.set_content(std::to_string(id));
+                 g::userdata[id] = g::UserData{
+                     .user_id = g::user_id,
+                     .ip = req.get_addr().ip(),
+                     .port = std::stoi(std::string{s[1]}),
+                     .screen_width = std::stoul(std::string{s[2]}),
+                     .screen_height = std::stoul(std::string{s[3]})
+                 };
+                 msg::info(-1, req.get_addr().ip() + " connected as " + std::to_string(id));
+                 res.set_content(utils::join(delim::res, "register_res", id));
                }
                else if (s[0] == "deregister")
                {
                  std::lock_guard<std::mutex> l(g::mainloop_mtx);
                  int id = std::stoi(std::string{s[1]});
-                 msg::info(-1, req.get_ip() + " (" + std::to_string(id) + ") disconnected.");
+                 msg::info(-1, req.get_addr().ip() + " (" + std::to_string(id) + ") disconnected.");
                  g::tanks[id]->kill();
                  g::tanks[id]->clear();
                  delete g::tanks[id];
@@ -634,83 +686,106 @@ namespace czh::online
   void TankServer::start(int port)
   {
     std::thread th{
-        [this, port] { svr.start(port); }
+        [this, port] { svr->start(port); }
     };
     th.detach();
   }
   
   void TankServer::stop()
   {
-    svr.stop();
+    svr->stop();
+    delete svr;
+    svr = nullptr;
+  }
+  
+  TankServer::~TankServer()
+  {
+   if(svr != nullptr)
+     delete svr;
   }
   
   std::optional<size_t> TankClient::connect(const std::string &addr_, int port_)
   {
+    std::lock_guard<std::mutex> l(g::online_mtx);
     host = addr_;
     port = port_;
-    if (cli.connect(addr_, port_) != 0)
+    if (cli->connect(addr_, port_) != 0)
     {
-      cli.reset();
+      cli->reset();
       return std::nullopt;
     }
-    auto ret = cli.send_and_recv("register");
+    
+    std::string content = utils::join(delim::req, "register", 8080, g::screen_width, g::screen_height);
+    auto ret = cli->send_and_recv(content);
     if (!ret.has_value())
     {
-      cli.reset();
+      cli->reset();
+      return std::nullopt;
+    }
+    if(!utils::begin_with(*ret, "register_res"))
+    {
+      msg::warn(g::user_id, "Received unexpected data.");
+      cli->reset();
       return std::nullopt;
     }
     auto s = utils::split<std::vector<std::string_view>>(*ret, delim::res);
-    if (s.size() != 1)
-    {
-      cli.reset();
-      return std::nullopt;
-    }
-    return std::stoul(std::string{s[0]});
+    return std::stoul(std::string{s[1]});
   }
   
   void TankClient::disconnect()
   {
-    cli.disconnect();
-    cli.reset();
+    std::lock_guard<std::mutex> l(g::online_mtx);
+    cli->disconnect();
+    cli->reset();
+    delete cli;
+    cli = nullptr;
   }
   
   int TankClient::tank_react(tank::NormalTankEvent e)
   {
+    std::lock_guard<std::mutex> l(g::online_mtx);
     std::string content = utils::join(delim::req, "tank_react", g::user_id, static_cast<int>(e));
-    return cli.send(content);
+    return cli->send(content);
   }
   
-  std::tuple<int, renderer::Frame> TankClient::update()
+  int TankClient::update()
   {
+    std::lock_guard<std::mutex> l(g::online_mtx);
     auto beg = std::chrono::steady_clock::now();
     std::string content = utils::join(delim::req, "update", g::user_id,
                                       serialize_zone(g::render_zone.bigger_zone(10)));
-    auto ret = cli.send_and_recv(content);
-    if (!ret.has_value() || ret->empty())
+    auto ret = cli->send_and_recv(content);
+    if (!ret.has_value())
     {
       g::delay = -1;
       g::output_inited = false;
-      return {-1, {}};
+      return -1;
     }
-    
+    if(!utils::begin_with(*ret, "update_res"))
+    {
+      msg::warn(g::user_id, "Received unexpected data.");
+      return -1;
+    }
     auto s = utils::split<std::vector<std::string_view>>(*ret, delim::res);
     int curr_delay = std::chrono::duration_cast<std::chrono::milliseconds>
-                          (std::chrono::steady_clock::now() - beg).count() - std::stoi(std::string{s[0]});
+                         (std::chrono::steady_clock::now() - beg).count() - std::stoi(std::string{s[1]});
     g::delay = static_cast<int>((g::delay + 0.1 * curr_delay) / 1.1);
-    renderer::Frame f{
-        .map = deserialize_mapview(std::string{s[2]}),
-        .tanks = deserialize_tanksview(std::string{s[3]}),
-        .changes = deserialize_changes(std::string{s[1]}),
-        .zone = g::render_zone.bigger_zone(10)
-    };
+    
     auto msgs = deserialize_messages(std::string{s[4]});
     g::userdata[g::user_id].messages.insert(g::userdata[g::user_id].messages.end(),
                                             msgs.begin(), msgs.end());
-    return {0, f};
+    
+    auto mv = deserialize_mapview(std::string{s[5]});
+    if(mv.seed != g::frame.map.seed) g::output_inited = false;
+    g::frame.map = mv;
+    g::frame.tanks = deserialize_tanksview(std::string{s[3]});
+    g::frame.changes = deserialize_changes(std::string{s[2]});
+    return 0;
   }
   
   int TankClient::add_auto_tank(size_t lvl)
   {
+    std::lock_guard<std::mutex> l(g::online_mtx);
     auto pos = game::get_available_pos();
     if (!pos.has_value())
     {
@@ -718,12 +793,28 @@ namespace czh::online
       return -1;
     }
     std::string content = utils::join(delim::req, "add_auto_tank", g::user_id, pos->x, pos->y, lvl);
-    return cli.send(content);
+    return cli->send(content);
   }
   
   int TankClient::run_command(const std::string &str)
   {
+    std::lock_guard<std::mutex> l(g::online_mtx);
     std::string content = utils::join(delim::req, "run_command", g::user_id, str);
-    return cli.send(content);
+    return cli->send(content);
+  }
+  
+  TankClient::~TankClient()
+  {
+    if(cli != nullptr)
+     delete cli;
+  }
+  void TankClient::init()
+  {
+    if(cli != nullptr)
+    {
+      cli->disconnect();
+      delete cli;
+    }
+    cli = new TCPClient{};
   }
 }

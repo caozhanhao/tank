@@ -64,7 +64,7 @@ int main()
           }
           else
           {
-            if(g::client_failed_attempts > 10)
+            if (g::client_failed_attempts > 10)
             {
               g::online_client.disconnect();
               g::game_mode = game::GameMode::NATIVE;
@@ -76,15 +76,13 @@ int main()
               msg::error(g::user_id, "Disconnected due to network issues.");
             }
           }
-          auto frame = renderer::get_frame();
-          if(frame.has_value()) renderer::render(*frame);
+          auto frame = renderer::update_frame();
+          if(frame == 0) renderer::render();
           
           end = std::chrono::steady_clock::now();
           cost = std::chrono::duration_cast<std::chrono::milliseconds>(end - beg);
           if (g::tick > cost)
-          {
             std::this_thread::sleep_for(g::tick - cost);
-          }
         }
       }
   );

@@ -21,7 +21,6 @@
 #include <vector>
 #include <string>
 #include <list>
-#include <chrono>
 
 namespace czh::g
 {
@@ -30,16 +29,31 @@ namespace czh::g
   std::size_t screen_width = term::get_width();
   size_t tank_focus = 0;
   map::Zone render_zone = {-128, 128, -128, 128};
+  renderer::Frame frame{};
   int fps = 0;
+  renderer::PointView empty_point_view{.status = map::Status::END, .tank_id = -1, .text = ""};
+  renderer::PointView wall_point_view{.status = map::Status::WALL, .tank_id = -1, .text = ""};
   std::chrono::steady_clock::time_point last_render = std::chrono::steady_clock::now();
-  std::chrono::steady_clock::time_point last_message_displayed  = std::chrono::steady_clock::now();
+  std::chrono::steady_clock::time_point last_message_displayed = std::chrono::steady_clock::now();
 }
 
 namespace czh::renderer
 {
-  bool operator<(const PointView &c1, const PointView &c2)
+  const PointView & generate(const map::Pos& i, size_t seed)
   {
-    return c1.pos < c2.pos;
+    if(map::generate(i, seed).has(map::Status::WALL))
+    {
+      return g::wall_point_view;
+    }
+    return g::empty_point_view;
+  }
+  const PointView & generate(int x, int y, size_t seed)
+  {
+    if (map::generate(x, y, seed).has(map::Status::WALL))
+    {
+      return g::wall_point_view;
+    }
+    return g::empty_point_view;
   }
   
   bool PointView::is_empty() const
@@ -54,24 +68,29 @@ namespace czh::renderer
   
   const PointView &MapView::at(const map::Pos &i) const
   {
-    return view.at(i);
+    if (view.find(i) != view.end())
+      return view.at(i);
+    return renderer::generate(i, seed);
   }
   
-  PointView extract_point(const map::Pos& p)
+  bool MapView::is_empty() const
+  {
+    return view.empty();
+  }
+  
+  PointView extract_point(const map::Pos &p)
   {
     if (g::game_map.has(map::Status::TANK, p))
     {
       return {
-        .pos = p,
-              .status = map::Status::TANK,
-              .tank_id = static_cast<int>(g::game_map.at(p).get_tank()->get_id()),
-              .text = ""
+          .status = map::Status::TANK,
+          .tank_id = static_cast<int>(g::game_map.at(p).get_tank()->get_id()),
+          .text = ""
       };
     }
     else if (g::game_map.has(map::Status::BULLET, p))
     {
       return {
-          .pos = p,
           .status = map::Status::BULLET,
           .tank_id = static_cast<int>(g::game_map.at(p).get_bullets()[0]->get_tank()),
           .text = g::game_map.at(p).get_bullets()[0]->get_text()
@@ -80,7 +99,6 @@ namespace czh::renderer
     else if (g::game_map.has(map::Status::WALL, p))
     {
       return {
-          .pos = p,
           .status = map::Status::WALL,
           .tank_id = -1,
           .text = ""
@@ -89,7 +107,6 @@ namespace czh::renderer
     else
     {
       return {
-          .pos = p,
           .status = map::Status::END,
           .tank_id = -1,
           .text = ""
@@ -101,11 +118,13 @@ namespace czh::renderer
   MapView extract_map(const map::Zone &zone)
   {
     MapView ret;
+    ret.seed = g::seed;
     for (int i = zone.x_min; i < zone.x_max; ++i)
     {
       for (int j = zone.y_min; j < zone.y_max; ++j)
       {
-        ret.view.insert(std::make_pair(map::Pos{i, j}, extract_point({i, j})));
+        if(!g::game_map.at(i, j).is_generated())
+          ret.view.insert(std::make_pair(map::Pos{i, j}, extract_point({i, j})));
       }
     }
     return ret;
@@ -129,12 +148,13 @@ namespace czh::renderer
     return view;
   }
   
-  std::optional<TankView> view_id_at(const Frame& f, size_t id)
+  std::optional<TankView> view_id_at(size_t id)
   {
-    auto it = f.tanks.find(id);
-    if(it == f.tanks.end()) return std::nullopt;
+    auto it = g::frame.tanks.find(id);
+    if (it == g::frame.tanks.end()) return std::nullopt;
     return it->second;
   }
+  
   std::string colorify_text(int id, std::string str)
   {
     std::string ret = "\033[0;";
@@ -154,17 +174,17 @@ namespace czh::renderer
     return ret;
   }
   
-  void update_point(const Frame& f, const map::Pos &pos)
+  void update_point(const map::Pos &pos)
   {
     term::move_cursor({static_cast<size_t>((pos.x - g::render_zone.x_min) * 2),
                        static_cast<size_t>(g::render_zone.y_max - pos.y - 1)});
-    switch (f.map.at(pos).status)
+    switch (g::frame.map.at(pos).status)
     {
       case map::Status::TANK:
-        term::output(colorify_tank(f.map.at(pos).tank_id, "  "));
+        term::output(colorify_tank(g::frame.map.at(pos).tank_id, "  "));
         break;
       case map::Status::BULLET:
-        term::output(colorify_text(f.map.at(pos).tank_id,f.map.at(pos).text));
+        term::output(colorify_text(g::frame.map.at(pos).tank_id, g::frame.map.at(pos).text));
         break;
       case map::Status::WALL:
         term::output("\033[0;41;37m  \033[0m");
@@ -176,42 +196,45 @@ namespace czh::renderer
     term::output("\033[?25l");
   }
   
-  bool check_zone_size(const map::Zone& z)
+  bool check_zone_size(const map::Zone &z)
   {
     size_t h = z.y_max - z.y_min;
     size_t w = z.x_max - z.x_min;
-    if(h != g::screen_height - 2) return false;
-    if(g::screen_width % 2 == 0)
+    if (h != g::screen_height - 2) return false;
+    if (g::screen_width % 2 == 0)
     {
-      if(g::screen_width != w * 2) return false;
+      if (g::screen_width != w * 2) return false;
     }
     else
     {
-      if(g::screen_width - 1 != w * 2) return false;
+      if (g::screen_width - 1 != w * 2) return false;
     }
     return true;
   }
   
   // [X min, X max)   [Y min, Y max)
-  map::Zone get_visible_zone(const Frame& f, size_t id)
+  map::Zone get_visible_zone(size_t w, size_t h, size_t id)
   {
-    auto pos = view_id_at(f, id)->pos;
+    auto pos = view_id_at(id)->pos;
     map::Zone ret;
-    int offset_x = (int) g::screen_width / 4;
+    int offset_x = (int) h / 4;
     ret.x_min = pos.x - offset_x;
-    ret.x_max = (int) g::screen_width / 2 + ret.x_min;
+    ret.x_max = (int) w/ 2 + ret.x_min;
     
-    int offset_y = (int) g::screen_height / 2;
+    int offset_y = (int) h / 2;
     ret.y_min = pos.y - offset_y;
-    ret.y_max = (int) g::screen_height - 2 + ret.y_min;
-    
+    ret.y_max = (int) h - 2 + ret.y_min;
+    return ret;
+  }
+  map::Zone get_visible_zone(size_t id)
+  {
+    auto ret = get_visible_zone(g::screen_width, g::screen_height, id);
     utils::tank_assert(check_zone_size(ret));
-    
     return ret;
   }
   
   
-  std::set<map::Pos> get_render_changes(const Frame& f, const map::Direction& move)
+  std::set<map::Pos> get_render_changes(const map::Direction &move)
   {
     std::set<map::Pos> ret;
     // When the render zone moves, every point in the screen doesn't move, but its corresponding pos map_changes.
@@ -219,11 +242,6 @@ namespace czh::renderer
     // 1.  if there's no difference in the two point in the moving direction, ignore.
     // 2.  move the map's map_changes to its corresponding screen position.
     auto zone = g::render_zone.bigger_zone(2);
-    auto& map_changes = f.changes;
-    zone.x_min--;
-    zone.x_max++;
-    zone.y_min--;
-    zone.y_max++;
     switch (move)
     {
       case map::Direction::UP:
@@ -231,17 +249,19 @@ namespace czh::renderer
         {
           for (int j = g::render_zone.y_min - 1; j < g::render_zone.y_max + 1; j++)
           {
-            if (!f.map.at(i, j + 1).is_empty() || !f.map.at(i, j).is_empty())
+            if (!g::frame.map.at(i, j + 1).is_empty() || !g::frame.map.at(i, j).is_empty())
             {
               ret.insert(map::Pos(i, j));
               ret.insert(map::Pos(i, j + 1));
             }
           }
         }
-        for (auto &p: map_changes)
+        for (auto &p: g::frame.changes)
         {
           if (zone.contains(p))
+          {
             ret.insert(map::Pos{p.x, p.y + 1});
+          }
         }
         break;
       case map::Direction::DOWN:
@@ -249,17 +269,19 @@ namespace czh::renderer
         {
           for (int j = g::render_zone.y_min - 1; j < g::render_zone.y_max + 1; j++)
           {
-            if (!f.map.at(i, j - 1).is_empty() || !f.map.at(i, j).is_empty())
+            if (!g::frame.map.at(i, j - 1).is_empty() || !g::frame.map.at(i, j).is_empty())
             {
               ret.insert(map::Pos(i, j));
               ret.insert(map::Pos(i, j - 1));
             }
           }
         }
-        for (auto &p: map_changes)
+        for (auto &p: g::frame.changes)
         {
           if (zone.contains(p))
+          {
             ret.insert(map::Pos{p.x, p.y - 1});
+          }
         }
         break;
       case map::Direction::LEFT:
@@ -267,17 +289,19 @@ namespace czh::renderer
         {
           for (int j = g::render_zone.y_min; j < g::render_zone.y_max; j++)
           {
-            if (!f.map.at(i - 1, j).is_empty() || !f.map.at(i, j).is_empty())
+            if (!g::frame.map.at(i - 1, j).is_empty() || !g::frame.map.at(i, j).is_empty())
             {
               ret.insert(map::Pos(i, j));
               ret.insert(map::Pos(i - 1, j));
             }
           }
         }
-        for (auto &p: map_changes)
+        for (auto &p: g::frame.changes)
         {
           if (zone.contains(p))
+          {
             ret.insert(map::Pos{p.x - 1, p.y});
+          }
         }
         break;
       case map::Direction::RIGHT:
@@ -285,31 +309,36 @@ namespace czh::renderer
         {
           for (int j = g::render_zone.y_min; j < g::render_zone.y_max; j++)
           {
-            if (!f.map.at(i + 1, j).is_empty() || !f.map.at(i, j).is_empty())
+            if (!g::frame.map.at(i + 1, j).is_empty() || !g::frame.map.at(i, j).is_empty())
             {
               ret.insert(map::Pos(i, j));
               ret.insert(map::Pos(i + 1, j));
             }
           }
         }
-        for (auto &p: map_changes)
+        for (auto &p: g::frame.changes)
         {
           if (zone.contains(p))
+          {
             ret.insert(map::Pos{p.x + 1, p.y});
+          }
         }
         break;
       case map::Direction::END:
-        for (auto &p: map_changes)
+        for (auto &p: g::frame.changes)
         {
           if (zone.contains(p))
+          {
             ret.insert(p);
+          }
         }
         break;
     }
+    g::frame.changes.clear();
     return ret;
   }
   
-  void next_zone(const map::Direction& direction)
+  void next_zone(const map::Direction &direction)
   {
     switch (direction)
     {
@@ -334,9 +363,9 @@ namespace czh::renderer
     }
   }
   
-  bool out_of_zone(const Frame& f, size_t id)
+  bool out_of_zone(size_t id)
   {
-    auto pos = view_id_at(f, id)->pos;
+    auto pos = view_id_at(id)->pos;
     return
         ((g::render_zone.x_min + 5 > pos.x)
          || (g::render_zone.x_max - 5 <= pos.x)
@@ -344,9 +373,9 @@ namespace czh::renderer
          || (g::render_zone.y_max - 5 <= pos.y));
   }
   
-  bool completely_out_of_zone(const Frame& f, size_t id)
+  bool completely_out_of_zone(size_t id)
   {
-    auto pos = view_id_at(f, id)->pos;
+    auto pos = view_id_at(id)->pos;
     return
         ((g::render_zone.x_min > pos.x)
          || (g::render_zone.x_max <= pos.x)
@@ -354,38 +383,65 @@ namespace czh::renderer
          || (g::render_zone.y_max <= pos.y));
   }
   
-  std::optional<Frame> get_frame()
+  int update_frame()
   {
     if (g::game_mode == czh::game::GameMode::SERVER || g::game_mode == czh::game::GameMode::NATIVE)
     {
-      Frame frame{
-          .map = extract_map(g::render_zone.bigger_zone(10)),
-          .tanks = extract_tanks(),
-          .changes = g::userdata[g::user_id].map_changes,
-          .zone = g::render_zone.bigger_zone(10)
-      };
+      g::frame.map = extract_map(g::render_zone.bigger_zone(10));
+      g::frame.tanks = extract_tanks();
+      g::frame.changes = g::userdata[g::user_id].map_changes;
       g::userdata[g::user_id].map_changes.clear();
-      return frame;
+      return 0;
     }
     else
     {
-      auto [ret, frame] = g::online_client.update();
+      int ret = g::online_client.update();
       if (ret == 0)
       {
         g::client_failed_attempts = 0;
-        return frame;
+        return 0;
       }
       else
       {
         g::client_failed_attempts++;
         g::output_inited = false;
-        return std::nullopt;
+        return -1;
       }
     }
-    return std::nullopt;
+    return -1;
   }
   
-  void render(Frame f)
+  void render_msg()
+  {
+    auto now = std::chrono::steady_clock::now();
+    auto d2 = std::chrono::duration_cast<std::chrono::milliseconds>(now - g::last_message_displayed);
+    if (d2 > g::message_displaying_time)
+    {
+      if (!g::userdata[g::user_id].messages.empty())
+      {
+        term::move_cursor(term::TermPos(0, g::screen_height - 1));
+        auto msg = g::userdata[g::user_id].messages.front();
+        g::userdata[g::user_id].messages.pop_front();
+        std::string str = ((msg.from == -1) ? "" : std::to_string(msg.from) + ": ") + msg.content;
+        int a2 = g::screen_width - str.size();
+        if (a2 > 0)
+        {
+          term::output(str + std::string(a2, ' '));
+        }
+        else
+        {
+          term::output(str.substr(0, g::screen_width));
+        }
+        g::last_message_displayed = now;
+      }
+      else
+      {
+        term::output(std::string(g::screen_width, ' '));
+      }
+    }
+  }
+  
+  void render()
   {
     std::lock_guard<std::mutex> l(g::mainloop_mtx);
     if (g::screen_height != term::get_height() || g::screen_width != term::get_width())
@@ -402,47 +458,45 @@ namespace czh::renderer
       {
         // check focus
         size_t focus = g::tank_focus;
-        if (auto t = view_id_at(f, focus); t == std::nullopt || !t->is_alive)
+        if (auto t = view_id_at(focus); t == std::nullopt || !t->is_alive)
         {
           focus = 0;
-          t = view_id_at(f, focus);
+          t = view_id_at(focus);
           while (t == std::nullopt || !t->is_alive)
           {
             ++focus;
-            if (focus >= f.tanks.size())
+            if (focus >= g::frame.tanks.size())
             {
               focus = g::tank_focus;
               break;
             }
-            t = view_id_at(f, focus);
+            t = view_id_at(focus);
           }
         }
         
         // check zone
-        if(!check_zone_size(g::render_zone))
+        if (!check_zone_size(g::render_zone))
         {
-          g::render_zone = get_visible_zone(f, g::tank_focus);
+          g::render_zone = get_visible_zone(g::tank_focus);
           g::output_inited = false;
           return;
         }
         
         auto move = map::Direction::END;
         
-        if(out_of_zone(f, focus))
+        
+        if (out_of_zone(focus))
         {
-          if (completely_out_of_zone(f, focus))
+          if (completely_out_of_zone(focus))
           {
-            g::render_zone = get_visible_zone(f, focus);
+            g::render_zone = get_visible_zone(focus);
             g::output_inited = false;
-            auto r = get_frame();
-            if (r.has_value())
-              f = *r;
-            else
-              return;
+            int r = update_frame();
+            if (r != 0) return;
           }
           else
           {
-            move = view_id_at(f, focus)->direction;
+            move = view_id_at(focus)->direction;
             next_zone(move);
           }
         }
@@ -456,155 +510,139 @@ namespace czh::renderer
           {
             for (int i = g::render_zone.x_min; i < g::render_zone.x_max; i++)
             {
-              update_point(f, map::Pos(i, j));
+              update_point(map::Pos(i, j));
             }
           }
           g::output_inited = true;
         }
         else
         {
-          auto changes = get_render_changes(f, move);
+          auto changes = get_render_changes(move);
           for (auto &p: changes)
           {
             if (g::render_zone.contains(p))
-              update_point(f, p);
+            {
+              update_point(p);
+            }
           }
         }
         
-        auto now  = std::chrono::steady_clock::now();
+        auto now = std::chrono::steady_clock::now();
         auto d = std::chrono::duration_cast<std::chrono::milliseconds>(now - g::last_render);
         g::fps = (g::fps + 0.1 * (1.0 / (static_cast<double>(d.count()) / 1000.0))) / 1.1;
         g::last_render = now;
         
         // status bar
-        auto& focus_tank = f.tanks[focus];
+        auto &focus_tank = g::frame.tanks[focus];
         term::move_cursor(term::TermPos(0, g::screen_height - 2));
         std::string left = colorify_text(focus_tank.info.id, focus_tank.info.name)
-            + " HP: " + std::to_string(focus_tank.hp)  + "/" + std::to_string(focus_tank.info.max_hp)
-            + " Pos: (" + std::to_string(focus_tank.pos.x) + ", " + std::to_string(focus_tank.pos.y) + ")";
+                           + " HP: " + std::to_string(focus_tank.hp) + "/" + std::to_string(focus_tank.info.max_hp)
+                           + " Pos: (" + std::to_string(focus_tank.pos.x) + ", " + std::to_string(focus_tank.pos.y) +
+                           ")";
         std::string right = std::to_string(g::fps) + "fps "
-            + (g::delay == -1 ? "-" : std::to_string(g::delay)) + "ms";
+                            + (g::delay == -1 ? "-" : std::to_string(g::delay)) + "ms";
         int a = g::screen_width - left.size() - right.size();
         if (a > 0)
         {
           term::output(left + std::string(a, ' ') + right);
         }
         else
-          term::output((left + right).substr(0, g::screen_width));
-        
-        // msg
-        auto d2 = std::chrono::duration_cast<std::chrono::milliseconds>(now - g::last_message_displayed);
-        if (d2 > g::message_displaying_time)
         {
-          if(!g::userdata[g::user_id].messages.empty())
-          {
-            term::move_cursor(term::TermPos(0, g::screen_height - 1));
-            auto msg = g::userdata[g::user_id].messages.front();
-            g::userdata[g::user_id].messages.pop_front();
-            std::string str = ((msg.from == -1) ? "" : std::to_string(msg.from) + ": ") + msg.content;
-            int a2 = g::screen_width - str.size();
-            if (a2 > 0)
-            {
-              term::output(str + std::string(a2, ' '));
-            }
-            else
-            {
-              term::output(str.substr(0, g::screen_width));
-            }
-            g::last_message_displayed = now;
-          }
-          else
-            term::output(std::string(g::screen_width, ' '));
+          term::output((left + right).substr(0, g::screen_width));
         }
+        
+        render_msg();
       }
         break;
       case game::Page::TANK_STATUS:
-        if (!g::output_inited)
+      {
+        term::clear();
+        std::size_t cursor_y = 0;
+        term::mvoutput({g::screen_width / 2 - 10, cursor_y++}, "Tank");
+        size_t gap = 2;
+        size_t id_x = gap;
+        size_t name_x = id_x + gap + std::to_string((*std::max_element(g::frame.tanks.begin(), g::frame.tanks.end(),
+                                                                       [](auto &&a, auto &&b)
+                                                                       {
+                                                                         return a.second.info.id <
+                                                                                b.second.info.id;
+                                                                       })).second.info.id).size();
+        auto pos_size = [](const map::Pos &p)
         {
-          term::clear();
-          std::size_t cursor_y = 0;
-          term::mvoutput({g::screen_width / 2 - 10, cursor_y++}, "Tank");
-          size_t gap = 2;
-          size_t id_x = gap;
-          size_t name_x = id_x + gap + std::to_string((*std::max_element(f.tanks.begin(), f.tanks.end(),
-                                                                         [](auto &&a, auto &&b)
-                                                                         {
-                                                                           return a.second.info.id <
-                                                                                  b.second.info.id;
-                                                                         })).second.info.id).size();
-          auto pos_size = [](const map::Pos &p)
-          {
-            return std::to_string(p.x).size() + std::to_string(p.y).size() + 3;
-          };
-          size_t pos_x = name_x + gap + (*std::max_element(f.tanks.begin(), f.tanks.end(),
+          return std::to_string(p.x).size() + std::to_string(p.y).size() + 3;
+        };
+        size_t pos_x = name_x + gap + (*std::max_element(g::frame.tanks.begin(), g::frame.tanks.end(),
+                                                         [](auto &&a, auto &&b)
+                                                         {
+                                                           return a.second.info.name.size() <
+                                                                  b.second.info.name.size();
+                                                         })).second.info.name.size();
+        size_t hp_x = pos_x + gap + pos_size((*std::max_element(g::frame.tanks.begin(), g::frame.tanks.end(),
+                                                                [&pos_size](auto &&a, auto &&b)
+                                                                {
+                                                                  return pos_size(a.second.pos) <
+                                                                         pos_size(b.second.pos);
+                                                                }
+        )).second.pos);
+        
+        size_t lethality_x =
+            hp_x + gap + std::to_string((*std::max_element(g::frame.tanks.begin(), g::frame.tanks.end(),
                                                            [](auto &&a, auto &&b)
                                                            {
-                                                             return a.second.info.name.size() <
-                                                                    b.second.info.name.size();
-                                                           })).second.info.name.size();
-          size_t hp_x = pos_x + gap + pos_size((*std::max_element(f.tanks.begin(), f.tanks.end(),
-                                                                  [&pos_size](auto &&a, auto &&b)
+                                                             return a.second.hp <
+                                                                    b.second.hp;
+                                                           })).second.hp).size();
+        
+        size_t auto_tank_gap_x =
+            lethality_x + gap + std::to_string((*std::max_element(g::frame.tanks.begin(), g::frame.tanks.end(),
+                                                                  [](auto &&a, auto &&b)
                                                                   {
-                                                                    return pos_size(a.second.pos) <
-                                                                           pos_size(b.second.pos);
-                                                                  }
-          )).second.pos);
-          
-          size_t lethality_x =
-              hp_x + gap + std::to_string((*std::max_element(f.tanks.begin(), f.tanks.end(),
-                                                             [](auto &&a, auto &&b)
-                                                             {
-                                                               return a.second.hp <
-                                                                      b.second.hp;
-                                                             })).second.hp).size();
-          
-          size_t auto_tank_gap_x =
-              lethality_x + gap + std::to_string((*std::max_element(f.tanks.begin(), f.tanks.end(),
-                                                                    [](auto &&a, auto &&b)
-                                                                    {
-                                                                      return
-                                                                          a.second.info.bullet.lethality
-                                                                          <
-                                                                          b.second.info.bullet.lethality;
-                                                                    })).second.info.bullet.lethality).size();
-          
-          
-          term::mvoutput({id_x, cursor_y}, "ID");
-          term::mvoutput({name_x, cursor_y}, "Name");
-          term::mvoutput({pos_x, cursor_y}, "Pos");
-          term::mvoutput({hp_x, cursor_y}, "HP");
-          term::mvoutput({lethality_x, cursor_y}, "ATK");
-          term::mvoutput({auto_tank_gap_x, cursor_y}, "Gap");
-          cursor_y++;
-          for (auto it = f.tanks.begin(); it != f.tanks.end(); ++it)
+                                                                    return
+                                                                        a.second.info.bullet.lethality
+                                                                        <
+                                                                        b.second.info.bullet.lethality;
+                                                                  })).second.info.bullet.lethality).size();
+        
+        
+        term::mvoutput({id_x, cursor_y}, "ID");
+        term::mvoutput({name_x, cursor_y}, "Name");
+        term::mvoutput({pos_x, cursor_y}, "Pos");
+        term::mvoutput({hp_x, cursor_y}, "HP");
+        term::mvoutput({lethality_x, cursor_y}, "ATK");
+        term::mvoutput({auto_tank_gap_x, cursor_y}, "Gap");
+        cursor_y++;
+        for (auto it = g::frame.tanks.begin(); it != g::frame.tanks.end(); ++it)
+        {
+          auto tank = it->second;
+          std::string x = std::to_string(tank.pos.x);
+          std::string y = std::to_string(tank.pos.y);
+          term::mvoutput({id_x, cursor_y}, std::to_string(tank.info.id));
+          term::mvoutput({name_x, cursor_y}, colorify_text(tank.info.id, tank.info.name));
+          term::mvoutput({pos_x, cursor_y}, "(" + x + "," + y + ")");
+          term::mvoutput({hp_x, cursor_y}, std::to_string(tank.hp));
+          term::mvoutput({lethality_x, cursor_y}, std::to_string(tank.info.bullet.lethality));
+          if (tank.is_auto)
           {
-            auto tank = it->second;
-            std::string x = std::to_string(tank.pos.x);
-            std::string y = std::to_string(tank.pos.y);
-            term::mvoutput({id_x, cursor_y}, std::to_string(tank.info.id));
-            term::mvoutput({name_x, cursor_y}, colorify_text(tank.info.id, tank.info.name));
-            term::mvoutput({pos_x, cursor_y}, "(" + x + "," + y + ")");
-            term::mvoutput({hp_x, cursor_y}, std::to_string(tank.hp));
-            term::mvoutput({lethality_x, cursor_y}, std::to_string(tank.info.bullet.lethality));
-            if(tank.is_auto)
-              term::mvoutput({auto_tank_gap_x, cursor_y}, std::to_string(tank.info.gap));
-            else
-              term::mvoutput({auto_tank_gap_x, cursor_y}, "-");
-              
-            cursor_y++;
-            if (cursor_y == g::screen_height - 1)
-            {
-              size_t offset = pos_x - name_x;
-              id_x += offset;
-              name_x += offset;
-              pos_x += offset;
-              hp_x += offset;
-              lethality_x += offset;
-              cursor_y = 1;
-            }
+            term::mvoutput({auto_tank_gap_x, cursor_y}, std::to_string(tank.info.gap));
           }
-          g::output_inited = true;
+          else
+          {
+            term::mvoutput({auto_tank_gap_x, cursor_y}, "-");
+          }
+          
+          cursor_y++;
+          if (cursor_y == g::screen_height - 1)
+          {
+            size_t offset = pos_x - name_x;
+            id_x += offset;
+            name_x += offset;
+            pos_x += offset;
+            hp_x += offset;
+            lethality_x += offset;
+            cursor_y = 1;
+          }
         }
+      }
         break;
       case game::Page::MAIN:
       {

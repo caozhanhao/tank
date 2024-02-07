@@ -232,17 +232,9 @@ namespace czh::map
     return at(pos).count(status);
   }
   
-  const Point &Map::at(int x, int y) const
-  {
-    return at(Pos(x, y));
-  }
   
-  const Point &Map::at(const Pos &i) const
+  const Point & generate(const Pos& i, size_t seed)
   {
-    if (map.find(i) != map.end())
-    {
-      return map.at(i);
-    }
 
 //    srand(i.x * i.y * i.x * i.y);
 //    if (rand() % 50 == 1)
@@ -254,10 +246,29 @@ namespace czh::map
     
     if (auto a = i.x * i.y * i.x * i.y; a != 0)
     {
-      if (auto b = g::seed % a; b % 50 == 1)
+      if (auto b = seed % a; b % 50 == 1)
         return g::wall_point;
     }
     return g::empty_point;
+  }
+  
+  const Point & generate(int x, int y, size_t seed)
+  {
+    return generate(Pos(x, y), seed);
+  }
+  
+  const Point &Map::at(int x, int y) const
+  {
+    return at(Pos(x, y));
+  }
+  
+  const Point &Map::at(const Pos &i) const
+  {
+    if (map.find(i) != map.end())
+    {
+      return map.at(i);
+    }
+    return generate(i, g::seed);
   }
   
   int Map::fill(const Zone &zone, const Status &status)

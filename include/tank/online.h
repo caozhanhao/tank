@@ -59,11 +59,11 @@ namespace czh::online
     constexpr char zo = '^'; // Zone
     constexpr char c = '&'; // Change
     constexpr char cs = '*'; // Changes
-    constexpr char m = '{'; // MsgHeader
+    constexpr char m = '{'; // Msg
     constexpr char ms = '}'; // Msgs
   }
   
-  constexpr int MAGIC = 0x18273645;
+  constexpr int HEADER_MAGIC = 0x18273645;
   
 #ifdef _WIN32
   WSADATA wsa_data;
@@ -109,7 +109,6 @@ namespace czh::online
   struct MsgHeader
   {
     uint32_t magic;
-    uint32_t id;
     uint32_t content_length;
   };
   
@@ -131,6 +130,10 @@ namespace czh::online
     Addr(int port);
     
     std::string to_string() const;
+    
+    int port() const;
+    
+    std::string ip() const;
   };
 
 
@@ -140,30 +143,54 @@ namespace czh::online
   using Socket_t = int;
 #endif
   
-  class SocketHandle
+//  class UDPSocket
+//  {
+//  private:
+//    Socket_t fd;
+//    Addr addr;
+//  public:
+//    UDPSocket();
+//
+//    UDPSocket(const UDPSocket &) = delete;
+//
+//    ~UDPSocket();
+//
+//    Socket_t release();
+//
+//    int send(Addr to, const std::string &str) const;
+//
+//    std::optional<std::tuple<Addr, std::string>>  recv() const;
+//
+//    int bind(Addr addr) const;
+//
+//    std::optional<Addr> get_peer_addr() const;
+//
+//  };
+  
+  class TCPSocket
   {
   private:
     Socket_t fd;
   public:
-    SocketHandle();
+    TCPSocket();
     
-    SocketHandle(Socket_t fd_);
+    TCPSocket(Socket_t fd_);
     
-    SocketHandle(const SocketHandle &) = delete;
+    TCPSocket(const TCPSocket &) = delete;
     
-    SocketHandle(SocketHandle &&soc) noexcept;
+    TCPSocket(TCPSocket &&soc) noexcept;
     
-    ~SocketHandle();
+    ~TCPSocket();
     
-    std::tuple<SocketHandle, Addr> accept() const;
+    std::tuple<TCPSocket, Addr> accept() const;
     
     Socket_t get_fd() const;
     
     Socket_t release();
     
-    int send(const std::string &str, uint32_t id = 0) const;
+    int send(const std::string &str) const;
     
-    std::optional<std::tuple<MsgHeader, std::string>> recv(uint32_t id = 0) const;
+    std::optional<std::string> recv() const;
     
     int bind(Addr addr) const;
     
@@ -174,18 +201,17 @@ namespace czh::online
     std::optional<Addr> get_peer_addr() const;
     
     void reset();
-    
   };
   
   class Req
   {
   private:
-    std::string ip;
+    Addr addr;
     std::string content;
   public:
-    Req(std::string ip_, std::string content_);
+    Req(Addr addr_, std::string content_);
     
-    const auto& get_ip() const ;
+    const Addr& get_addr() const ;
     
     const auto& get_content() const;
   };
@@ -202,28 +228,28 @@ namespace czh::online
     const auto& get_content() const ;
   };
   
-  class SocketServer
+  class TCPServer
   {
   private:
     bool running;
     std::function<void(const Req &, Res &)> router;
     Thpool thpool;
   public:
-    SocketServer();
-    SocketServer(const std::function<void(const Req &, Res &)> &router_);
+    TCPServer();
+    TCPServer(const std::function<void(const Req &, Res &)> &router_);
     void init(const std::function<void(const Req &, Res &)> &router_);
     
     void start(int port);
     void stop();
   };
   
-  class SocketClient
+  class TCPClient
   {
   private:
-    SocketHandle socket;
+    TCPSocket socket;
   public:
-    SocketClient() =default;
-    ~SocketClient();
+    TCPClient() =default;
+    ~TCPClient();
     
     int connect(const std::string &addr, int port);
     
@@ -239,9 +265,12 @@ namespace czh::online
   class TankServer
   {
   private:
-    SocketServer svr;
+    TCPServer* svr;
+    //UDPSocket* udp;
   public:
-    TankServer();
+    TankServer() = default;
+    ~TankServer();
+    void init();
     void start(int port);
     void stop();
   };
@@ -251,13 +280,16 @@ namespace czh::online
   private:
     std::string host;
     int port;
-    SocketClient cli;
+    TCPClient* cli;
+    //UDPSocket* udp;
   public:
     TankClient() = default;
+    ~TankClient();
+    void init();
     std::optional<size_t> connect(const std::string &addr_, int port_);
     void disconnect();
     int tank_react(tank::NormalTankEvent e);
-    std::tuple<int, renderer::Frame> update();
+    int update();
     
     int add_auto_tank(size_t l);
     

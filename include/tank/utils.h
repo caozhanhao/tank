@@ -142,5 +142,8 @@ namespace czh::utils
   {
     return join(delim, std::forward<Args>(args)...);
   }
+  
+  bool begin_with(const std::string &a, const std::string &b);
+  
 }
 #endif

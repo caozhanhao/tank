@@ -162,7 +162,8 @@ namespace czh::map
   
   extern Point empty_point;
   extern Point wall_point;
-  
+  const Point & generate(const Pos& i, size_t seed);
+  const Point & generate(int x, int y, size_t seed);
   
   class Map
   {

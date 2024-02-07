@@ -15,12 +15,13 @@
 #define TANK_GLOBALS_H
 #pragma once
 
-#include "game.h"
 #include "game_map.h"
 #include "tank.h"
 #include "online.h"
 #include <functional>
 #include <string>
+#include <condition_variable>
+#include <atomic>
 #include <map>
 #include <mutex>
 #include <chrono>
@@ -28,9 +29,21 @@
 
 namespace czh::g
 {
+  struct UserData
+  {
+    size_t user_id;
+    std::set<map::Pos> map_changes;
+    std::deque<msg::Message> messages;
+    std::chrono::steady_clock::time_point last_update;
+    std::string ip;
+    int port;
+    size_t screen_width;
+    size_t screen_height;
+  };
+  
   // game.cpp
   extern game::GameMode game_mode;
-  extern std::map<size_t, game::UserData> userdata;
+  extern std::map<size_t, UserData> userdata;
   extern size_t user_id;
   extern int keyboard_mode;
   extern std::chrono::milliseconds tick;
@@ -56,8 +69,11 @@ namespace czh::g
   extern std::size_t screen_height;
   extern std::size_t screen_width;
   extern int fps;
+  extern renderer::Frame frame;
   extern std::chrono::steady_clock::time_point last_render;
   extern std::chrono::steady_clock::time_point last_message_displayed;
+  extern renderer::PointView empty_point_view;
+  extern renderer::PointView wall_point_view;
   
   // game_map.cpp
   extern size_t seed;
@@ -67,7 +83,7 @@ namespace czh::g
   // online.cpp
   extern online::TankServer online_server;
   extern online::TankClient online_client;
-  extern std::map<uint32_t, std::tuple<online::MsgHeader, std::string>> buffer;
+  extern std::mutex online_mtx;
   extern int client_failed_attempts;
   extern int delay; // ms
 }

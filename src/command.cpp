@@ -304,7 +304,7 @@ namespace czh::cmd
       if (args_is<int>(args))
       {
         std::tie(id) = args_get<int>(args);
-        if (game::id_at(id) == nullptr)
+        if (g::frame.tanks.find(id) == g::frame.tanks.end())
         {
           msg::error(user_id, "Invalid tank");
           return;
@@ -316,7 +316,7 @@ namespace czh::cmd
         return;
       }
       g::tank_focus = id;
-      msg::info(user_id, "Observing " + game::id_at(id)->get_name());
+      msg::info(user_id, "Observing " + g::frame.tanks[id].info.name);
     }
     else if (name == "kill")
     {
@@ -624,6 +624,7 @@ namespace czh::cmd
         }
         else
         {
+          g::online_server.init();
           g::online_server.start(port);
           g::game_mode = game::GameMode::SERVER;
           msg::info(user_id, "Server started at " + std::to_string(port));
@@ -672,13 +673,14 @@ namespace czh::cmd
       if (args_is<std::string, int>(args))
       {
         auto [ip, port] = args_get<std::string, int>(args);
+        g::online_client.init();
         auto try_connect = g::online_client.connect(ip, port);
         if(try_connect.has_value())
         {
           g::game_mode = game::GameMode::CLIENT;
           g::user_id = *try_connect;
           g::tank_focus = g::user_id;
-          g::userdata[g::user_id] = game::UserData{.user_id = g::user_id};
+          g::userdata[g::user_id] = g::UserData{.user_id = g::user_id};
           g::output_inited = false;
           msg::info(user_id, "Connected to " + ip + ":" + std::to_string(port) + " as " + std::to_string(g::user_id));
         }

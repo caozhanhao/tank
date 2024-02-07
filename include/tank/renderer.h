@@ -27,7 +27,6 @@ namespace czh::renderer
   
   struct PointView
   {
-    map::Pos pos;
     map::Status status;
     int tank_id;
     std::string text;
@@ -39,9 +38,11 @@ namespace czh::renderer
   struct MapView
   {
     std::map<map::Pos, PointView> view;
+    size_t seed;
     
     const PointView &at(const map::Pos &i) const;
     const PointView &at(int x, int y) const;
+    bool is_empty() const;
   };
   
   struct TankView
@@ -59,14 +60,17 @@ namespace czh::renderer
     MapView map;
     std::map<size_t, TankView> tanks;
     std::set<map::Pos> changes;
-    map::Zone zone;
   };
   
+  extern PointView empty_point_view;
+  extern PointView wall_point_view;
+  const PointView & generate(const map::Pos& i, size_t seed);
+  const PointView & generate(int x, int y, size_t seed);
   PointView extract_point(const map::Pos& pos);
   MapView extract_map(const map::Zone &zone);
   std::map<size_t, TankView> extract_tanks();
-  
-  std::optional<Frame> get_frame();
-  void render(Frame f);
+  map::Zone get_visible_zone(size_t w, size_t h, size_t id);
+  int update_frame();
+  void render();
 }
 #endif //TANK_RENDERER_H

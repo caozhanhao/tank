@@ -35,7 +35,7 @@ namespace czh::g
   int keyboard_mode = 0;
 #endif
   size_t user_id = 0;
-  std::map<size_t, game::UserData> userdata{{0, game::UserData{.user_id = 0}}};
+  std::map<size_t, UserData> userdata{{0, UserData{.user_id = 0}}};
   std::chrono::milliseconds tick(16);
   std::chrono::milliseconds message_displaying_time(2000);
   std::mutex mainloop_mtx;
