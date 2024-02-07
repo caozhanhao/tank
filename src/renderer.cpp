@@ -505,7 +505,9 @@ namespace czh::renderer
         
         auto now = std::chrono::steady_clock::now();
         auto d = std::chrono::duration_cast<std::chrono::milliseconds>(now - g::last_render);
-        g::fps = (g::fps + 0.1 * (1.0 / (static_cast<double>(d.count()) / 1000.0))) / 1.1;
+        double curr_fps = 1.0 / (static_cast<double>(d.count()) / 1000.0);
+        g::fps = static_cast<int>((static_cast<double>(g::fps) + 0.01 * curr_fps) / 1.01);
+        
         g::last_render = now;
         
         // status bar
