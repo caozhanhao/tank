@@ -195,11 +195,7 @@ namespace czh::online
 //
   TCPSocket::TCPSocket() : fd(-1)
   {
-    fd = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
-    utils::tank_assert(fd != -1, "socket initialize failed.");
-    int on = 1;
-    setsockopt(fd, SOL_SOCKET, SO_REUSEADDR, reinterpret_cast<char *>(&on), sizeof(on));
-    utils::tank_assert(fd != -1, "socket initialize failed.");
+    init();
   }
   
   TCPSocket::TCPSocket(Socket_t fd_) : fd(fd_) {}
@@ -327,9 +323,15 @@ namespace czh::online
   {
     if (fd != -1)
       ::close(fd);
+    init();
+  }
+  
+  void TCPSocket::init()
+  {
     fd = socket(AF_INET, SOCK_STREAM, IPPROTO_TCP);
     int on = 1;
     setsockopt(fd, SOL_SOCKET, SO_REUSEADDR, reinterpret_cast<char *>(&on), sizeof(on));
+    setsockopt(fd, IPPROTO_TCP, TCP_NODELAY, reinterpret_cast<char *>(&on), sizeof(on));
     utils::tank_assert(fd != -1, "socket reset failed.");
   }
   

@@ -26,7 +26,7 @@
 #else
 #include <unistd.h>
 #include <sys/types.h>
-
+#include <netinet/tcp.h>
 #include <sys/socket.h>
 #include <netinet/in.h>
 #include <arpa/inet.h>
@@ -201,6 +201,8 @@ namespace czh::online
     std::optional<Addr> get_peer_addr() const;
     
     void reset();
+    
+    void init();
   };
   
   class Req
