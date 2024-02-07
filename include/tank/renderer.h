@@ -19,6 +19,7 @@
 #include "game.h"
 
 #include <string>
+
 namespace czh::renderer
 {
   std::string colorify_text(int id, std::string str);
@@ -31,18 +32,21 @@ namespace czh::renderer
     int tank_id;
     std::string text;
     
-    bool is_empty() const;
+    [[nodiscard]] bool is_empty() const;
   };
   
   bool operator<(const PointView &c1, const PointView &c2);
+  
   struct MapView
   {
     std::map<map::Pos, PointView> view;
     size_t seed;
     
-    const PointView &at(const map::Pos &i) const;
-    const PointView &at(int x, int y) const;
-    bool is_empty() const;
+    [[nodiscard]] const PointView &at(const map::Pos &i) const;
+    
+    [[nodiscard]] const PointView &at(int x, int y) const;
+    
+    [[nodiscard]] bool is_empty() const;
   };
   
   struct TankView
@@ -64,13 +68,21 @@ namespace czh::renderer
   
   extern PointView empty_point_view;
   extern PointView wall_point_view;
-  const PointView & generate(const map::Pos& i, size_t seed);
-  const PointView & generate(int x, int y, size_t seed);
-  PointView extract_point(const map::Pos& pos);
+  
+  const PointView &generate(const map::Pos &i, size_t seed);
+  
+  const PointView &generate(int x, int y, size_t seed);
+  
+  PointView extract_point(const map::Pos &pos);
+  
   MapView extract_map(const map::Zone &zone);
+  
   std::map<size_t, TankView> extract_tanks();
+  
   map::Zone get_visible_zone(size_t w, size_t h, size_t id);
+  
   int update_frame();
+  
   void render();
 }
 #endif //TANK_RENDERER_H

@@ -19,7 +19,7 @@
 
 #if __has_include(<conio.h>) && __has_include(<windows.h>)
 #define CZH_TANK_KEYBOARD_MODE_0
-#include <windows.h>
+#include <Windows.h>
 #include <conio.h>
 #elif __has_include(<sys/ioctl.h>) && __has_include(<unistd.h>) && __has_include(<sys/select.h>) && __has_include(<termios.h>)
 #define CZH_TANK_KEYBOARD_MODE_1

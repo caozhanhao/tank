@@ -21,6 +21,7 @@
 #include <set>
 #include <list>
 #include <algorithm>
+#include <utility>
 #include <variant>
 #include <functional>
 
@@ -67,7 +68,7 @@ namespace czh::tank
     
     std::string &get_name();
     
-    const std::string &get_name() const;
+    [[nodiscard]] const std::string &get_name() const;
     
     [[nodiscard]]int get_hp() const;
     
@@ -109,9 +110,9 @@ namespace czh::tank
   
   public:
     NormalTank(info::TankInfo info_, map::Pos pos_)
-        : Tank(info_, pos_) {}
+        : Tank(std::move(info_), pos_) {}
     
-    virtual ~NormalTank() = default;
+    ~NormalTank() override = default;
   };
   
   AutoTankEvent get_pos_direction(const map::Pos &from, const map::Pos &to);
@@ -141,7 +142,7 @@ namespace czh::tank
     
     [[nodiscard]]bool is_root() const;
     
-    std::vector<Node> get_neighbors() const;
+    [[nodiscard]] std::vector<Node> get_neighbors() const;
   
   private:
     bool check(map::Pos &pos) const;
@@ -168,9 +169,9 @@ namespace czh::tank
     int gap_count;
   public:
     AutoTank(info::TankInfo info_, map::Pos pos_)
-        : Tank(info_, pos_), waypos(0), target_id(0), gap_count(0) {}
+        : Tank(std::move(info_), pos_), waypos(0), target_id(0), gap_count(0) {}
     
-    virtual ~AutoTank() = default;
+    ~AutoTank() override = default;
     
     void target(std::size_t target_id_, const map::Pos &target_pos_);
     

@@ -53,8 +53,6 @@ namespace czh::bullet
     
     void kill();
     
-    void attacked(int lethality_);
-    
     [[nodiscard]]const map::Pos &get_pos() const;
     
     map::Pos &get_pos();

@@ -14,10 +14,8 @@
 #include "tank/game.h"
 #include "tank/game_map.h"
 #include "tank/globals.h"
-#include "tank/info.h"
 #include "tank/utils.h"
 #include <vector>
-#include <stdexcept>
 
 namespace czh::g
 {
@@ -28,15 +26,19 @@ namespace czh::g
 
 namespace czh::map
 {
-  void add_changes(const Pos& p)
+  void add_changes(const Pos &p)
   {
-    for(auto& r : g::userdata)
+    for (auto &r: g::userdata)
+    {
       r.second.map_changes.insert(p);
+    }
   }
+  
   Zone Zone::bigger_zone(int i) const
   {
     return {x_min - i, x_max + i, y_min - i, y_max + i};
   }
+  
   bool Zone::contains(int i, int j) const
   {
     return (i >= x_min
@@ -153,7 +155,7 @@ namespace czh::map
     return std::abs(int(from.x - to.x)) + std::abs(int(from.y - to.y));
   }
   
-  Map::Map() {}
+  Map::Map() = default;
   
   int Map::tank_up(const Pos &pos)
   {
@@ -227,13 +229,13 @@ namespace czh::map
     return at(pos).has(status);
   }
   
-  int Map::count(const Status &status, const Pos &pos) const
+  size_t Map::count(const Status &status, const Pos &pos) const
   {
     return at(pos).count(status);
   }
   
   
-  const Point & generate(const Pos& i, size_t seed)
+  const Point &generate(const Pos &i, size_t seed)
   {
 
 //    srand(i.x * i.y * i.x * i.y);
@@ -247,12 +249,14 @@ namespace czh::map
     if (auto a = i.x * i.y * i.x * i.y; a != 0)
     {
       if (auto b = seed % a; b % 50 == 1)
+      {
         return g::wall_point;
+      }
     }
     return g::empty_point;
   }
   
-  const Point & generate(int x, int y, size_t seed)
+  const Point &generate(int x, int y, size_t seed)
   {
     return generate(Pos(x, y), seed);
   }
@@ -307,6 +311,8 @@ namespace czh::map
       case 3:
         new_pos.x++;
         break;
+      default:
+        break;
     }
     
     if (at(new_pos).has(Status::WALL)) return -1;
@@ -342,6 +348,8 @@ namespace czh::map
         break;
       case 3:
         new_pos.x++;
+        break;
+      default:
         break;
     }
     

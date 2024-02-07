@@ -25,13 +25,17 @@ namespace czh::msg
     if (to == -1)
     {
       for (auto &r: g::userdata)
+      {
         r.second.messages.push_back(msg);
+      }
     }
     else
     {
       auto t = g::userdata.find(to);
       if (t == g::userdata.end())
+      {
         return -1;
+      }
       t->second.messages.push_back(msg);
     }
     return 0;
@@ -55,5 +59,20 @@ namespace czh::msg
   void error(int id, const std::string &c)
   {
     log_helper(id, utils::red("[ERROR] "), c);
+  }
+  
+  void info(size_t id, const std::string &c)
+  {
+    log_helper(static_cast<int>(id), "[INFO] ", c);
+  }
+  
+  void warn(size_t id, const std::string &c)
+  {
+    log_helper(static_cast<int>(id), utils::yellow("[WARNING] "), c);
+  }
+  
+  void error(size_t id, const std::string &c)
+  {
+    log_helper(static_cast<int>(id), utils::red("[ERROR] "), c);
   }
 }

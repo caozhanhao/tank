@@ -50,9 +50,9 @@ namespace czh::game
   
   std::size_t add_auto_tank(std::size_t lvl);
   
-  std::size_t add_auto_tank(std::size_t lvl, const map::Pos& pos);
+  std::size_t add_auto_tank(std::size_t lvl, const map::Pos &pos);
   
-  std::size_t add_tank(const map::Pos& pos);
+  std::size_t add_tank(const map::Pos &pos);
   
   std::size_t add_tank();
   

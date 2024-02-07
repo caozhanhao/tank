@@ -72,7 +72,7 @@ namespace czh::utils
   }
   
   template<Container T>
-  T split(std::string_view str, std::string_view delims = " ")
+  T split(std::string_view str, std::string_view delims)
   {
     T ret;
     size_t first = 0;
@@ -115,30 +115,30 @@ namespace czh::utils
   
   template<typename T>
   requires (!std::is_same_v<std::string, std::decay_t<T>>) &&
-  (!std::is_same_v<const char*, std::decay_t<T>>)
+           (!std::is_same_v<const char *, std::decay_t<T>>)
   std::string to_str(T &&a)
   {
     return std::to_string(std::forward<T>(a));
   }
   
-  std::string to_str(const std::string& a);
+  std::string to_str(const std::string &a);
   
-  std::string to_str(const char*& a);
+  std::string to_str(const char *&a);
   
   template<typename T, typename ...Args>
-  std::string join(char, T&& arg)
+  std::string join(char, T &&arg)
   {
     return to_str(arg);
   }
   
   template<typename T, typename ...Args>
-  std::string join(char delim, T&& arg, Args&& ...args)
+  std::string join(char delim, T &&arg, Args &&...args)
   {
     return to_str(arg) + delim + join(delim, std::forward<Args>(args)...);
   }
   
   template<typename ...Args>
-  std::string join(char delim, Args&& ...args)
+  std::string join(char delim, Args &&...args)
   {
     return join(delim, std::forward<Args>(args)...);
   }
@@ -146,17 +146,15 @@ namespace czh::utils
   bool begin_with(const std::string &a, const std::string &b);
   
   
-  size_t escape_code_len(const std::string::const_iterator& beg, const std::string::const_iterator& end);
+  size_t escape_code_len(const std::string::const_iterator &beg, const std::string::const_iterator &end);
   
   size_t escape_code_len(const std::string &str);
   
   template<typename ...Args>
-  size_t escape_code_len(const std::string &str, Args&& ...args)
+  size_t escape_code_len(const std::string &str, Args &&...args)
   {
     return escape_code_len(str) + escape_code_len(std::forward<Args>(args)...);
   }
-  
-  size_t escape_code_len(const std::string::const_iterator& beg, const std::string::const_iterator& end);
   
   
   enum class Effect : std::size_t
@@ -168,18 +166,26 @@ namespace czh::utils
   };
   
   std::string effect(const std::string &str, Effect effect);
+  
   template<typename ...Args>
-  std::string effect(const std::string &str, Effect e, Args&& ...effects)
+  std::string effect(const std::string &str, Effect e, Args &&...effects)
   {
     if (str.empty()) return "";
     return effect(effect(str, e), effects...);
   }
+  
   std::string red(const std::string &str);
+  
   std::string green(const std::string &str);
+  
   std::string yellow(const std::string &str);
+  
   std::string blue(const std::string &str);
+  
   std::string magenta(const std::string &str);
+  
   std::string cyan(const std::string &str);
+  
   std::string white(const std::string &str);
 }
 #endif

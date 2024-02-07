@@ -104,7 +104,7 @@ namespace czh::map
     
     std::variant<NormalTankData, AutoTankData> data;
     
-    bool is_auto() const
+    [[nodiscard]] bool is_auto() const
     {
       return data.index() == 1;
     }
@@ -117,9 +117,11 @@ namespace czh::map
     int y_min;
     int y_max;
     
-    bool contains(int i, int j) const;
-    bool contains(const Pos& p) const;
-    Zone bigger_zone(int i) const;
+    [[nodiscard]] bool contains(int i, int j) const;
+    
+    [[nodiscard]] bool contains(const Pos &p) const;
+    
+    [[nodiscard]] Zone bigger_zone(int i) const;
   };
   
   class Map;
@@ -127,6 +129,7 @@ namespace czh::map
   class Point
   {
     friend class Map;
+  
   private:
     bool generated;
     bool temporary;
@@ -137,17 +140,17 @@ namespace czh::map
   public:
     Point() : generated(false), temporary(true) {}
     
-    Point(std::string, std::vector<Status> s) : generated(true), statuses(std::move(s)), temporary(true) {}
+    Point(const std::string &, std::vector<Status> s) : generated(true), statuses(std::move(s)), temporary(true) {}
     
-    bool is_generated() const;
+    [[nodiscard]] bool is_generated() const;
     
-    bool is_temporary() const;
+    [[nodiscard]] bool is_temporary() const;
     
-    bool is_empty() const;
+    [[nodiscard]] bool is_empty() const;
     
-    tank::Tank *get_tank() const;
+    [[nodiscard]] tank::Tank *get_tank() const;
     
-    const std::vector<bullet::Bullet *> &get_bullets() const;
+    [[nodiscard]] const std::vector<bullet::Bullet *> &get_bullets() const;
     
     void add_status(const Status &status, void *);
     
@@ -162,8 +165,10 @@ namespace czh::map
   
   extern Point empty_point;
   extern Point wall_point;
-  const Point & generate(const Pos& i, size_t seed);
-  const Point & generate(int x, int y, size_t seed);
+  
+  const Point &generate(const Pos &i, size_t seed);
+  
+  const Point &generate(int x, int y, size_t seed);
   
   class Map
   {
@@ -194,16 +199,16 @@ namespace czh::map
     
     void remove_status(const Status &status, const Pos &pos);
     
-    bool has(const Status &status, const Pos &pos) const;
+    [[nodiscard]] bool has(const Status &status, const Pos &pos) const;
     
-    int count(const Status &status, const Pos &pos) const;
+    [[nodiscard]] size_t count(const Status &status, const Pos &pos) const;
     
     int fill(const Zone &zone, const Status &status = Status::END);
     
-    const Point &at(const Pos &i) const;
+    [[nodiscard]] const Point &at(const Pos &i) const;
     
-    const Point &at(int x, int y) const;
-    
+    [[nodiscard]] const Point &at(int x, int y) const;
+  
   private:
     int tank_move(const Pos &pos, int direction);
     

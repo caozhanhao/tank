@@ -28,11 +28,11 @@ namespace czh::cmd
   {
     if (cmd.empty()) return {};
     auto it = cmd.begin() + 1; // skip '/'
-    auto skip_space = [&it, &cmd] { while (std::isspace(*it) && it < cmd.end()) ++it; };
+    auto skip_space = [&it, &cmd] { while (it < cmd.end() && std::isspace(*it)) ++it; };
     skip_space();
     
     std::string name;
-    while (!std::isspace(*it) && it < cmd.end())
+    while (it < cmd.end() && !std::isspace(*it))
     {
       name += *it++;
     }
@@ -43,7 +43,7 @@ namespace czh::cmd
       skip_space();
       std::string temp;
       bool is_int = true;
-      while (!std::isspace(*it) && it < cmd.end())
+      while (it < cmd.end() && !std::isspace(*it))
       {
         if (!std::isdigit(*it) && *it != '+' && *it != '-') is_int = false;
         temp += *it++;
@@ -62,10 +62,14 @@ namespace czh::cmd
           {
             stoi_success = false;
           }
-          if(stoi_success)
+          if (stoi_success)
+          {
             args.emplace_back(a);
+          }
           else
+          {
             args.emplace_back(temp);
+          }
         }
         else
         {
@@ -83,7 +87,7 @@ namespace czh::cmd
       msg::error(user_id, "Invalid arguments.");
     };
     g::curr_page = game::Page::GAME;
-    auto [name, args] = parse(str);
+    auto[name, args] = parse(str);
     if (g::game_mode == game::GameMode::CLIENT)
     {
       if (name == "fill" || name == "tp" || name == "kill" || name == "clear" || name == "summon"
@@ -125,9 +129,13 @@ namespace czh::cmd
         it = g::tanks.erase(it);
       }
       if (g::game_mode == game::GameMode::CLIENT)
+      {
         g::online_client.disconnect();
-      else if(g::game_mode == game::GameMode::SERVER)
+      }
+      else if (g::game_mode == game::GameMode::SERVER)
+      {
         g::online_server.stop();
+      }
       std::exit(0);
     }
     else if (name == "fill")
@@ -154,8 +162,8 @@ namespace czh::cmd
         return;
       }
       
-      map::Zone zone = {std::min(from_x, to_x), std::max(from_x, to_x) + 1,
-                        std::min(from_y, to_y), std::max(from_y, to_y) + 1};
+      map::Zone zone = {(std::min)(from_x, to_x), (std::max)(from_x, to_x) + 1,
+                        (std::min)(from_y, to_y), (std::max)(from_y, to_y) + 1};
       
       for (int i = zone.x_min; i < zone.x_max; ++i)
       {
@@ -164,21 +172,29 @@ namespace czh::cmd
           if (g::game_map.has(map::Status::TANK, {i, j}))
           {
             if (auto t = g::game_map.at(i, j).get_tank(); t != nullptr)
+            {
               t->kill();
+            }
           }
           else if (g::game_map.has(map::Status::BULLET, {i, j}))
           {
             auto bullets = g::game_map.at(i, j).get_bullets();
             for (auto &r: bullets)
+            {
               r->kill();
+            }
           }
           game::clear_death();
         }
       }
       if (is_wall)
+      {
         g::game_map.fill(zone, map::Status::WALL);
+      }
       else
+      {
         g::game_map.fill(zone);
+      }
       msg::info(user_id, "Filled from (" + std::to_string(from_x) + ","
                          + std::to_string(from_y) + ") to (" + std::to_string(to_x) + "," + std::to_string(to_y) +
                          ").");
@@ -324,13 +340,15 @@ namespace czh::cmd
       if (args_is<>(args))
       {
         for (auto &r: g::tanks)
+        {
           if (r.second->is_alive()) r.second->kill();
+        }
         game::clear_death();
         msg::info(user_id, "Killed all tanks.");
       }
       else if (args_is<int>(args))
       {
-        auto [id] = args_get<int>(args);
+        auto[id] = args_get<int>(args);
         if (game::id_at(id) == nullptr)
         {
           msg::error(user_id, "Invalid tank.");
@@ -355,12 +373,16 @@ namespace czh::cmd
         for (auto &r: g::bullets)
         {
           if (game::id_at(r->get_tank())->is_auto())
+          {
             r->kill();
+          }
         }
         for (auto &r: g::tanks)
         {
           if (r.second->is_auto())
+          {
             r.second->kill();
+          }
         }
         game::clear_death();
         for (auto it = g::tanks.begin(); it != g::tanks.end();)
@@ -379,7 +401,7 @@ namespace czh::cmd
       }
       else if (args_is<std::string>(args))
       {
-        auto [d] = args_get<std::string>(args);
+        auto[d] = args_get<std::string>(args);
         if (d == "death")
         {
           for (auto &r: g::bullets)
@@ -420,7 +442,7 @@ namespace czh::cmd
       }
       else if (args_is<int>(args))
       {
-        auto [id] = args_get<int>(args);
+        auto[id] = args_get<int>(args);
         if (game::id_at(id) == nullptr || id == 0)
         {
           msg::error(user_id, "Invalid tank.");
@@ -451,7 +473,7 @@ namespace czh::cmd
       std::lock_guard<std::mutex> l(g::mainloop_mtx);
       if (args_is<int, std::string, int>(args))
       {
-        auto [id, key, value] = args_get<int, std::string, int>(args);
+        auto[id, key, value] = args_get<int, std::string, int>(args);
         if (game::id_at(id) == nullptr)
         {
           msg::error(user_id, "Invalid tank");
@@ -497,7 +519,7 @@ namespace czh::cmd
       }
       else if (args_is<int, std::string, std::string>(args))
       {
-        auto [id, key, value] = args_get<int, std::string, std::string>(args);
+        auto[id, key, value] = args_get<int, std::string, std::string>(args);
         if (game::id_at(id) == nullptr)
         {
           msg::error(user_id, "Invalid tank");
@@ -518,7 +540,7 @@ namespace czh::cmd
       }
       else if (args_is<std::string, int>(args))
       {
-        auto [option, arg] = args_get<std::string, int>(args);
+        auto[option, arg] = args_get<std::string, int>(args);
         if (option == "tick")
         {
           if (arg > 0)
@@ -533,13 +555,13 @@ namespace czh::cmd
             return;
           }
         }
-        else if(option == "seed")
+        else if (option == "seed")
         {
           g::seed = arg;
           g::output_inited = false;
           msg::info(user_id, "Seed was set to " + std::to_string(arg) + ".");
         }
-        else if(option == "msg_ttl")
+        else if (option == "msg_ttl")
         {
           if (arg > 0)
           {
@@ -561,7 +583,7 @@ namespace czh::cmd
       }
       else if (args_is<int, std::string, std::string, int>(args))
       {
-        auto [id, bulletstr, key, value] = args_get<int, std::string, std::string, int>(args);
+        auto[id, bulletstr, key, value] = args_get<int, std::string, std::string, int>(args);
         if (game::id_at(id) == nullptr)
         {
           msg::error(user_id, "Invalid tank");
@@ -616,7 +638,7 @@ namespace czh::cmd
           msg::error(user_id, "Invalid request.");
           return;
         }
-        auto [s, port] = args_get<std::string, int>(args);
+        auto[s, port] = args_get<std::string, int>(args);
         if (s != "start")
         {
           msg::error(user_id, "Invalid server option.");
@@ -630,14 +652,14 @@ namespace czh::cmd
           msg::info(user_id, "Server started at " + std::to_string(port));
         }
       }
-      else if(args_is<std::string>(args))
+      else if (args_is<std::string>(args))
       {
         if (g::game_mode != game::GameMode::SERVER)
         {
           msg::error(user_id, "Invalid request.");
           return;
         }
-        auto [s] = args_get<std::string>(args);
+        auto[s] = args_get<std::string>(args);
         if (s != "stop")
         {
           msg::error(user_id, "Invalid server option.");
@@ -672,10 +694,10 @@ namespace czh::cmd
       }
       if (args_is<std::string, int>(args))
       {
-        auto [ip, port] = args_get<std::string, int>(args);
+        auto[ip, port] = args_get<std::string, int>(args);
         g::online_client.init();
         auto try_connect = g::online_client.connect(ip, port);
-        if(try_connect.has_value())
+        if (try_connect.has_value())
         {
           g::game_mode = game::GameMode::CLIENT;
           g::user_id = *try_connect;
@@ -713,20 +735,24 @@ namespace czh::cmd
         return;
       }
     }
-    else if(name == "tell")
+    else if (name == "tell")
     {
       if (args_is<int, std::string>(args))
       {
-        auto [id, msg] = args_get<int, std::string>(args);
+        auto[id, msg] = args_get<int, std::string>(args);
         int ret = msg::send_message(user_id, id, msg);
-        if(ret != 0)
+        if (ret != 0)
+        {
           msg::error(user_id, "Invalid user id.");
+        }
         else
+        {
           msg::info(user_id, "Message sent.");
+        }
       }
-      else if(args_is<std::string>(args))
+      else if (args_is<std::string>(args))
       {
-        auto [msg] = args_get<std::string>(args);
+        auto[msg] = args_get<std::string>(args);
         msg::send_message(user_id, -1, msg);
         msg::info(user_id, "Message sent.");
       }

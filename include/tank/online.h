@@ -21,9 +21,11 @@
 #include "utils.h"
 
 #ifdef _WIN32
-#include <winsock2.h>
+#include <WinSock2.h>
+#include <Windows.h>
 #pragma comment(lib, "ws2_32.lib")
 #else
+
 #include <unistd.h>
 #include <sys/types.h>
 #include <netinet/tcp.h>
@@ -45,6 +47,7 @@
 #include <future>
 #include <memory>
 #include <exception>
+#include <type_traits>
 
 namespace czh::online
 {
@@ -64,10 +67,9 @@ namespace czh::online
   }
   
   constexpr int HEADER_MAGIC = 0x18273645;
-  
+
 #ifdef _WIN32
-  WSADATA wsa_data;
-  [[maybe_unused]] int wsa_startup_err = WSAStartup(MAKEWORD(2,2),&wsa_data);
+  extern WSADATA wsa_data;
 #endif
   
   class Thpool
@@ -85,23 +87,7 @@ namespace czh::online
     
     ~Thpool();
     
-    template<typename Func, typename... Args>
-    auto add_task(Func &&f, Args &&... args)
-    -> std::future<typename std::result_of<Func(Args...)>::type>
-    {
-      utils::tank_assert(run, "Can not add task on stopped Thpool");
-      using ret_type = typename std::result_of<Func(Args...)>::type;
-      auto task = std::make_shared<std::packaged_task<ret_type() >>
-          (std::bind(std::forward<Func>(f),
-                     std::forward<Args>(args)...));
-      std::future<ret_type> ret = task->get_future();
-      {
-        std::lock_guard<std::mutex> lock(th_mutex);
-        tasks.emplace([task] { (*task)(); });
-      }
-      cond.notify_one();
-      return ret;
-    }
+    void add_task(const std::function<void()> &func);
     
     void add_thread(std::size_t num);
   };
@@ -127,13 +113,13 @@ namespace czh::online
     
     Addr(const std::string &ip, int port);
     
-    Addr(int port);
+    explicit Addr(int port);
     
-    std::string to_string() const;
+    [[nodiscard]] std::string to_string() const;
     
-    int port() const;
+    [[nodiscard]] int port() const;
     
-    std::string ip() const;
+    [[nodiscard]] std::string ip() const;
   };
 
 
@@ -142,7 +128,7 @@ namespace czh::online
 #else
   using Socket_t = int;
 #endif
-  
+
 //  class UDPSocket
 //  {
 //  private:
@@ -174,7 +160,7 @@ namespace czh::online
   public:
     TCPSocket();
     
-    TCPSocket(Socket_t fd_);
+    explicit TCPSocket(Socket_t fd_);
     
     TCPSocket(const TCPSocket &) = delete;
     
@@ -182,23 +168,23 @@ namespace czh::online
     
     ~TCPSocket();
     
-    std::tuple<TCPSocket, Addr> accept() const;
+    [[nodiscard]] std::tuple<TCPSocket, Addr> accept() const;
     
-    Socket_t get_fd() const;
+    [[nodiscard]] Socket_t get_fd() const;
     
     Socket_t release();
     
-    int send(const std::string &str) const;
+    [[nodiscard]] int send(const std::string &str) const;
     
-    std::optional<std::string> recv() const;
+    [[nodiscard]] std::optional<std::string> recv() const;
     
-    int bind(Addr addr) const;
+    [[nodiscard]] int bind(Addr addr) const;
     
-    int listen() const;
+    [[nodiscard]] int listen() const;
     
-    int connect(Addr addr) const;
+    [[nodiscard]] int connect(Addr addr) const;
     
-    std::optional<Addr> get_peer_addr() const;
+    [[nodiscard]] std::optional<Addr> get_peer_addr() const;
     
     void reset();
     
@@ -213,9 +199,9 @@ namespace czh::online
   public:
     Req(Addr addr_, std::string content_);
     
-    const Addr& get_addr() const ;
+    [[nodiscard]] const Addr &get_addr() const;
     
-    const auto& get_content() const;
+    [[nodiscard]] const auto &get_content() const;
   };
   
   class Res
@@ -225,9 +211,9 @@ namespace czh::online
   public:
     Res() = default;
     
-    void set_content(const std::string c) ;
+    void set_content(const std::string &c);
     
-    const auto& get_content() const ;
+    [[nodiscard]] const auto &get_content() const;
   };
   
   class TCPServer
@@ -238,10 +224,13 @@ namespace czh::online
     Thpool thpool;
   public:
     TCPServer();
-    TCPServer(const std::function<void(const Req &, Res &)> &router_);
+    
+    explicit TCPServer(std::function<void(const Req &, Res &)> router_);
+    
     void init(const std::function<void(const Req &, Res &)> &router_);
     
     void start(int port);
+    
     void stop();
   };
   
@@ -250,7 +239,8 @@ namespace czh::online
   private:
     TCPSocket socket;
   public:
-    TCPClient() =default;
+    TCPClient() = default;
+    
     ~TCPClient();
     
     int connect(const std::string &addr, int port);
@@ -258,7 +248,9 @@ namespace czh::online
     int disconnect();
     
     std::optional<std::string> send_and_recv(const std::string &str);
+    
     int send(const std::string &str);
+    
     std::optional<std::string> recv();
     
     void reset();
@@ -267,13 +259,17 @@ namespace czh::online
   class TankServer
   {
   private:
-    TCPServer* svr;
+    TCPServer *svr;
     //UDPSocket* udp;
   public:
     TankServer() = default;
+    
     ~TankServer();
+    
     void init();
+    
     void start(int port);
+    
     void stop();
   };
   
@@ -282,15 +278,21 @@ namespace czh::online
   private:
     std::string host;
     int port;
-    TCPClient* cli;
+    TCPClient *cli;
     //UDPSocket* udp;
   public:
     TankClient() = default;
+    
     ~TankClient();
+    
     void init();
+    
     std::optional<size_t> connect(const std::string &addr_, int port_);
+    
     void disconnect();
+    
     int tank_react(tank::NormalTankEvent e);
+    
     int update();
     
     int add_auto_tank(size_t l);

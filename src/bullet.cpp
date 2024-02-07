@@ -112,11 +112,6 @@ namespace czh::bullet
     info.hp = 0;
   }
   
-  void Bullet::attacked(int lethality_)
-  {
-    info.hp -= lethality_;
-  }
-  
   [[nodiscard]]const map::Pos &Bullet::get_pos() const
   {
     return pos;

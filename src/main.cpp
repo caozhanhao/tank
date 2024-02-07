@@ -21,9 +21,6 @@
 #include <chrono>
 #include <thread>
 
-#pragma clang diagnostic push
-#pragma ide diagnostic ignored "EndlessLoop"
-
 using namespace czh;
 
 int main()
@@ -40,19 +37,21 @@ int main()
           {
             game::mainloop();
           }
-          else if(g::game_mode == czh::game::GameMode::SERVER)
+          else if (g::game_mode == czh::game::GameMode::SERVER)
           {
             game::mainloop();
             std::vector<size_t> disconnected;
-            for(auto& r : g::userdata)
+            for (auto &r: g::userdata)
             {
-              if(r.first == 0) continue;
+              if (r.first == 0) continue;
               auto d = std::chrono::duration_cast<std::chrono::milliseconds>
                   (std::chrono::steady_clock::now() - r.second.last_update);
-              if(d.count() > 5000)
+              if (d.count() > 5000)
+              {
                 disconnected.emplace_back(r.first);
+              }
             }
-            for(auto& r : disconnected)
+            for (auto &r: disconnected)
             {
               msg::info(-1, g::userdata[r].ip + " (" + std::to_string(r) + ") disconnected.");
               g::tanks[r]->kill();
@@ -77,12 +76,14 @@ int main()
             }
           }
           auto frame = renderer::update_frame();
-          if(frame == 0) renderer::render();
+          if (frame == 0) renderer::render();
           
           end = std::chrono::steady_clock::now();
           cost = std::chrono::duration_cast<std::chrono::milliseconds>(end - beg);
           if (g::tick > cost)
+          {
             std::this_thread::sleep_for(g::tick - cost);
+          }
         }
       }
   );
@@ -96,33 +97,53 @@ int main()
       {
         case input::Input::G_UP:
           if (g::game_mode == game::GameMode::CLIENT)
+          {
             g::online_client.tank_react(tank::NormalTankEvent::UP);
+          }
           else
+          {
             game::tank_react(g::user_id, tank::NormalTankEvent::UP);
+          }
           break;
         case input::Input::G_DOWN:
           if (g::game_mode == game::GameMode::CLIENT)
+          {
             g::online_client.tank_react(tank::NormalTankEvent::DOWN);
+          }
           else
+          {
             game::tank_react(g::user_id, tank::NormalTankEvent::DOWN);
+          }
           break;
         case input::Input::G_LEFT:
           if (g::game_mode == game::GameMode::CLIENT)
+          {
             g::online_client.tank_react(tank::NormalTankEvent::LEFT);
+          }
           else
+          {
             game::tank_react(g::user_id, tank::NormalTankEvent::LEFT);
+          }
           break;
         case input::Input::G_RIGHT:
           if (g::game_mode == game::GameMode::CLIENT)
+          {
             g::online_client.tank_react(tank::NormalTankEvent::RIGHT);
+          }
           else
+          {
             game::tank_react(g::user_id, tank::NormalTankEvent::RIGHT);
+          }
           break;
         case input::Input::G_KEY_SPACE:
           if (g::game_mode == game::GameMode::CLIENT)
+          {
             g::online_client.tank_react(tank::NormalTankEvent::FIRE);
+          }
           else
+          {
             game::tank_react(g::user_id, tank::NormalTankEvent::FIRE);
+          }
           break;
         case input::Input::G_KEY_O:
           if (g::curr_page == game::Page::GAME)
@@ -163,4 +184,3 @@ int main()
     }
   }
 }
-#pragma clang diagnostic pop

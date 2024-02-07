@@ -27,11 +27,17 @@ namespace czh::msg
     std::string content;
   };
   
-  void info(int id, const std::string& c);
+  void info(int id, const std::string &c);
   
-  void warn(int id, const std::string& c);
+  void warn(int id, const std::string &c);
   
   void error(int id, const std::string &c);
+  
+  void info(size_t id, const std::string &c);
+  
+  void warn(size_t id, const std::string &c);
+  
+  void error(size_t id, const std::string &c);
   
   int send_message(int from, int to, const std::string &msg);
 }

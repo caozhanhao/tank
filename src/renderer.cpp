@@ -39,15 +39,16 @@ namespace czh::g
 
 namespace czh::renderer
 {
-  const PointView & generate(const map::Pos& i, size_t seed)
+  const PointView &generate(const map::Pos &i, size_t seed)
   {
-    if(map::generate(i, seed).has(map::Status::WALL))
+    if (map::generate(i, seed).has(map::Status::WALL))
     {
       return g::wall_point_view;
     }
     return g::empty_point_view;
   }
-  const PointView & generate(int x, int y, size_t seed)
+  
+  const PointView &generate(int x, int y, size_t seed)
   {
     if (map::generate(x, y, seed).has(map::Status::WALL))
     {
@@ -69,7 +70,9 @@ namespace czh::renderer
   const PointView &MapView::at(const map::Pos &i) const
   {
     if (view.find(i) != view.end())
+    {
       return view.at(i);
+    }
     return renderer::generate(i, seed);
   }
   
@@ -123,8 +126,10 @@ namespace czh::renderer
     {
       for (int j = zone.y_min; j < zone.y_max; ++j)
       {
-        if(!g::game_map.at(i, j).is_generated())
+        if (!g::game_map.at(i, j).is_generated())
+        {
           ret.view.insert(std::make_pair(map::Pos{i, j}, extract_point({i, j})));
+        }
       }
     }
     return ret;
@@ -219,13 +224,14 @@ namespace czh::renderer
     map::Zone ret;
     int offset_x = (int) h / 4;
     ret.x_min = pos.x - offset_x;
-    ret.x_max = (int) w/ 2 + ret.x_min;
+    ret.x_max = (int) w / 2 + ret.x_min;
     
     int offset_y = (int) h / 2;
     ret.y_min = pos.y - offset_y;
     ret.y_max = (int) h - 2 + ret.y_min;
     return ret;
   }
+  
   map::Zone get_visible_zone(size_t id)
   {
     auto ret = get_visible_zone(g::screen_width, g::screen_height, id);
@@ -511,18 +517,28 @@ namespace czh::renderer
                            ")";
         std::string right = std::to_string(g::fps) + "fps ";
         
-        if(g::delay < 50)
+        if (g::delay < 50)
+        {
           right += utils::green(std::to_string(g::delay) + " ms");
-        else if(g::delay < 100)
+        }
+        else if (g::delay < 100)
+        {
           right += utils::yellow(std::to_string(g::delay) + " ms");
+        }
         else
+        {
           right += utils::red(std::to_string(g::delay) + " ms");
-          
+        }
+        
         int a = g::screen_width - utils::escape_code_len(left, right);
         if (a > 0)
+        {
           term::output(left + std::string(a, ' ') + right);
+        }
         else
+        {
           term::output((left + right).substr(0, left.size() + right.size() + a));
+        }
         
         auto d2 = std::chrono::duration_cast<std::chrono::milliseconds>(now - g::last_message_displayed);
         if (d2 > g::msg_ttl)
@@ -535,13 +551,19 @@ namespace czh::renderer
             std::string str = ((msg.from == -1) ? "" : std::to_string(msg.from) + ": ") + msg.content;
             int a2 = g::screen_width - utils::escape_code_len(str);
             if (a2 > 0)
+            {
               term::output(str + std::string(a2, ' '));
+            }
             else
+            {
               term::output(str.substr(0, str.size() + a));
+            }
             g::last_message_displayed = now;
           }
           else
+          {
             term::output(std::string(g::screen_width, ' '));
+          }
         }
       }
         break;
@@ -662,6 +684,7 @@ namespace czh::renderer
       }
         break;
       case game::Page::HELP:
+      {
         static const std::string help =
             R"(
 Intro:
@@ -760,22 +783,21 @@ Command:
     - Disconnect from the Server.
 )";
         static auto splitted = utils::split<std::vector<std::string_view>>(help, "\n");
+        auto s = utils::fit_to_screen(splitted, g::screen_width);
+        size_t page_size = term::get_height() - 3;
+        if (!g::output_inited)
         {
-          auto s = utils::fit_to_screen(splitted, g::screen_width);
-          size_t page_size = term::get_height() - 3;
-          if (!g::output_inited)
+          std::size_t cursor_y = 0;
+          term::mvoutput({g::screen_width / 2 - 10, cursor_y++}, "Tank - by caozhanhao");
+          if ((g::help_page - 1) * page_size > s.size()) g::help_page = 1;
+          for (size_t i = (g::help_page - 1) * page_size; i < (std::min)(g::help_page * page_size, s.size()); ++i)
           {
-            std::size_t cursor_y = 0;
-            term::mvoutput({g::screen_width / 2 - 10, cursor_y++}, "Tank - by caozhanhao");
-            if ((g::help_page - 1) * page_size > s.size()) g::help_page = 1;
-            for (size_t i = (g::help_page - 1) * page_size; i < std::min(g::help_page * page_size, s.size()); ++i)
-            {
-              term::mvoutput({0, cursor_y++}, std::string(s[i]));
-            }
-            term::mvoutput({g::screen_width / 2 - 3, cursor_y}, "Page " + std::to_string(g::help_page));
-            g::output_inited = true;
+            term::mvoutput({0, cursor_y++}, std::string(s[i]));
           }
+          term::mvoutput({g::screen_width / 2 - 3, cursor_y}, "Page " + std::to_string(g::help_page));
+          g::output_inited = true;
         }
+      }
         break;
       case game::Page::COMMAND:
         if (!g::output_inited)

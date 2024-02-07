@@ -11,7 +11,6 @@
 //   WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 //   See the License for the specific language governing permissions and
 //   limitations under the License.
-#include "tank/term.h"
 #include "tank/game.h"
 #include "tank/game_map.h"
 #include "tank/command.h"
@@ -21,10 +20,8 @@
 #include "tank/globals.h"
 #include <optional>
 #include <mutex>
-#include <variant>
 #include <vector>
 #include <list>
-#include <queue>
 
 namespace czh::g
 {
@@ -152,7 +149,6 @@ namespace czh::game
     {
       g::tank_focus = 0;
     }
-    return;
   }
   
   [[nodiscard]]std::vector<std::size_t> get_alive()
@@ -198,7 +194,9 @@ namespace czh::game
   {
     std::lock_guard<std::mutex> l(g::tank_reacting_mtx);
     if (g::curr_page != Page::GAME || !id_at(id)->is_alive())
+    {
       return;
+    }
     g::normal_tank_events.emplace_back(std::make_pair(id, event));
   }
   
@@ -266,7 +264,9 @@ namespace czh::game
     for (auto it = g::bullets.begin(); it != g::bullets.end(); ++it)
     {
       if ((*it)->is_alive())
+      {
         (*it)->react();
+      }
     }
     
     for (auto it = g::bullets.begin(); it != g::bullets.end(); ++it)
@@ -280,14 +280,14 @@ namespace czh::game
         int attacker = -1;
         auto bullets_instance = g::game_map.at((*it)->get_pos()).get_bullets();
         utils::tank_assert(!bullets_instance.empty());
-        for (auto it = bullets_instance.begin(); it != bullets_instance.end(); ++it)
+        for (auto it1 = bullets_instance.begin(); it1 != bullets_instance.end(); ++it1)
         {
-          if ((*it)->is_alive())
+          if ((*it1)->is_alive())
           {
-            lethality += (*it)->get_lethality();
+            lethality += (*it1)->get_lethality();
           }
-          (*it)->kill();
-          attacker = (*it)->get_tank();
+          (*it1)->kill();
+          attacker = (*it1)->get_tank();
         }
         
         if (g::game_map.has(map::Status::TANK, (*it)->get_pos()))

@@ -100,13 +100,7 @@ namespace czh::term
   
   void move_cursor(const TermPos &pos)
   {
-#if defined(CZH_TANK_KEYBOARD_MODE_0)
-    HANDLE handle = GetStdHandle(STD_OUTPUT_HANDLE);
-    COORD coord{(SHORT) pos.get_x(), (SHORT) pos.get_y()};
-    SetConsoleCursorPosition(handle, coord);
-#elif defined(CZH_TANK_KEYBOARD_MODE_1)
     printf("%c[%d;%df", 0x1b, (int) pos.get_y() + 1, (int) pos.get_x() + 1);
-#endif
   }
   
   void output(const std::string &str)
@@ -155,17 +149,6 @@ namespace czh::term
   
   void clear()
   {
-#if defined(CZH_TANK_KEYBOARD_MODE_0)
-    HANDLE handle = GetStdHandle(STD_OUTPUT_HANDLE);
-    CONSOLE_SCREEN_BUFFER_INFO cinfo;
-    DWORD recnum;
-    COORD coord = {0, 0};
-    GetConsoleScreenBufferInfo(handle, &cinfo);
-    FillConsoleOutputCharacterW(handle, L' ', cinfo.dwSize.X * cinfo.dwSize.Y, coord, &recnum);
-    FillConsoleOutputAttribute(handle, 0, cinfo.dwSize.X * cinfo.dwSize.Y, coord, &recnum);
-    SetConsoleCursorPosition(handle, coord);
-#elif defined(CZH_TANK_KEYBOARD_MODE_1)
     printf("\033[2J");
-#endif
   }
 }

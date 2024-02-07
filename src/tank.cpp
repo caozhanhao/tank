@@ -264,9 +264,9 @@ namespace czh::tank
     int y = target_pos.y - pos.y;
     if (x == 0 && std::abs(y) > 0 && std::abs(y) < range)
     {
-      int small = y > 0 ? pos.y : target_pos.y;
-      int big = y < 0 ? pos.y : target_pos.y;
-      for (int i = small + 1; i < big; ++i)
+      int a = y > 0 ? pos.y : target_pos.y;
+      int b = y < 0 ? pos.y : target_pos.y;
+      for (int i = a + 1; i < b; ++i)
       {
         map::Pos tmp = {pos.x, i};
         if (g::game_map.has(map::Status::WALL, tmp)
@@ -278,9 +278,9 @@ namespace czh::tank
     }
     else if (y == 0 && std::abs(x) > 0 && std::abs(x) < range)
     {
-      int small = x > 0 ? pos.x : target_pos.x;
-      int big = x < 0 ? pos.x : target_pos.x;
-      for (int i = small + 1; i < big; ++i)
+      int a = x > 0 ? pos.x : target_pos.x;
+      int b = x < 0 ? pos.x : target_pos.x;
+      for (int i = a + 1; i < b; ++i)
       {
         map::Pos tmp = {i, pos.y};
         if (g::game_map.has(map::Status::WALL, tmp)
@@ -326,6 +326,7 @@ namespace czh::tank
       }
     }
     
+    if (fire_line.empty()) return;
     destination_pos = *std::min_element(fire_line.begin(), fire_line.end(),
                                         [this](auto &&a, auto &&b)
                                         {
