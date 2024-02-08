@@ -3,7 +3,7 @@ Tank
 </h2> 
 
 <p align="center">
-<strong>A multiplayer cross-platform Game</strong>
+<strong>A Multiplayer Cross-platform Game</strong>
 </p>
 
 ### Intro:
@@ -76,8 +76,12 @@ kill [A id optional]
 clear [A id optional]
 
 - Clear A.(only Auto Tank)
-- Default to clear all auto tanks. clear death
-- Clear all the died Auto Tanks Note:
+- Default to clear all auto tanks.
+
+clear death
+
+- Clear all the died Auto Tanks  
+Note:
   Clear is to delete rather than to kill, so the cleared tank can't revive. And the bullets of the cleared tank will
   also be cleared.
 
@@ -91,9 +95,16 @@ set [A id] [key] [value]
 - hp (int): hp of A's bullet.
 - lethality (int): lethality of A's bullet. (negative to increase hp)
 - range (int): range of A's bullet.(default)
-- e.g. set 0 max_hp 1000 | set 0 bullet lethality 10 Note:
-  When a bullet hits the wall, its hp decreases by one. That means it can bounce "hp - 1" times. set tick [tick]
-- tick (int, milliseconds): minimum time of the game's(or server's) mainloop. set msg_ttl [ttl]
+- e.g. set 0 max_hp 1000 | set 0 bullet lethality 10  
+  Note:
+  When a bullet hits the wall, its hp decreases by one. That means it can bounce "hp - 1" times.
+
+set tick [tick]
+
+- tick (int, milliseconds): minimum time of the game's(or server's) mainloop.
+
+set msg_ttl [ttl]
+
 - ttl (int, milliseconds): a message's time to live. set seed [seed]
 - seed (int): the game map's seed.
 

@@ -23,16 +23,16 @@ namespace czh::input
   Input get_input()
   {
     Input ret = Input::EMPTY;
-    char ch = static_cast<char>(czh::term::getch());
-    if (static_cast<int>(ch) == -32)
+    int ch = czh::term::getch();
+    if (ch == -32)
     {
-      ch = static_cast<char>(czh::term::getch());
+      ch = czh::term::getch();
       g::keyboard_mode = 0;
     }
-    if (static_cast<int>(ch) == 27)
+    if (ch == 27)
     {
       czh::term::getch();
-      ch = static_cast<char>(czh::term::getch());
+      ch = czh::term::getch();
       g::keyboard_mode = 1;
     }
     if (g::curr_page == game::Page::COMMAND)
