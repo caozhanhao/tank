@@ -160,7 +160,7 @@ namespace czh::renderer
     return it->second;
   }
   
-  std::string colorify_text(int id, std::string str)
+  std::string colorify_text(size_t id, const std::string &str)
   {
     std::string ret = "\033[0;";
     ret += std::to_string(id % 6 + 32);
@@ -170,7 +170,7 @@ namespace czh::renderer
     return ret;
   }
   
-  std::string colorify_tank(int id, std::string str)
+  std::string colorify_tank(size_t id, const std::string &str)
   {
     std::string ret = "\033[0;";
     ret += std::to_string(id % 6 + 42);
@@ -477,7 +477,6 @@ namespace czh::renderer
           }
         }
         
-        
         // output
         if (!g::output_inited)
         {
@@ -507,7 +506,6 @@ namespace czh::renderer
         auto d = std::chrono::duration_cast<std::chrono::milliseconds>(now - g::last_render);
         double curr_fps = 1.0 / (static_cast<double>(d.count()) / 1000.0);
         g::fps = static_cast<int>((static_cast<double>(g::fps) + 0.01 * curr_fps) / 1.01);
-        
         g::last_render = now;
         
         // status bar
@@ -532,10 +530,10 @@ namespace czh::renderer
           right += utils::red(std::to_string(g::delay) + " ms");
         }
         
-        int a = g::screen_width - utils::escape_code_len(left, right);
+        int a = static_cast<int>(g::screen_width) - static_cast<int>(utils::escape_code_len(left, right));
         if (a > 0)
         {
-          term::output(left + std::string(a, ' ') + right);
+          term::output(left, std::string(a, ' '), right);
         }
         else
         {
@@ -551,10 +549,10 @@ namespace czh::renderer
             auto msg = g::userdata[g::user_id].messages.front();
             g::userdata[g::user_id].messages.pop_front();
             std::string str = ((msg.from == -1) ? "" : std::to_string(msg.from) + ": ") + msg.content;
-            int a2 = g::screen_width - utils::escape_code_len(str);
+            int a2 = static_cast<int>(g::screen_width) - static_cast<int>(utils::escape_code_len(str));
             if (a2 > 0)
             {
-              term::output(str + std::string(a2, ' '));
+              term::output(str, std::string(a2, ' '));
             }
             else
             {
@@ -631,14 +629,14 @@ namespace czh::renderer
           auto tank = it->second;
           std::string x = std::to_string(tank.pos.x);
           std::string y = std::to_string(tank.pos.y);
-          term::mvoutput({id_x, cursor_y}, std::to_string(tank.info.id));
+          term::mvoutput({id_x, cursor_y}, tank.info.id);
           term::mvoutput({name_x, cursor_y}, colorify_text(tank.info.id, tank.info.name));
-          term::mvoutput({pos_x, cursor_y}, "(" + x + "," + y + ")");
-          term::mvoutput({hp_x, cursor_y}, std::to_string(tank.hp));
-          term::mvoutput({lethality_x, cursor_y}, std::to_string(tank.info.bullet.lethality));
+          term::mvoutput({pos_x, cursor_y}, "(", x, ",", y, ")");
+          term::mvoutput({hp_x, cursor_y}, tank.hp);
+          term::mvoutput({lethality_x, cursor_y}, tank.info.bullet.lethality);
           if (tank.is_auto)
           {
-            term::mvoutput({auto_tank_gap_x, cursor_y}, std::to_string(tank.info.gap));
+            term::mvoutput({auto_tank_gap_x, cursor_y}, tank.info.gap);
           }
           else
           {
@@ -664,11 +662,11 @@ namespace czh::renderer
         if (!g::output_inited)
         {
           constexpr std::string_view tank = R"(
- _____           _
-|_   _|_ _ _ __ | | __
-  | |/ _` | '_ \| |/ /
-  | | (_| | | | |   <
-  |_|\__,_|_| |_|_|\_\
+  _____  _    _   _ _  __
+ |_   _|/ \  | \ | | |/ /
+   | | / _ \ |  \| | ' /
+   | |/ ___ \| |\  | . \
+   |_/_/   \_\_| \_|_|\_\
 )";
           static const auto splitted = utils::split<std::vector<std::string_view>>(tank, "\n");
           auto s = utils::fit_to_screen(splitted, g::screen_width);
@@ -677,7 +675,7 @@ namespace czh::renderer
           term::clear();
           for (size_t i = 0; i < s.size(); ++i)
           {
-            term::mvoutput({x, y++}, std::string(s[i]));
+            term::mvoutput({x, y++}, s[i]);
           }
           term::mvoutput({x + 5, y + 3}, ">>> Enter <<<");
           term::mvoutput({x + 1, y + 4}, "Type '/help' to get help.");
@@ -790,13 +788,13 @@ Command:
         if (!g::output_inited)
         {
           std::size_t cursor_y = 0;
-          term::mvoutput({g::screen_width / 2 - 10, cursor_y++}, "Tank - by caozhanhao");
+          term::mvoutput({g::screen_width / 2 - 2, cursor_y++}, "Tank");
           if ((g::help_page - 1) * page_size > s.size()) g::help_page = 1;
           for (size_t i = (g::help_page - 1) * page_size; i < (std::min)(g::help_page * page_size, s.size()); ++i)
           {
-            term::mvoutput({0, cursor_y++}, std::string(s[i]));
+            term::mvoutput({0, cursor_y++}, s[i]);
           }
-          term::mvoutput({g::screen_width / 2 - 3, cursor_y}, "Page " + std::to_string(g::help_page));
+          term::mvoutput({g::screen_width / 2 - 3, cursor_y}, "Page ", g::help_page);
           g::output_inited = true;
         }
       }
@@ -807,11 +805,11 @@ Command:
           term::move_cursor({0, g::screen_height - 1});
           if (int a = g::screen_width - g::cmd_string.size(); a > 0)
           {
-            term::output(g::cmd_string + std::string(a, ' ') + "\033[?25h");
+            term::output(g::cmd_string, std::string(a, ' '), "\033[?25h");
           }
           else
           {
-            term::output(g::cmd_string + "\033[?25h");
+            term::output(g::cmd_string, "\033[?25h");
           }
           term::mvoutput({g::cmd_string_pos, g::screen_height - 1},
                          g::cmd_string.substr(g::cmd_string_pos, 1));

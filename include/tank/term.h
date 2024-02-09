@@ -19,8 +19,10 @@
 
 #if __has_include(<conio.h>) && __has_include(<windows.h>)
 #define CZH_TANK_KEYBOARD_MODE_0
+
 #include <Windows.h>
 #include <conio.h>
+
 #elif __has_include(<sys/ioctl.h>) && __has_include(<unistd.h>) && __has_include(<sys/select.h>) && __has_include(<termios.h>)
 #define CZH_TANK_KEYBOARD_MODE_1
 
@@ -79,11 +81,20 @@ namespace czh::term
   
   void move_cursor(const TermPos &pos);
   
-  void output(const std::string &str);
-  
   void flush();
   
-  void mvoutput(const TermPos &pos, const std::string &str);
+  template<typename ...Args>
+  void output(Args &&...args)
+  {
+    (std::cout << ... << args);
+  }
+  
+  template<typename ...Args>
+  void mvoutput(const TermPos &pos, Args &&...args)
+  {
+    move_cursor(pos);
+    output(std::forward<Args>(args)...);
+  }
   
   std::size_t get_height();
   

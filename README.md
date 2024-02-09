@@ -81,7 +81,7 @@ clear [A id optional]
 clear death
 
 - Clear all the died Auto Tanks  
-Note:
+  Note:
   Clear is to delete rather than to kill, so the cleared tank can't revive. And the bullets of the cleared tank will
   also be cleared.
 

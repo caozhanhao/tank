@@ -77,7 +77,7 @@ int main()
           }
           auto frame = renderer::update_frame();
           if (frame == 0) renderer::render();
-  
+          
           end = std::chrono::steady_clock::now();
           cost = std::chrono::duration_cast<std::chrono::milliseconds>(end - beg);
           if (g::tick > cost)

@@ -39,7 +39,7 @@ namespace czh::online
 {
 #ifdef _WIN32
   WSADATA wsa_data;
-  [[maybe_unused]] int wsa_startup_err = WSAStartup(MAKEWORD(2,2),&wsa_data);
+  [[maybe_unused]] int wsa_startup_err = WSAStartup(MAKEWORD(2, 2), &wsa_data);
 #endif
   
   Thpool::Thpool(std::size_t size) : run(true) { add_thread(size); }
@@ -240,7 +240,7 @@ namespace czh::online
     Addr addr;
 #ifdef _WIN32
     return {std::move(TCPSocket{::accept(fd, reinterpret_cast<sockaddr *>(&addr.addr),
-                                          reinterpret_cast<int *> (&addr.len))}), addr};
+                                         reinterpret_cast<int *> (&addr.len))}), addr};
 #else
     return {std::move(
         TCPSocket{::accept(fd, reinterpret_cast<sockaddr *>(&addr.addr), reinterpret_cast<socklen_t *>(&addr.len))}),

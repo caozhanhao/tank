@@ -103,20 +103,9 @@ namespace czh::term
     printf("%c[%d;%df", 0x1b, (int) pos.get_y() + 1, (int) pos.get_x() + 1);
   }
   
-  void output(const std::string &str)
-  {
-    std::cout << str;
-  }
-  
   void flush()
   {
     std::cout << std::flush;
-  }
-  
-  void mvoutput(const TermPos &pos, const std::string &str)
-  {
-    move_cursor(pos);
-    output(str);
   }
   
   std::size_t get_height()

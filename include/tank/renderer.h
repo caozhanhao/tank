@@ -22,9 +22,9 @@
 
 namespace czh::renderer
 {
-  std::string colorify_text(int id, std::string str);
+  std::string colorify_text(size_t id, const std::string &str);
   
-  std::string colorify_tank(int id, std::string str);
+  std::string colorify_tank(size_t id, const std::string &str);
   
   struct PointView
   {
