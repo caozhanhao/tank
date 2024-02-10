@@ -25,7 +25,10 @@ namespace czh::msg
   {
     int from;
     std::string content;
+    int priority;
   };
+  
+  bool operator<(const Message &m1, const Message &m2);
   
   void info(int id, const std::string &c);
   
@@ -33,12 +36,16 @@ namespace czh::msg
   
   void error(int id, const std::string &c);
   
+  void critical(int id, const std::string &c);
+  
   void info(size_t id, const std::string &c);
   
   void warn(size_t id, const std::string &c);
   
   void error(size_t id, const std::string &c);
   
-  int send_message(int from, int to, const std::string &msg);
+  void critical(size_t id, const std::string &c);
+  
+  int send_message(int from, int to, const std::string &msg_content, int priority = 0);
 }
 #endif

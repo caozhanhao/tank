@@ -609,29 +609,31 @@ namespace czh::online
     return ret;
   }
   
-  std::string serialize_messages(const std::deque<msg::Message> &msg)
+  std::string serialize_and_clear_messages(std::priority_queue<msg::Message> &msg)
   {
     if (msg.empty()) return "e";
     std::string ret;
-    for (auto &b: msg)
+    while(!msg.empty())
     {
-      ret += utils::join(delim::m, b.from, b.content) + delim::ms;
+      ret += utils::join(delim::m, msg.top().from, msg.top().content, msg.top().priority) + delim::ms;
+      msg.pop();
     }
     return ret;
   }
   
-  std::deque<msg::Message> deserialize_messages(const std::string &str)
+  std::priority_queue<msg::Message> deserialize_messages(const std::string &str)
   {
     if (str == "e") return {};
     auto s1 = czh::utils::split<std::vector<std::string_view>>(str, delim::ms);
-    std::deque<msg::Message> ret;
+    std::priority_queue<msg::Message> ret;
     for (auto &r: s1)
     {
       auto s2 = czh::utils::split<std::vector<std::string_view>>(r, delim::m);
       msg::Message c;
       c.from = std::stoi(std::string{s2[0]});
       c.content = std::string{s2[1]};
-      ret.emplace_back(c);
+      c.priority = std::stoi(std::string{s2[2]});
+      ret.push(c);
     }
     return ret;
   }
@@ -676,10 +678,9 @@ namespace czh::online
                                               d.count(),
                                               serialize_changes(changes),
                                               serialize_tanksview(renderer::extract_tanks()),
-                                              serialize_messages(g::userdata[id].messages),
+                                              serialize_and_clear_messages(g::userdata[id].messages),
                                               serialize_mapview(renderer::extract_map(zone))));
                   g::userdata[id].map_changes.clear();
-                  g::userdata[id].messages.clear();
                   g::userdata[id].last_update = std::chrono::steady_clock::now();
                 }
                 else if (s[0] == "register")
@@ -815,9 +816,11 @@ namespace czh::online
     g::delay = static_cast<int>((g::delay + 0.1 * curr_delay) / 1.1);
     
     auto msgs = deserialize_messages(std::string{s[4]});
-    g::userdata[g::user_id].messages.insert(g::userdata[g::user_id].messages.end(),
-                                            msgs.begin(), msgs.end());
-    
+    while(!msgs.empty())
+    {
+      g::userdata[g::user_id].messages.push(msgs.top());
+      msgs.pop();
+    }
     auto mv = deserialize_mapview(std::string{s[5]});
     if (mv.seed != g::frame.map.seed) g::output_inited = false;
     g::frame.map = mv;

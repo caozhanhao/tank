@@ -17,7 +17,6 @@
 namespace czh::term
 {
 #if defined(CZH_TANK_KEYBOARD_MODE_1)
-  
   void KeyBoard::init()
   {
     tcgetattr(0, &initial_settings);

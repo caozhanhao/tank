@@ -44,9 +44,9 @@ int main()
             for (auto &r: g::userdata)
             {
               if (r.first == 0) continue;
-              auto d = std::chrono::duration_cast<std::chrono::milliseconds>
+              auto d = std::chrono::duration_cast<std::chrono::seconds>
                   (std::chrono::steady_clock::now() - r.second.last_update);
-              if (d.count() > 5000)
+              if (d.count() > 5)
               {
                 disconnected.emplace_back(r.first);
               }
@@ -72,7 +72,7 @@ int main()
               g::tank_focus = g::user_id;
               g::output_inited = false;
               g::client_failed_attempts = 0;
-              msg::error(g::user_id, "Disconnected due to network issues.");
+              msg::critical(g::user_id, "Disconnected due to network issues.");
             }
           }
           auto frame = renderer::update_frame();

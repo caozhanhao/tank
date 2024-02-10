@@ -503,9 +503,12 @@ namespace czh::renderer
         }
         
         auto now = std::chrono::steady_clock::now();
-        auto d = std::chrono::duration_cast<std::chrono::milliseconds>(now - g::last_render);
-        double curr_fps = 1.0 / (static_cast<double>(d.count()) / 1000.0);
-        g::fps = static_cast<int>((static_cast<double>(g::fps) + 0.01 * curr_fps) / 1.01);
+        auto delta_time = std::chrono::duration_cast<std::chrono::milliseconds>(now - g::last_render);
+        if(delta_time.count() != 0)
+        {
+          double curr_fps = 1.0 / (static_cast<double>(delta_time.count()) / 1000.0);
+          g::fps = static_cast<int>((static_cast<double>(g::fps) + 0.01 * curr_fps) / 1.01);
+        }
         g::last_render = now;
         
         // status bar
@@ -546,8 +549,8 @@ namespace czh::renderer
           if (!g::userdata[g::user_id].messages.empty())
           {
             term::move_cursor(term::TermPos(0, g::screen_height - 1));
-            auto msg = g::userdata[g::user_id].messages.front();
-            g::userdata[g::user_id].messages.pop_front();
+            auto msg = g::userdata[g::user_id].messages.top();
+            g::userdata[g::user_id].messages.pop();
             std::string str = ((msg.from == -1) ? "" : std::to_string(msg.from) + ": ") + msg.content;
             int a2 = static_cast<int>(g::screen_width) - static_cast<int>(utils::escape_code_len(str));
             if (a2 > 0)

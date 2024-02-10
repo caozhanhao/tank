@@ -19,14 +19,19 @@
 
 namespace czh::msg
 {
-  int send_message(int from, int to, const std::string &msg_content)
+  bool operator<(const Message &m1, const Message &m2)
   {
-    Message msg{.from = from, .content = msg_content};
+    return m1.priority < m2.priority;
+  }
+  
+  int send_message(int from, int to, const std::string &msg_content, int priority)
+  {
+    Message msg{.from = from, .content = msg_content, .priority = priority};
     if (to == -1)
     {
       for (auto &r: g::userdata)
       {
-        r.second.messages.push_back(msg);
+        r.second.messages.push(msg);
       }
     }
     else
@@ -36,43 +41,53 @@ namespace czh::msg
       {
         return -1;
       }
-      t->second.messages.push_back(msg);
+      t->second.messages.push(msg);
     }
     return 0;
   }
   
-  void log_helper(int id, const std::string &s, const std::string &content)
+  void log_helper(int id, const std::string &s, const std::string &content, int priority)
   {
-    send_message(-1, id, s + content);
+    send_message(-1, id, s + content, priority);
   }
   
   void info(int id, const std::string &c)
   {
-    log_helper(id, "[INFO] ", c);
+    log_helper(id, "[INFO] ", c, -10);
   }
   
   void warn(int id, const std::string &c)
   {
-    log_helper(id, utils::yellow("[WARNING] "), c);
+    log_helper(id, utils::yellow("[WARNING] "), c, 10);
   }
   
   void error(int id, const std::string &c)
   {
-    log_helper(id, utils::red("[ERROR] "), c);
+    log_helper(id, utils::red("[ERROR] "), c, 20);
+  }
+  
+  void critical(int id, const std::string &c)
+  {
+    log_helper(id, utils::red("[CRITICAL] "), c, 30);
   }
   
   void info(size_t id, const std::string &c)
   {
-    log_helper(static_cast<int>(id), "[INFO] ", c);
+    log_helper(static_cast<int>(id), "[INFO] ", c, -10);
   }
   
   void warn(size_t id, const std::string &c)
   {
-    log_helper(static_cast<int>(id), utils::yellow("[WARNING] "), c);
+    log_helper(static_cast<int>(id), utils::yellow("[WARNING] "), c, 10);
   }
   
   void error(size_t id, const std::string &c)
   {
-    log_helper(static_cast<int>(id), utils::red("[ERROR] "), c);
+    log_helper(static_cast<int>(id), utils::red("[ERROR] "), c, 20);
+  }
+  
+  void critical(size_t id, const std::string &c)
+  {
+    log_helper(static_cast<int>(id), utils::red("[CRITICAL] "), c, 30);
   }
 }

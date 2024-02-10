@@ -25,6 +25,7 @@
 #include <map>
 #include <mutex>
 #include <chrono>
+#include <queue>
 #include <list>
 
 namespace czh::g
@@ -33,7 +34,7 @@ namespace czh::g
   {
     size_t user_id;
     std::set<map::Pos> map_changes;
-    std::deque<msg::Message> messages;
+    std::priority_queue<msg::Message> messages;
     std::chrono::steady_clock::time_point last_update;
     std::string ip;
     int port;
