@@ -14,6 +14,15 @@
 #include "tank/term.h"
 #include <iostream>
 
+namespace czh::g
+{
+#if defined (CZH_TANK_KEYBOARD_MODE_1)
+  int keyboard_mode = 1;
+#else
+  int keyboard_mode = 0;
+#endif
+}
+
 namespace czh::term
 {
 #if defined(CZH_TANK_KEYBOARD_MODE_1)

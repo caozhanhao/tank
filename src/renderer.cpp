@@ -28,6 +28,8 @@ namespace czh::g
   std::size_t screen_height = term::get_height();
   std::size_t screen_width = term::get_width();
   size_t tank_focus = 0;
+  game::Page curr_page = game::Page::MAIN;
+  size_t help_page = 0;
   map::Zone render_zone = {-128, 128, -128, 128};
   renderer::Frame frame{};
   int fps = 60;
@@ -35,6 +37,8 @@ namespace czh::g
   renderer::PointView wall_point_view{.status = map::Status::WALL, .tank_id = -1, .text = ""};
   std::chrono::steady_clock::time_point last_render = std::chrono::steady_clock::now();
   std::chrono::steady_clock::time_point last_message_displayed = std::chrono::steady_clock::now();
+  renderer::Style style{.background = utils::Effect::bg_white,
+                        .wall = utils::Effect::bg_red};
 }
 
 namespace czh::renderer
@@ -160,10 +164,28 @@ namespace czh::renderer
     return it->second;
   }
   
+  const std::vector<int>& get_available_colors()
+  {
+    static std::vector<int> available_colors;
+    if (available_colors.empty())
+    {
+      for (int i = 31; i < 38; ++i)
+      {
+        if (i == static_cast<int>(g::style.background) - 10 || i == static_cast<int>(g::style.wall) - 10) continue;
+        available_colors.emplace_back(i);
+      }
+    }
+    return available_colors;
+  }
+  
   std::string colorify_text(size_t id, const std::string &str)
   {
-    std::string ret = "\033[0;";
-    ret += std::to_string(id % 6 + 32);
+    const auto& avail = get_available_colors();
+    std::string ret = "\033[";
+    if(id == 0)
+      ret += std::to_string(avail[0]);
+    else
+      ret += std::to_string(avail[id % avail.size()]);
     ret += "m";
     ret += str;
     ret += "\033[0m";
@@ -172,9 +194,14 @@ namespace czh::renderer
   
   std::string colorify_tank(size_t id, const std::string &str)
   {
-    std::string ret = "\033[0;";
-    ret += std::to_string(id % 6 + 42);
-    ret += ";36m";
+    const auto& avail = get_available_colors();
+    std::string ret = "\033[";
+    if(id == 0)
+      ret += std::to_string(avail[0] + 10);
+    else
+      ret += std::to_string(avail[id % avail.size()] + 10);
+      
+    ret += "m";
     ret += str + "\033[0m";
     return ret;
   }
@@ -189,13 +216,14 @@ namespace czh::renderer
         term::output(colorify_tank(g::frame.map.at(pos).tank_id, "  "));
         break;
       case map::Status::BULLET:
-        term::output(colorify_text(g::frame.map.at(pos).tank_id, g::frame.map.at(pos).text));
+        term::output(utils::effect(colorify_text(g::frame.map.at(pos).tank_id,
+                                                 g::frame.map.at(pos).text), g::style.background));
         break;
       case map::Status::WALL:
-        term::output("\033[0;41;37m  \033[0m");
+        term::output(utils::effect("  ", g::style.wall));
         break;
       case map::Status::END:
-        term::output("  ");
+        term::output(utils::effect("  ", g::style.background));
         break;
     }
     term::output("\033[?25l");

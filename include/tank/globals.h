@@ -46,18 +46,19 @@ namespace czh::g
   extern game::GameMode game_mode;
   extern std::map<size_t, UserData> userdata;
   extern size_t user_id;
-  extern int keyboard_mode;
+  extern size_t next_id;
   extern std::chrono::milliseconds tick;
   extern std::chrono::milliseconds msg_ttl;
   extern std::mutex mainloop_mtx;
   extern std::mutex tank_reacting_mtx;
-  extern map::Map game_map;
   extern std::map<std::size_t, tank::Tank *> tanks;
   extern std::list<bullet::Bullet *> bullets;
   extern std::vector<std::pair<std::size_t, tank::NormalTankEvent>> normal_tank_events;
-  extern game::Page curr_page;
-  extern size_t help_page;
-  extern size_t next_id;
+  
+  // term.cpp
+  extern int keyboard_mode;
+  
+  // input.cpp
   extern std::vector<std::string> history;
   extern std::string cmd_string;
   extern size_t history_pos;
@@ -66,6 +67,8 @@ namespace czh::g
   // renderer.cpp
   extern bool output_inited;
   extern size_t tank_focus;
+  extern game::Page curr_page;
+  extern size_t help_page;
   extern map::Zone render_zone;
   extern std::size_t screen_height;
   extern std::size_t screen_width;
@@ -75,8 +78,10 @@ namespace czh::g
   extern std::chrono::steady_clock::time_point last_message_displayed;
   extern renderer::PointView empty_point_view;
   extern renderer::PointView wall_point_view;
+  extern renderer::Style style;
   
   // game_map.cpp
+  extern map::Map game_map;
   extern size_t seed;
   extern map::Point empty_point;
   extern map::Point wall_point;

@@ -70,7 +70,7 @@ namespace czh::utils
   
   std::string effect(const std::string &str, Effect effect_)
   {
-    if (str.empty()) return "";
+    if(effect_ == utils::Effect::no_effect || str.empty()) return str;
     if (effect_ == utils::Effect::bg_shadow)
     {
       return "\033[48;5;7m" + str + "\033[49m";

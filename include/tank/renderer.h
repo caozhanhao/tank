@@ -17,11 +17,18 @@
 
 #include "game_map.h"
 #include "game.h"
+#include "utils.h"
 
 #include <string>
 
 namespace czh::renderer
 {
+  struct Style
+  {
+    utils::Effect background;
+    utils::Effect wall;
+  };
+  
   std::string colorify_text(size_t id, const std::string &str);
   
   std::string colorify_tank(size_t id, const std::string &str);

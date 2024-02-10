@@ -157,8 +157,9 @@ namespace czh::utils
   }
   
   
-  enum class Effect : std::size_t
+  enum class Effect : int
   {
+    no_effect = 0,
     bold = 1, faint, italic, underline, slow_blink, rapid_blink, color_reverse,
     fg_black = 30, fg_red, fg_green, fg_yellow, fg_blue, fg_magenta, fg_cyan, fg_white,
     bg_black = 40, bg_red, bg_green, bg_yellow, bg_blue, bg_magenta, bg_cyan, bg_white,

@@ -26,28 +26,16 @@
 namespace czh::g
 {
   game::GameMode game_mode = game::GameMode::NATIVE;
-#if defined (CZH_TANK_KEYBOARD_MODE_1)
-  int keyboard_mode = 1;
-#else
-  int keyboard_mode = 0;
-#endif
   size_t user_id = 0;
   std::map<size_t, UserData> userdata{{0, UserData{.user_id = 0}}};
   std::chrono::milliseconds tick(16);
   std::chrono::milliseconds msg_ttl(2000);
   std::mutex mainloop_mtx;
   std::mutex tank_reacting_mtx;
-  map::Map game_map;
   std::map<std::size_t, tank::Tank *> tanks;
   std::list<bullet::Bullet *> bullets;
   std::vector<std::pair<std::size_t, tank::NormalTankEvent>> normal_tank_events;
-  game::Page curr_page = game::Page::MAIN;
-  size_t help_page = 0;
   size_t next_id = 0;
-  std::vector<std::string> history;
-  std::string cmd_string = "/";
-  size_t history_pos = 0;
-  size_t cmd_string_pos = 0;
 }
 
 namespace czh::game

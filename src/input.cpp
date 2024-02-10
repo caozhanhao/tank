@@ -18,6 +18,14 @@
 #include "tank/command.h"
 #include "tank/message.h"
 
+namespace czh::g
+{
+  std::vector<std::string> history;
+  std::string cmd_string = "/";
+  size_t history_pos = 0;
+  size_t cmd_string_pos = 0;
+}
+
 namespace czh::input
 {
   Input get_input()
