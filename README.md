@@ -114,6 +114,10 @@ tell [A id optional] [msg]
 - id defaults to be -1, in which case all the players will receive the message.
 - msg (string): the message's content.
 
+observe [A id]
+
+- Observe A.
+
 server start [port]
 
 - Start Tank Server.

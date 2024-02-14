@@ -29,7 +29,7 @@ namespace czh::term
     GetConsoleMode(handle, &initial_settings);
     auto curr_mode = initial_settings;
     curr_mode &= ~(ENABLE_ECHO_INPUT | ENABLE_LINE_INPUT | ENABLE_PROCESSED_INPUT
-                   | ENABLE_INSERT_MODE  | ENABLE_QUICK_EDIT_MODE );
+                   | ENABLE_INSERT_MODE | ENABLE_QUICK_EDIT_MODE);
     SetConsoleMode(handle, curr_mode);
 #elif defined(CZH_TANK_KEYBOARD_MODE_1)
     keyboard_mode = 1;

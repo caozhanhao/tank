@@ -575,7 +575,7 @@ namespace czh::renderer
         {
           right += utils::color_256_fg(std::to_string(g::delay) + " ms", 9);
         }
-  
+        
         int a = static_cast<int>(g::screen_width) - static_cast<int>(utils::escape_code_len(left, right));
         if (a > 0)
         {
@@ -587,12 +587,12 @@ namespace czh::renderer
         }
         
         // command
-        if(g::curr_page == game::Page::COMMAND)
+        if (g::curr_page == game::Page::COMMAND)
         {
           term::move_cursor({g::cmd_pos + 1, g::screen_height - 1});
           term::show_cursor();
         }
-        // msg
+          // msg
         else
         {
           term::move_cursor(term::TermPos(0, g::screen_height - 1));
@@ -821,8 +821,11 @@ Command:
   
   tell [A id optional] [msg]
     - Send a message to A.
-    - id defaults to be -1, in which case all the players will receive the message.
+    - id (int): defaults to be -1, in which case all the players will receive the message.
     - msg (string): the message's content.
+
+  observe [A id]
+    - Observe A.
     
   server start [port]
     - Start Tank Server.

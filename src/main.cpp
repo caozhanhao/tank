@@ -183,7 +183,9 @@ int main()
           cmd::run_command(g::user_id, g::cmd_line);
         }
         else
+        {
           g::curr_page = game::Page::GAME;
+        }
         break;
       case input::Input::KEY_ENTER:
         g::curr_page = game::Page::GAME;

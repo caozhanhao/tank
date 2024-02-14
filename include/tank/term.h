@@ -100,6 +100,7 @@ namespace czh::term
   void clear();
   
   void hide_cursor();
+  
   void show_cursor();
 }
 #endif
