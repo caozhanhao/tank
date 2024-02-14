@@ -156,37 +156,20 @@ namespace czh::utils
     return escape_code_len(str) + escape_code_len(std::forward<Args>(args)...);
   }
   
+  // Xterm 256 color
+  // https://www.ditig.com/publications/256-colors-cheat-sheet
+  std::string color_256_fg(const std::string &str, int color);
   
-  enum class Effect : int
-  {
-    no_effect = 0,
-    bold = 1, faint, italic, underline, slow_blink, rapid_blink, color_reverse,
-    fg_black = 30, fg_red, fg_green, fg_yellow, fg_blue, fg_magenta, fg_cyan, fg_white,
-    bg_black = 40, bg_red, bg_green, bg_yellow, bg_blue, bg_magenta, bg_cyan, bg_white,
-    bg_shadow, bg_strong_shadow
-  };
+  std::string color_256_bg(const std::string &str, int color);
+
+//  struct RGB
+//  {
+//    int r;
+//    int g;
+//    int b;
+//  };
   
-  std::string effect(const std::string &str, Effect effect);
-  
-  template<typename ...Args>
-  std::string effect(const std::string &str, Effect e, Args &&...effects)
-  {
-    if (str.empty()) return "";
-    return effect(effect(str, e), effects...);
-  }
-  
-  std::string red(const std::string &str);
-  
-  std::string green(const std::string &str);
-  
-  std::string yellow(const std::string &str);
-  
-  std::string blue(const std::string &str);
-  
-  std::string magenta(const std::string &str);
-  
-  std::string cyan(const std::string &str);
-  
-  std::string white(const std::string &str);
+  //std::string color_rgb_fg(const std::string &str, const RGB& rgb);
+  //std::string color_rgb_bg(const std::string &str, const RGB& rgb);
 }
 #endif

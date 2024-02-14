@@ -16,18 +16,56 @@
 #pragma once
 
 #include <string>
+#include <vector>
 
 namespace czh::input
 {
   enum class Input
   {
-    CHAR,
-    C_KEY_UP, C_KEY_DOWN, C_KEY_LEFT, C_KEY_RIGHT, C_KEY_ENTER,
-    C_KEY_BACKSPACE, C_KEY_DELETE, C_KEY_HOME, C_KEY_END,
-    G_UP, G_DOWN, G_LEFT, G_RIGHT, G_KEY_SPACE, G_KEY_O, G_KEY_L, G_KEY_SLASH,
-    M_KEY_ENTER,
-    EMPTY
+    UNEXPECTED,
+    UP,
+    DOWN,
+    LEFT,
+    RIGHT,
+    KEY_SPACE,
+    KEY_O,
+    KEY_L,
+    KEY_SLASH,
+    KEY_CTRL_C,
+    KEY_ENTER,
+    COMMAND
   };
+  
+  enum class SpecialKey
+  {
+    CTRL_A = 1,
+    CTRL_B = 2,
+    CTRL_C = 3,
+    CTRL_D = 4,
+    CTRL_E = 5,
+    CTRL_F = 6,
+    
+    CTRL_H = 8,
+    TAB = 9,
+    LINE_FEED = 10,
+    CTRL_K = 11,
+    CTRL_L = 12,
+    ENTER = 13,
+    CTRL_N = 14,
+    
+    CTRL_P = 16,
+    
+    CTRL_T = 20,
+    CTRL_U = 21,
+    
+    CTRL_W = 23,
+    
+    ESC = 27,
+    
+    BACKSPACE = 127
+  };
+  
+  void edit_refresh_line(bool with_hint = true);
   
   Input get_input();
 }

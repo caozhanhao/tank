@@ -15,9 +15,11 @@
 #define TANK_GLOBALS_H
 #pragma once
 
+#include "command.h"
 #include "game_map.h"
 #include "tank.h"
 #include "online.h"
+#include "term.h"
 #include <functional>
 #include <string>
 #include <condition_variable>
@@ -56,13 +58,20 @@ namespace czh::g
   extern std::vector<std::pair<std::size_t, tank::NormalTankEvent>> normal_tank_events;
   
   // term.cpp
-  extern int keyboard_mode;
+  extern term::KeyBoard keyboard;
   
   // input.cpp
+  extern std::string cmd_line;
+  extern size_t cmd_pos;
+  extern size_t cmd_last_cols;
   extern std::vector<std::string> history;
-  extern std::string cmd_string;
   extern size_t history_pos;
-  extern size_t cmd_string_pos;
+  extern std::string searching_history_pattern;
+  extern std::string hint;
+  extern bool hint_applicable;
+  
+  // command.cpp
+  extern std::vector<cmd::CommandInfo> commands;
   
   // renderer.cpp
   extern bool output_inited;

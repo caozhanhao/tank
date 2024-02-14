@@ -37,8 +37,7 @@ namespace czh::g
   renderer::PointView wall_point_view{.status = map::Status::WALL, .tank_id = -1, .text = ""};
   std::chrono::steady_clock::time_point last_render = std::chrono::steady_clock::now();
   std::chrono::steady_clock::time_point last_message_displayed = std::chrono::steady_clock::now();
-  renderer::Style style{.background = utils::Effect::bg_white,
-                        .wall = utils::Effect::bg_red};
+  renderer::Style style{.background = 15, .wall = 9, .default_tank = 10};
 }
 
 namespace czh::renderer
@@ -164,14 +163,23 @@ namespace czh::renderer
     return it->second;
   }
   
-  const std::vector<int>& get_available_colors()
+  const std::vector<int> &get_available_colors()
   {
     static std::vector<int> available_colors;
     if (available_colors.empty())
     {
-      for (int i = 31; i < 38; ++i)
+      available_colors.emplace_back(g::style.default_tank);
+      for (int i = 0; i < 16; ++i)
       {
-        if (i == static_cast<int>(g::style.background) - 10 || i == static_cast<int>(g::style.wall) - 10) continue;
+        if (i == g::style.background
+            || i == g::style.wall
+            || i == g::style.default_tank
+            || i == 0 // Black
+            || i == 1 // Maroon
+            )
+        {
+          continue;
+        }
         available_colors.emplace_back(i);
       }
     }
@@ -180,30 +188,34 @@ namespace czh::renderer
   
   std::string colorify_text(size_t id, const std::string &str)
   {
-    const auto& avail = get_available_colors();
-    std::string ret = "\033[";
-    if(id == 0)
-      ret += std::to_string(avail[0]);
+    const auto &avail = get_available_colors();
+    std::string ret = "\033[38;5;";
+    int color;
+    if (id == 0)
+    {
+      color = avail[0];
+    }
     else
-      ret += std::to_string(avail[id % avail.size()]);
-    ret += "m";
-    ret += str;
-    ret += "\033[0m";
-    return ret;
+    {
+      color = avail[id % avail.size()];
+    }
+    return utils::color_256_fg(str, color);
   }
   
   std::string colorify_tank(size_t id, const std::string &str)
   {
-    const auto& avail = get_available_colors();
-    std::string ret = "\033[";
-    if(id == 0)
-      ret += std::to_string(avail[0] + 10);
+    const auto &avail = get_available_colors();
+    std::string ret = "\033[38;5;";
+    int color;
+    if (id == 0)
+    {
+      color = avail[0];
+    }
     else
-      ret += std::to_string(avail[id % avail.size()] + 10);
-      
-    ret += "m";
-    ret += str + "\033[0m";
-    return ret;
+    {
+      color = avail[id % avail.size()];
+    }
+    return utils::color_256_bg(str, color);
   }
   
   void update_point(const map::Pos &pos)
@@ -216,14 +228,14 @@ namespace czh::renderer
         term::output(colorify_tank(g::frame.map.at(pos).tank_id, "  "));
         break;
       case map::Status::BULLET:
-        term::output(utils::effect(colorify_text(g::frame.map.at(pos).tank_id,
-                                                 g::frame.map.at(pos).text), g::style.background));
+        term::output(utils::color_256_bg(colorify_text(g::frame.map.at(pos).tank_id,
+                                                       g::frame.map.at(pos).text), g::style.background));
         break;
       case map::Status::WALL:
-        term::output(utils::effect("  ", g::style.wall));
+        term::output(utils::color_256_bg("  ", g::style.wall));
         break;
       case map::Status::END:
-        term::output(utils::effect("  ", g::style.background));
+        term::output(utils::color_256_bg("  ", g::style.background));
         break;
     }
     term::output("\033[?25l");
@@ -532,7 +544,7 @@ namespace czh::renderer
         
         auto now = std::chrono::steady_clock::now();
         auto delta_time = std::chrono::duration_cast<std::chrono::milliseconds>(now - g::last_render);
-        if(delta_time.count() != 0)
+        if (delta_time.count() != 0)
         {
           double curr_fps = 1.0 / (static_cast<double>(delta_time.count()) / 1000.0);
           g::fps = static_cast<int>((static_cast<double>(g::fps) + 0.01 * curr_fps) / 1.01);
@@ -550,15 +562,15 @@ namespace czh::renderer
         
         if (g::delay < 50)
         {
-          right += utils::green(std::to_string(g::delay) + " ms");
+          right += utils::color_256_fg(std::to_string(g::delay) + " ms", 2);
         }
         else if (g::delay < 100)
         {
-          right += utils::yellow(std::to_string(g::delay) + " ms");
+          right += utils::color_256_fg(std::to_string(g::delay) + " ms", 11);
         }
         else
         {
-          right += utils::red(std::to_string(g::delay) + " ms");
+          right += utils::color_256_fg(std::to_string(g::delay) + " ms", 9);
         }
         
         int a = static_cast<int>(g::screen_width) - static_cast<int>(utils::escape_code_len(left, right));
@@ -831,21 +843,6 @@ Command:
       }
         break;
       case game::Page::COMMAND:
-        if (!g::output_inited)
-        {
-          term::move_cursor({0, g::screen_height - 1});
-          if (int a = g::screen_width - g::cmd_string.size(); a > 0)
-          {
-            term::output(g::cmd_string, std::string(a, ' '), "\033[?25h");
-          }
-          else
-          {
-            term::output(g::cmd_string, "\033[?25h");
-          }
-          term::mvoutput({g::cmd_string_pos, g::screen_height - 1},
-                         g::cmd_string.substr(g::cmd_string_pos, 1));
-          g::output_inited = true;
-        }
         break;
     }
     term::flush();

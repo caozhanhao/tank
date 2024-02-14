@@ -61,5 +61,7 @@ namespace czh::game
   void mainloop();
   
   void tank_react(std::size_t id, tank::NormalTankEvent event);
+  
+  void quit();
 }
 #endif

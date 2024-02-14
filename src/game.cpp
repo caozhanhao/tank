@@ -304,4 +304,21 @@ namespace czh::game
     }
     clear_death();
   }
+  
+  void quit()
+  {
+    for (auto it = g::tanks.begin(); it != g::tanks.end();)
+    {
+      delete it->second;
+      it = g::tanks.erase(it);
+    }
+    if (g::game_mode == game::GameMode::CLIENT)
+    {
+      g::online_client.disconnect();
+    }
+    else if (g::game_mode == game::GameMode::SERVER)
+    {
+      g::online_server.stop();
+    }
+  }
 }

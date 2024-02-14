@@ -32,17 +32,22 @@
 #include <sys/select.h>
 #include <termios.h>
 
+#else
+#error "Unknown target."
+#endif
+
 namespace czh::term
 {
   class KeyBoard
   {
   public:
+    int keyboard_mode;
+#if defined(CZH_TANK_KEYBOARD_MODE_0)
+    DWORD initial_settings, new_settings;
+#elif defined(CZH_TANK_KEYBOARD_MODE_1)
     struct termios initial_settings, new_settings;
     int peek_character;
-    
-    void deinit();
-    
-    void init();
+#endif
     
     KeyBoard();
     
@@ -53,14 +58,6 @@ namespace czh::term
     int getch();
   };
   
-  extern KeyBoard keyboard;
-}
-#else
-#error "Unknown target."
-#endif
-
-namespace czh::term
-{
   class TermPos
   {
   private:

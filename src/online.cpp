@@ -613,7 +613,7 @@ namespace czh::online
   {
     if (msg.empty()) return "e";
     std::string ret;
-    while(!msg.empty())
+    while (!msg.empty())
     {
       ret += utils::join(delim::m, msg.top().from, msg.top().content, msg.top().priority) + delim::ms;
       msg.pop();
@@ -816,7 +816,7 @@ namespace czh::online
     g::delay = static_cast<int>((g::delay + 0.1 * curr_delay) / 1.1);
     
     auto msgs = deserialize_messages(std::string{s[4]});
-    while(!msgs.empty())
+    while (!msgs.empty())
     {
       g::userdata[g::user_id].messages.push(msgs.top());
       msgs.pop();

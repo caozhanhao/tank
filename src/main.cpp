@@ -13,6 +13,7 @@
 //   limitations under the License.
 #include "tank/term.h"
 #include "tank/globals.h"
+#include "tank/command.h"
 #include "tank/game.h"
 #include "tank/renderer.h"
 #include "tank/input.h"
@@ -90,97 +91,108 @@ int main()
   game::add_tank({0, 0});
   while (true)
   {
-    if (czh::term::kbhit())
+    input::Input i = input::get_input();
+    switch (i)
     {
-      input::Input i = input::get_input();
-      switch (i)
-      {
-        case input::Input::G_UP:
-          if (g::game_mode == game::GameMode::CLIENT)
-          {
-            g::online_client.tank_react(tank::NormalTankEvent::UP);
-          }
-          else
-          {
-            game::tank_react(g::user_id, tank::NormalTankEvent::UP);
-          }
-          break;
-        case input::Input::G_DOWN:
-          if (g::game_mode == game::GameMode::CLIENT)
-          {
-            g::online_client.tank_react(tank::NormalTankEvent::DOWN);
-          }
-          else
-          {
-            game::tank_react(g::user_id, tank::NormalTankEvent::DOWN);
-          }
-          break;
-        case input::Input::G_LEFT:
-          if (g::game_mode == game::GameMode::CLIENT)
-          {
-            g::online_client.tank_react(tank::NormalTankEvent::LEFT);
-          }
-          else
-          {
-            game::tank_react(g::user_id, tank::NormalTankEvent::LEFT);
-          }
-          break;
-        case input::Input::G_RIGHT:
-          if (g::game_mode == game::GameMode::CLIENT)
-          {
-            g::online_client.tank_react(tank::NormalTankEvent::RIGHT);
-          }
-          else
-          {
-            game::tank_react(g::user_id, tank::NormalTankEvent::RIGHT);
-          }
-          break;
-        case input::Input::G_KEY_SPACE:
-          if (g::game_mode == game::GameMode::CLIENT)
-          {
-            g::online_client.tank_react(tank::NormalTankEvent::FIRE);
-          }
-          else
-          {
-            game::tank_react(g::user_id, tank::NormalTankEvent::FIRE);
-          }
-          break;
-        case input::Input::G_KEY_O:
-          if (g::curr_page == game::Page::GAME)
-          {
-            g::curr_page = game::Page::TANK_STATUS;
-            g::output_inited = false;
-          }
-          else
-          {
-            g::curr_page = game::Page::GAME;
-            g::output_inited = false;
-          }
-          break;
-        case input::Input::G_KEY_L:
+      case input::Input::UP:
+        if (g::game_mode == game::GameMode::CLIENT)
         {
-          if (g::game_mode == game::GameMode::CLIENT)
-          {
-            g::online_client.add_auto_tank(utils::randnum<int>(1, 11));
-          }
-          else
-          {
-            std::lock_guard<std::mutex> l(g::mainloop_mtx);
-            game::add_auto_tank(utils::randnum<int>(1, 11));
-          }
+          g::online_client.tank_react(tank::NormalTankEvent::UP);
         }
-          break;
-        case input::Input::G_KEY_SLASH:
-          g::curr_page = game::Page::COMMAND;
+        else
+        {
+          game::tank_react(g::user_id, tank::NormalTankEvent::UP);
+        }
+        break;
+      case input::Input::DOWN:
+        if (g::game_mode == game::GameMode::CLIENT)
+        {
+          g::online_client.tank_react(tank::NormalTankEvent::DOWN);
+        }
+        else
+        {
+          game::tank_react(g::user_id, tank::NormalTankEvent::DOWN);
+        }
+        break;
+      case input::Input::LEFT:
+        if (g::game_mode == game::GameMode::CLIENT)
+        {
+          g::online_client.tank_react(tank::NormalTankEvent::LEFT);
+        }
+        else
+        {
+          game::tank_react(g::user_id, tank::NormalTankEvent::LEFT);
+        }
+        break;
+      case input::Input::RIGHT:
+        if (g::game_mode == game::GameMode::CLIENT)
+        {
+          g::online_client.tank_react(tank::NormalTankEvent::RIGHT);
+        }
+        else
+        {
+          game::tank_react(g::user_id, tank::NormalTankEvent::RIGHT);
+        }
+        break;
+      case input::Input::KEY_SPACE:
+        if (g::game_mode == game::GameMode::CLIENT)
+        {
+          g::online_client.tank_react(tank::NormalTankEvent::FIRE);
+        }
+        else
+        {
+          game::tank_react(g::user_id, tank::NormalTankEvent::FIRE);
+        }
+        break;
+      case input::Input::KEY_O:
+        if (g::curr_page == game::Page::GAME)
+        {
+          g::curr_page = game::Page::TANK_STATUS;
           g::output_inited = false;
-          break;
-        case input::Input::M_KEY_ENTER:
+        }
+        else
+        {
           g::curr_page = game::Page::GAME;
           g::output_inited = false;
-          break;
-        default:
-          break;
+        }
+        break;
+      case input::Input::KEY_L:
+      {
+        if (g::game_mode == game::GameMode::CLIENT)
+        {
+          g::online_client.add_auto_tank(utils::randnum<int>(1, 11));
+        }
+        else
+        {
+          std::lock_guard<std::mutex> l(g::mainloop_mtx);
+          game::add_auto_tank(utils::randnum<int>(1, 11));
+        }
       }
+        break;
+      case input::Input::KEY_SLASH:
+        g::curr_page = game::Page::COMMAND;
+        g::output_inited = false;
+        g::cmd_line.clear();
+        g::cmd_pos = 0;
+        g::history.emplace_back("");
+        g::history_pos = g::history.size() - 1;
+        input::edit_refresh_line();
+        if (auto c = input::get_input(); c == czh::input::Input::COMMAND)
+        {
+          cmd::run_command(g::user_id, g::cmd_line);
+        }
+        g::curr_page = game::Page::GAME;
+        break;
+      case input::Input::KEY_ENTER:
+        g::curr_page = game::Page::GAME;
+        g::output_inited = false;
+        break;
+      case input::Input::KEY_CTRL_C:
+        game::quit();
+        std::exit(0);
+        break;
+      default:
+        break;
     }
   }
 }

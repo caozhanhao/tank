@@ -23,10 +23,13 @@
 
 namespace czh::renderer
 {
+  // Xterm 256 color
+  // https://www.ditig.com/publications/256-colors-cheat-sheet
   struct Style
   {
-    utils::Effect background;
-    utils::Effect wall;
+    int background;
+    int wall;
+    int default_tank;
   };
   
   std::string colorify_text(size_t id, const std::string &str);

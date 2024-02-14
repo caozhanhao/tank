@@ -16,18 +16,23 @@
 
 namespace czh::g
 {
-#if defined (CZH_TANK_KEYBOARD_MODE_1)
-  int keyboard_mode = 1;
-#else
-  int keyboard_mode = 0;
-#endif
+  term::KeyBoard keyboard;
 }
 
 namespace czh::term
 {
-#if defined(CZH_TANK_KEYBOARD_MODE_1)
-  void KeyBoard::init()
+  KeyBoard::KeyBoard()
   {
+#if defined(CZH_TANK_KEYBOARD_MODE_0)
+    keyboard_mode = 0;
+    HANDLE handle = GetStdHandle(STD_INPUT_HANDLE);
+    GetConsoleMode(handle, &initial_settings);
+    auto curr_mode = initial_settings;
+    curr_mode &= ~(ENABLE_ECHO_INPUT | ENABLE_LINE_INPUT | ENABLE_PROCESSED_INPUT
+                   | ENABLE_INSERT_MODE  | ENABLE_QUICK_EDIT_MODE );
+    SetConsoleMode(handle, curr_mode);
+#elif defined(CZH_TANK_KEYBOARD_MODE_1)
+    keyboard_mode = 1;
     tcgetattr(0, &initial_settings);
     new_settings = initial_settings;
     new_settings.c_lflag &= ~ICANON;
@@ -37,25 +42,24 @@ namespace czh::term
     new_settings.c_cc[VTIME] = 0;
     tcsetattr(0, TCSANOW, &new_settings);
     peek_character = -1;
-  }
-  
-  void KeyBoard::deinit()
-  {
-    tcsetattr(0, TCSANOW, &initial_settings);
-  }
-  
-  KeyBoard::KeyBoard()
-  {
-    init();
+#endif
   }
   
   KeyBoard::~KeyBoard()
   {
-    deinit();
+#if defined(CZH_TANK_KEYBOARD_MODE_0)
+    HANDLE handle = GetStdHandle(STD_INPUT_HANDLE);
+    SetConsoleMode(handle, initial_settings);
+#elif defined(CZH_TANK_KEYBOARD_MODE_1)
+    tcsetattr(0, TCSANOW, &initial_settings);
+#endif
   }
   
   int KeyBoard::kbhit()
   {
+#if defined(CZH_TANK_KEYBOARD_MODE_0)
+    return _kbhit();
+#elif defined(CZH_TANK_KEYBOARD_MODE_1)
     unsigned char ch;
     int nread;
     if (peek_character != -1) return 1;
@@ -71,10 +75,14 @@ namespace czh::term
       return 1;
     }
     return 0;
+#endif
   }
   
   int KeyBoard::getch()
   {
+#if defined(CZH_TANK_KEYBOARD_MODE_0)
+    return _getch();
+#elif defined(CZH_TANK_KEYBOARD_MODE_1)
     char ch;
     if (peek_character != -1)
     {
@@ -83,26 +91,6 @@ namespace czh::term
     }
     else { read(0, &ch, 1); }
     return ch;
-  }
-  
-  KeyBoard keyboard;
-#endif
-  
-  int getch()
-  {
-#if defined(CZH_TANK_KEYBOARD_MODE_0)
-    return _getch();
-#elif defined(CZH_TANK_KEYBOARD_MODE_1)
-    return keyboard.getch();
-#endif
-  }
-  
-  bool kbhit()
-  {
-#if defined(CZH_TANK_KEYBOARD_MODE_0)
-    return _kbhit();
-#elif defined(CZH_TANK_KEYBOARD_MODE_1)
-    return keyboard.kbhit();
 #endif
   }
   

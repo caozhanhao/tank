@@ -19,15 +19,33 @@
 #include <vector>
 #include <mutex>
 #include <list>
-#include <map>
 
+namespace czh::g
+{
+  std::vector<cmd::CommandInfo> commands{
+      {"help",       "[page]"},
+      {"quit",       ""},
+      {"fill",       "[status] [A x,y] [B x,y optional]"},
+      {"tp",         "[A id] ([B id] or [B x,y])"},
+      {"revive",     "id"},
+      {"summon",     "[n] [level]"},
+      {"observe",    "[id]"},
+      {"kill",       "[id optional]"},
+      {"clear",      "[id optional] (or death)"},
+      {"set",        "[id] (bullet) [attr] [value]"},
+      {"server",     "start [port] (or stop)"},
+      {"connect",    "[ip] [port]"},
+      {"disconnect", ""},
+      {"tell",       "[id, optional], [msg]"}
+  };
+}
 namespace czh::cmd
 {
   std::tuple<std::string, std::vector<details::Arg>>
   parse(const std::string &cmd)
   {
     if (cmd.empty()) return {};
-    auto it = cmd.begin() + 1; // skip '/'
+    auto it = cmd.begin();
     auto skip_space = [&it, &cmd] { while (it < cmd.end() && std::isspace(*it)) ++it; };
     skip_space();
     
@@ -86,7 +104,6 @@ namespace czh::cmd
     {
       msg::error(user_id, "Invalid arguments.");
     };
-    g::curr_page = game::Page::GAME;
     auto[name, args] = parse(str);
     if (g::game_mode == game::GameMode::CLIENT)
     {
@@ -123,19 +140,7 @@ namespace czh::cmd
       term::output("\033[?25h");
       msg::info(user_id, "Quitting.");
       term::flush();
-      for (auto it = g::tanks.begin(); it != g::tanks.end();)
-      {
-        delete it->second;
-        it = g::tanks.erase(it);
-      }
-      if (g::game_mode == game::GameMode::CLIENT)
-      {
-        g::online_client.disconnect();
-      }
-      else if (g::game_mode == game::GameMode::SERVER)
-      {
-        g::online_server.stop();
-      }
+      game::quit();
       std::exit(0);
     }
     else if (name == "fill")

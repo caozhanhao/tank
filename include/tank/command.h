@@ -24,6 +24,11 @@
 
 namespace czh::cmd
 {
+  struct CommandInfo
+  {
+    std::string cmd;
+    std::string args;
+  };
   namespace details
   {
     using ArgTList = type_list::TypeList<std::string, int>;

@@ -58,17 +58,17 @@ namespace czh::msg
   
   void warn(int id, const std::string &c)
   {
-    log_helper(id, utils::yellow("[WARNING] "), c, 10);
+    log_helper(id, utils::color_256_fg("[WARNING] ", 11), c, 10);
   }
   
   void error(int id, const std::string &c)
   {
-    log_helper(id, utils::red("[ERROR] "), c, 20);
+    log_helper(id, utils::color_256_fg("[ERROR] ", 9), c, 20);
   }
   
   void critical(int id, const std::string &c)
   {
-    log_helper(id, utils::red("[CRITICAL] "), c, 30);
+    log_helper(id, utils::color_256_fg("[CRITICAL] ", 9), c, 30);
   }
   
   void info(size_t id, const std::string &c)
@@ -78,16 +78,16 @@ namespace czh::msg
   
   void warn(size_t id, const std::string &c)
   {
-    log_helper(static_cast<int>(id), utils::yellow("[WARNING] "), c, 10);
+    log_helper(static_cast<int>(id), utils::color_256_fg("[WARNING] ", 11), c, 10);
   }
   
   void error(size_t id, const std::string &c)
   {
-    log_helper(static_cast<int>(id), utils::red("[ERROR] "), c, 20);
+    log_helper(static_cast<int>(id), utils::color_256_fg("[ERROR] ", 9), c, 20);
   }
   
   void critical(size_t id, const std::string &c)
   {
-    log_helper(static_cast<int>(id), utils::red("[CRITICAL] "), c, 30);
+    log_helper(static_cast<int>(id), utils::color_256_fg("[CRITICAL] ", 9), c, 30);
   }
 }

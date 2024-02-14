@@ -68,67 +68,27 @@ namespace czh::utils
     return escape_code_len(str.cbegin(), str.cend());
   }
   
-  std::string effect(const std::string &str, Effect effect_)
+  std::string color_256_fg(const std::string &str, int color)
   {
-    if(effect_ == utils::Effect::no_effect || str.empty()) return str;
-    if (effect_ == utils::Effect::bg_shadow)
-    {
-      return "\033[48;5;7m" + str + "\033[49m";
-    }
-    else if (effect_ == utils::Effect::bg_strong_shadow)
-    {
-      return "\033[48;5;8m" + str + "\033[49m";
-    }
-    
-    int effect = static_cast<int>(effect_);
-    int end = 0;
-    if (effect >= 1 && effect <= 7)
-    {
-      end = 0;
-    }
-    else if (effect >= 30 && effect <= 37)
-    {
-      end = 39;
-    }
-    else if (effect >= 40 && effect <= 47)
-    {
-      end = 49;
-    }
-    return "\033[" + std::to_string(effect) + "m" + str + "\033[" + std::to_string(end) + "m";
+    return "\033[38;5;" + std::to_string(color) + "m" + str + "\033[0m";
   }
   
-  std::string red(const std::string &str)
+  std::string color_256_bg(const std::string &str, int color)
   {
-    return effect(str, Effect::fg_red);
+    return "\033[48;5;" + std::to_string(color) + "m" + str + "\033[0m";
   }
-  
-  std::string green(const std::string &str)
-  {
-    return effect(str, Effect::fg_green);
-  }
-  
-  std::string yellow(const std::string &str)
-  {
-    return effect(str, Effect::fg_yellow);
-  }
-  
-  std::string blue(const std::string &str)
-  {
-    return effect(str, Effect::fg_blue);
-  }
-  
-  std::string magenta(const std::string &str)
-  {
-    return effect(str, Effect::fg_magenta);
-  }
-  
-  std::string cyan(const std::string &str)
-  {
-    return effect(str, Effect::fg_cyan);
-  }
-  
-  std::string white(const std::string &str)
-  {
-    return effect(str, Effect::fg_white);
-  }
+//  std::string color_rgb_fg(const std::string &str, const RGB& rgb)
+//  {
+//    return "\033[38;2;" + std::to_string(rgb.r) + ";"
+//           + std::to_string(rgb.g) + ";"
+//           + std::to_string(rgb.b) + "m"
+//           + str + "\033[0m";
+//  }
+//  std::string color_rgb_bg(const std::string &str, const RGB& rgb)
+//  {
+//    return "\033[48;2;" + std::to_string(rgb.r) + ";"
+//           + std::to_string(rgb.g) + ";"
+//           + std::to_string(rgb.b) + "m"
+//           + str + "\033[0m";
+//  }
 }
