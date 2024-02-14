@@ -34,6 +34,13 @@ namespace czh::g
 
 namespace czh::input
 {
+  template<typename ...Args>
+  void cmd_output(Args &&...args)
+  {
+    std::lock_guard<std::mutex> l(g::render_mtx);
+    term::output(std::forward<Args>(args)...);
+  }
+  
   bool is_special_key(int c)
   {
     return (c >= 0 && c <= 6) || (c >= 8 && c <= 14) || c == 16 || c == 20 || c == 21 || c == 23 || c == 27 || c == 127;
@@ -110,7 +117,9 @@ namespace czh::input
   
   void cmdline_refresh(bool with_hint = true)
   {
+    std::lock_guard<std::mutex> l(g::render_mtx);
     term::move_cursor({0, g::screen_height - 1});
+    term::show_cursor();
     // move to begin and clear the cmd_line
     if (g::cmd_last_cols != 0)
     {
@@ -121,7 +130,7 @@ namespace czh::input
       term::output("\x1b[K");
     }
     // the current cmd_line
-    term::output("\x1b[?25h/", highlight_cmd_line());
+    term::output("/", highlight_cmd_line());
     // hint
     if (with_hint)
     {
@@ -150,7 +159,7 @@ namespace czh::input
   void move_to_beginning()
   {
     if (g::cmd_pos == 0) return;
-    term::output("\x1b[", g::cmd_pos, "D");
+    cmd_output("\x1b[", g::cmd_pos, "D");
     g::cmd_pos = 0;
     g::cmd_last_cols = 0;
   }
@@ -172,7 +181,7 @@ namespace czh::input
     auto origin_width = g::cmd_pos;
     g::cmd_pos = g::cmd_line.size();
     g::cmd_last_cols = g::cmd_pos;
-    term::output("\x1b[", g::cmd_last_cols - origin_width, "C");
+    cmd_output("\x1b[", g::cmd_last_cols - origin_width, "C");
     if (refresh) edit_refresh_line();
   }
   
@@ -194,7 +203,7 @@ namespace czh::input
       --g::cmd_pos;
     }
     g::cmd_last_cols = g::cmd_pos;
-    term::output("\x1b[", origin - g::cmd_last_cols, "D");
+    cmd_output("\x1b[", origin - g::cmd_last_cols, "D");
   }
   
   void move_to_word_end()
@@ -211,7 +220,7 @@ namespace czh::input
       ++g::cmd_pos;
     }
     g::cmd_last_cols = g::cmd_pos;
-    term::output("\x1b[", g::cmd_last_cols - origin, "C");
+    cmd_output("\x1b[", g::cmd_last_cols - origin, "C");
   }
   
   void move_left()
@@ -221,7 +230,7 @@ namespace czh::input
       auto origin = g::cmd_pos;
       --g::cmd_pos;
       g::cmd_last_cols = g::cmd_pos;
-      term::output("\x1b[", origin - g::cmd_last_cols, "D");
+      cmd_output("\x1b[", origin - g::cmd_last_cols, "D");
     }
   }
   
@@ -232,7 +241,7 @@ namespace czh::input
       auto origin = g::cmd_pos;
       ++g::cmd_pos;
       g::cmd_last_cols = g::cmd_pos;
-      term::output("\x1b[", g::cmd_last_cols - origin, "C");
+      cmd_output("\x1b[", g::cmd_last_cols - origin, "C");
     }
   }
   
@@ -378,6 +387,7 @@ namespace czh::input
               edit_delete();
               break;
             case SpecialKey::CTRL_L:
+              g::output_inited = false;
               term::clear();
               break;
             case SpecialKey::LINE_FEED:

@@ -179,9 +179,11 @@ int main()
         input::edit_refresh_line();
         if (auto c = input::get_input(); c == czh::input::Input::COMMAND)
         {
+          g::curr_page = game::Page::GAME;
           cmd::run_command(g::user_id, g::cmd_line);
         }
-        g::curr_page = game::Page::GAME;
+        else
+          g::curr_page = game::Page::GAME;
         break;
       case input::Input::KEY_ENTER:
         g::curr_page = game::Page::GAME;

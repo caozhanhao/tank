@@ -88,6 +88,7 @@ namespace czh::g
   extern renderer::PointView empty_point_view;
   extern renderer::PointView wall_point_view;
   extern renderer::Style style;
+  extern std::mutex render_mtx;
   
   // game_map.cpp
   extern map::Map game_map;

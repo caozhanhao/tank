@@ -136,4 +136,14 @@ namespace czh::term
   {
     printf("\033[2J");
   }
+  
+  void hide_cursor()
+  {
+    printf("\x1b[?25l");
+  }
+  
+  void show_cursor()
+  {
+    printf("\x1b[?25h");
+  }
 }

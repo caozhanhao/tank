@@ -98,5 +98,8 @@ namespace czh::term
   std::size_t get_width();
   
   void clear();
+  
+  void hide_cursor();
+  void show_cursor();
 }
 #endif

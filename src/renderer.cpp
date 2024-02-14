@@ -38,6 +38,7 @@ namespace czh::g
   std::chrono::steady_clock::time_point last_render = std::chrono::steady_clock::now();
   std::chrono::steady_clock::time_point last_message_displayed = std::chrono::steady_clock::now();
   renderer::Style style{.background = 15, .wall = 9, .default_tank = 10};
+  std::mutex render_mtx;
 }
 
 namespace czh::renderer
@@ -238,7 +239,6 @@ namespace czh::renderer
         term::output(utils::color_256_bg("  ", g::style.background));
         break;
     }
-    term::output("\033[?25l");
   }
   
   bool check_zone_size(const map::Zone &z)
@@ -459,7 +459,9 @@ namespace czh::renderer
   
   void render()
   {
-    std::lock_guard<std::mutex> l(g::mainloop_mtx);
+    term::hide_cursor();
+    std::lock_guard<std::mutex> l1(g::mainloop_mtx);
+    std::lock_guard<std::mutex> l2(g::render_mtx);
     if (g::screen_height != term::get_height() || g::screen_width != term::get_width())
     {
       term::clear();
@@ -471,6 +473,7 @@ namespace czh::renderer
     switch (g::curr_page)
     {
       case game::Page::GAME:
+      case game::Page::COMMAND:
       {
         // check focus
         size_t focus = g::tank_focus;
@@ -552,8 +555,8 @@ namespace czh::renderer
         g::last_render = now;
         
         // status bar
-        auto &focus_tank = g::frame.tanks[focus];
         term::move_cursor(term::TermPos(0, g::screen_height - 2));
+        auto &focus_tank = g::frame.tanks[focus];
         std::string left = colorify_text(focus_tank.info.id, focus_tank.info.name)
                            + " HP: " + std::to_string(focus_tank.hp) + "/" + std::to_string(focus_tank.info.max_hp)
                            + " Pos: (" + std::to_string(focus_tank.pos.x) + ", " + std::to_string(focus_tank.pos.y) +
@@ -572,7 +575,7 @@ namespace czh::renderer
         {
           right += utils::color_256_fg(std::to_string(g::delay) + " ms", 9);
         }
-        
+  
         int a = static_cast<int>(g::screen_width) - static_cast<int>(utils::escape_code_len(left, right));
         if (a > 0)
         {
@@ -583,29 +586,39 @@ namespace czh::renderer
           term::output((left + right).substr(0, left.size() + right.size() + a));
         }
         
-        auto d2 = std::chrono::duration_cast<std::chrono::milliseconds>(now - g::last_message_displayed);
-        if (d2 > g::msg_ttl)
+        // command
+        if(g::curr_page == game::Page::COMMAND)
         {
-          if (!g::userdata[g::user_id].messages.empty())
+          term::move_cursor({g::cmd_pos + 1, g::screen_height - 1});
+          term::show_cursor();
+        }
+        // msg
+        else
+        {
+          term::move_cursor(term::TermPos(0, g::screen_height - 1));
+          auto d2 = std::chrono::duration_cast<std::chrono::milliseconds>(now - g::last_message_displayed);
+          if (d2 > g::msg_ttl)
           {
-            term::move_cursor(term::TermPos(0, g::screen_height - 1));
-            auto msg = g::userdata[g::user_id].messages.top();
-            g::userdata[g::user_id].messages.pop();
-            std::string str = ((msg.from == -1) ? "" : std::to_string(msg.from) + ": ") + msg.content;
-            int a2 = static_cast<int>(g::screen_width) - static_cast<int>(utils::escape_code_len(str));
-            if (a2 > 0)
+            if (!g::userdata[g::user_id].messages.empty())
             {
-              term::output(str, std::string(a2, ' '));
+              auto msg = g::userdata[g::user_id].messages.top();
+              g::userdata[g::user_id].messages.pop();
+              std::string str = ((msg.from == -1) ? "" : std::to_string(msg.from) + ": ") + msg.content;
+              int a2 = static_cast<int>(g::screen_width) - static_cast<int>(utils::escape_code_len(str));
+              if (a2 > 0)
+              {
+                term::output(str, std::string(a2, ' '));
+              }
+              else
+              {
+                term::output(str.substr(0, str.size() + a));
+              }
+              g::last_message_displayed = now;
             }
             else
             {
-              term::output(str.substr(0, str.size() + a));
+              term::output(std::string(g::screen_width, ' '));
             }
-            g::last_message_displayed = now;
-          }
-          else
-          {
-            term::output(std::string(g::screen_width, ' '));
           }
         }
       }
@@ -841,8 +854,6 @@ Command:
           g::output_inited = true;
         }
       }
-        break;
-      case game::Page::COMMAND:
         break;
     }
     term::flush();
