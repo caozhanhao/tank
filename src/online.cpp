@@ -18,7 +18,7 @@
 #include "tank/game_map.h"
 #include "tank/game.h"
 #include "tank/globals.h"
-#include "tank/renderer.h"
+#include "tank/drawing.h"
 #include "tank/utils.h"
 
 #include <string>
@@ -521,7 +521,7 @@ namespace czh::online
     return ret;
   }
   
-  std::string serialize_tanksview(const std::map<size_t, renderer::TankView> &view)
+  std::string serialize_tanksview(const std::map<size_t, drawing::TankView> &view)
   {
     if (view.empty()) return "e";
     std::string ret;
@@ -546,15 +546,15 @@ namespace czh::online
     return ret;
   }
   
-  std::map<size_t, renderer::TankView> deserialize_tanksview(const std::string &str)
+  std::map<size_t, drawing::TankView> deserialize_tanksview(const std::string &str)
   {
     if (str == "e") return {};
     auto s1 = czh::utils::split<std::vector<std::string_view>>(str, delim::tvs);
-    std::map<size_t, renderer::TankView> ret;
+    std::map<size_t, drawing::TankView> ret;
     for (auto &r: s1)
     {
       auto s2 = czh::utils::split<std::vector<std::string_view>>(r, delim::tv);
-      renderer::TankView c;
+      drawing::TankView c;
       c.info.name = s2[0];
       c.info.bullet.hp = std::stoi(std::string{s2[1]});
       c.info.bullet.lethality = std::stoi(std::string{s2[2]});
@@ -575,7 +575,7 @@ namespace czh::online
     return ret;
   }
   
-  std::string serialize_mapview(const renderer::MapView &view)
+  std::string serialize_mapview(const drawing::MapView &view)
   {
     std::string ret = std::to_string(view.seed) + delim::mv;
     for (auto &b: view.view)
@@ -590,15 +590,15 @@ namespace czh::online
     return ret;
   }
   
-  renderer::MapView deserialize_mapview(const std::string &str)
+  drawing::MapView deserialize_mapview(const std::string &str)
   {
     auto s1 = czh::utils::split<std::vector<std::string_view>>(str, delim::mv);
-    renderer::MapView ret;
+    drawing::MapView ret;
     ret.seed = std::stoul(std::string{s1[0]});
     for (size_t i = 1; i < s1.size(); ++i)
     {
       auto s2 = czh::utils::split<std::vector<std::string_view>>(s1[i], delim::pv);
-      czh::renderer::PointView c;
+      czh::drawing::PointView c;
       int x = std::stoi(std::string{s2[0]});
       int y = std::stoi(std::string{s2[1]});
       c.tank_id = std::stoi(std::string{s2[2]});
@@ -662,7 +662,6 @@ namespace czh::online
                   std::lock_guard<std::mutex> l(g::mainloop_mtx);
                   size_t id = std::stoi(std::string{s[1]});
                   map::Zone zone = deserialize_zone(std::string{s[2]});
-                  renderer::MapView map_view = renderer::extract_map(zone);
                   std::set<map::Pos> changes;
                   for (auto &r: g::userdata[id].map_changes)
                   {
@@ -677,9 +676,9 @@ namespace czh::online
                                               "update_res",
                                               d.count(),
                                               serialize_changes(changes),
-                                              serialize_tanksview(renderer::extract_tanks()),
+                                              serialize_tanksview(drawing::extract_tanks()),
                                               serialize_and_clear_messages(g::userdata[id].messages),
-                                              serialize_mapview(renderer::extract_map(zone))));
+                                              serialize_mapview(drawing::extract_map(zone))));
                   g::userdata[id].map_changes.clear();
                   g::userdata[id].last_update = std::chrono::steady_clock::now();
                 }
@@ -797,7 +796,7 @@ namespace czh::online
     std::lock_guard<std::mutex> l(g::online_mtx);
     auto beg = std::chrono::steady_clock::now();
     std::string content = utils::join(delim::req, "update", g::user_id,
-                                      serialize_zone(g::render_zone.bigger_zone(10)));
+                                      serialize_zone(g::visible_zone.bigger_zone(10)));
     auto ret = cli->send_and_recv(content);
     if (!ret.has_value())
     {
@@ -822,10 +821,10 @@ namespace czh::online
       msgs.pop();
     }
     auto mv = deserialize_mapview(std::string{s[5]});
-    if (mv.seed != g::frame.map.seed) g::output_inited = false;
-    g::frame.map = mv;
-    g::frame.tanks = deserialize_tanksview(std::string{s[3]});
-    g::frame.changes = deserialize_changes(std::string{s[2]});
+    if (mv.seed != g::snapshot.map.seed) g::output_inited = false;
+    g::snapshot.map = mv;
+    g::snapshot.tanks = deserialize_tanksview(std::string{s[3]});
+    g::snapshot.changes = deserialize_changes(std::string{s[2]});
     return 0;
   }
   

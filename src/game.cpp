@@ -43,9 +43,9 @@ namespace czh::game
   std::optional<map::Pos> get_available_pos()
   {
     std::vector<map::Pos> p;
-    for (int i = g::render_zone.x_min; i < g::render_zone.x_max; ++i)
+    for (int i = g::visible_zone.x_min; i < g::visible_zone.x_max; ++i)
     {
-      for (int j = g::render_zone.y_min; j < g::render_zone.y_max; ++j)
+      for (int j = g::visible_zone.y_min; j < g::visible_zone.y_max; ++j)
       {
         if (!g::game_map.has(map::Status::WALL, {i, j}) && !g::game_map.has(map::Status::TANK, {i, j}))
         {
@@ -181,11 +181,10 @@ namespace czh::game
   void tank_react(std::size_t id, tank::NormalTankEvent event)
   {
     std::lock_guard<std::mutex> l(g::tank_reacting_mtx);
-    if (g::curr_page != Page::GAME || !id_at(id)->is_alive())
+    if (id_at(id)->is_alive())
     {
-      return;
+      g::normal_tank_events.emplace_back(std::make_pair(id, event));
     }
-    g::normal_tank_events.emplace_back(std::make_pair(id, event));
   }
   
   void mainloop()
@@ -220,33 +219,10 @@ namespace czh::game
     for (auto it = g::tanks.begin(); it != g::tanks.end(); ++it)
     {
       utils::tank_assert(it->second != nullptr);
-      if (!it->second->is_alive() || !it->second->is_auto()) continue;
-      auto tank = dynamic_cast<tank::AutoTank *>(it->second);
-      if (tank->has_arrived())
+      if (it->second->is_alive() && it->second->is_auto())
       {
-        for (int i = tank->get_pos().x - 15; i < tank->get_pos().x + 15; ++i)
-        {
-          for (int j = tank->get_pos().y - 15; j < tank->get_pos().y + 15; ++j)
-          {
-            if (i == tank->get_pos().x && j == tank->get_pos().y)
-            {
-              continue;
-            }
-            
-            if (g::game_map.at(i, j).has(map::Status::TANK))
-            {
-              auto t = g::game_map.at(i, j).get_tank();
-              utils::tank_assert(t != nullptr);
-              if (t->is_alive())
-              {
-                tank->target(t->get_id(), t->get_pos());
-                break;
-              }
-            }
-          }
-        }
+        dynamic_cast<tank::AutoTank *>(it->second)->react();
       }
-      tank->react();
     }
     // bullet move
     for (auto it = g::bullets.begin(); it != g::bullets.end(); ++it)

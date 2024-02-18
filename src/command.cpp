@@ -23,7 +23,7 @@
 namespace czh::g
 {
   std::vector<cmd::CommandInfo> commands{
-      {"help",       "[page]"},
+      {"help",       "[line]"},
       {"quit",       ""},
       {"fill",       "[status] [A x,y] [B x,y optional]"},
       {"tp",         "[A id] ([B id] or [B x,y])"},
@@ -119,18 +119,25 @@ namespace czh::cmd
     {
       if (args_is<>(args))
       {
-        g::help_page = 0;
+        g::help_lineno = 1;
       }
       else if (args_is<int>(args))
       {
-        g::help_page = std::get<0>(args_get<int>(args));
+        int i = std::get<0>(args_get<int>(args));
+        if (i < 1 || i > g::help_text.size())
+        {
+          invalid_arguments();
+        }
+        else
+        {
+          g::help_lineno = i;
+        }
       }
       else
       {
         invalid_arguments();
         return;
       }
-      term::clear();
       g::curr_page = game::Page::HELP;
       g::output_inited = false;
     }
@@ -325,7 +332,7 @@ namespace czh::cmd
       if (args_is<int>(args))
       {
         std::tie(id) = args_get<int>(args);
-        if (g::frame.tanks.find(id) == g::frame.tanks.end())
+        if (g::snapshot.tanks.find(id) == g::snapshot.tanks.end())
         {
           msg::error(user_id, "Invalid tank");
           return;
@@ -337,7 +344,7 @@ namespace czh::cmd
         return;
       }
       g::tank_focus = id;
-      msg::info(user_id, "Observing " + g::frame.tanks[id].info.name);
+      msg::info(user_id, "Observing " + g::snapshot.tanks[id].info.name);
     }
     else if (name == "kill")
     {

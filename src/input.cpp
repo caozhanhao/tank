@@ -22,12 +22,12 @@
 
 namespace czh::g
 {
+  bool typing_command = false;
   std::string cmd_line{};
   size_t cmd_pos = 0;
   size_t cmd_last_cols = 0;
   std::vector<std::string> history{};
   size_t history_pos = 0;
-  std::string searching_history_pattern{};
   std::string hint{};
   bool hint_applicable = false;
 }
@@ -37,7 +37,7 @@ namespace czh::input
   template<typename ...Args>
   void cmd_output(Args &&...args)
   {
-    std::lock_guard<std::mutex> l(g::render_mtx);
+    std::lock_guard<std::mutex> l(g::drawing_mtx);
     term::output(std::forward<Args>(args)...);
   }
   
@@ -117,7 +117,7 @@ namespace czh::input
   
   void cmdline_refresh(bool with_hint = true)
   {
-    std::lock_guard<std::mutex> l(g::render_mtx);
+    std::lock_guard<std::mutex> l(g::drawing_mtx);
     term::move_cursor({0, g::screen_height - 1});
     term::show_cursor();
     // move to begin and clear the cmd_line
@@ -164,12 +164,12 @@ namespace czh::input
     g::cmd_last_cols = 0;
   }
   
-  void move_to_end()
+  void move_to_end(bool apply_hint = true)
   {
     if (g::cmd_pos == g::cmd_line.size() && g::hint.empty()) return;
     bool refresh = false;
     
-    if (!g::hint.empty() && g::hint_applicable)
+    if (apply_hint && !g::hint.empty() && g::hint_applicable)
     {
       g::cmd_line += g::hint;
       g::cmd_line += " ";
@@ -280,8 +280,7 @@ namespace czh::input
   
   void edit_history_helper(bool prev)
   {
-    // first search should save the current g::cmd_line
-    if (g::searching_history_pattern.empty())
+    if (g::history_pos == g::history.size() - 1)
     {
       g::history.back() = g::cmd_line;
     }
@@ -320,7 +319,7 @@ namespace czh::input
     g::cmd_line = g::history[g::history_pos];
     g::cmd_pos = g::cmd_line.size();
     edit_refresh_line();
-    move_to_end();
+    move_to_end(false);
   }
   
   void edit_up()
@@ -345,7 +344,7 @@ namespace czh::input
   
   Input get_input()
   {
-    if (g::curr_page == game::Page::COMMAND)
+    if (g::typing_command)
     {
       while (true)
       {
@@ -586,8 +585,6 @@ namespace czh::input
         else
         {
           g::cmd_line.insert(g::cmd_pos++, 1, buf);
-          // Input a character should close the history searching.
-          g::searching_history_pattern.clear();
           edit_refresh_line();
         }
       }

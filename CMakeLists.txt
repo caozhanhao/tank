@@ -11,7 +11,7 @@ add_executable(tank
         src/bullet.cpp
         src/command.cpp
         src/term.cpp
-        src/renderer.cpp
+        src/drawing.cpp
         src/input.cpp
         src/online.cpp
         src/utils.cpp

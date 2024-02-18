@@ -17,7 +17,7 @@
 
 #include "tank.h"
 #include "game_map.h"
-#include "renderer.h"
+#include "drawing.h"
 #include "utils.h"
 
 #ifdef _WIN32

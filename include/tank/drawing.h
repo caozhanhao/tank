@@ -11,8 +11,8 @@
 //   WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 //   See the License for the specific language governing permissions and
 //   limitations under the License.
-#ifndef TANK_RENDERER_H
-#define TANK_RENDERER_H
+#ifndef TANK_DRAWING_H
+#define TANK_DRAWING_H
 #pragma once
 
 #include "game_map.h"
@@ -21,7 +21,7 @@
 
 #include <string>
 
-namespace czh::renderer
+namespace czh::drawing
 {
   // Xterm 256 color
   // https://www.ditig.com/publications/256-colors-cheat-sheet
@@ -29,7 +29,7 @@ namespace czh::renderer
   {
     int background;
     int wall;
-    int default_tank;
+    std::vector<int> tanks;
   };
   
   std::string colorify_text(size_t id, const std::string &str);
@@ -69,7 +69,7 @@ namespace czh::renderer
     bool is_alive;
   };
   
-  struct Frame
+  struct Snapshot
   {
     MapView map;
     std::map<size_t, TankView> tanks;
@@ -91,8 +91,8 @@ namespace czh::renderer
   
   map::Zone get_visible_zone(size_t w, size_t h, size_t id);
   
-  int update_frame();
+  int update_snapshot();
   
-  void render();
+  void draw();
 }
-#endif //TANK_RENDERER_H
+#endif //TANK_DRAWING_H

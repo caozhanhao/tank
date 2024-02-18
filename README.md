@@ -36,7 +36,7 @@ User's Tank:
 
 #### Command
 
-help [page]
+help [line]
 
 - Get this help.
 - Use 'Enter' to return game.
@@ -134,6 +134,6 @@ disconnect
 
 - Disconnect from the Server.
 
-### Dependencies
+### Note
 
 - Requires C++ 20

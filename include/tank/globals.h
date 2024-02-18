@@ -61,34 +61,35 @@ namespace czh::g
   extern term::KeyBoard keyboard;
   
   // input.cpp
+  extern bool typing_command;
   extern std::string cmd_line;
   extern size_t cmd_pos;
   extern size_t cmd_last_cols;
   extern std::vector<std::string> history;
   extern size_t history_pos;
-  extern std::string searching_history_pattern;
   extern std::string hint;
   extern bool hint_applicable;
   
   // command.cpp
   extern std::vector<cmd::CommandInfo> commands;
   
-  // renderer.cpp
+  // drawing.cpp
   extern bool output_inited;
   extern size_t tank_focus;
   extern game::Page curr_page;
-  extern size_t help_page;
-  extern map::Zone render_zone;
+  extern std::vector<std::string> help_text;
+  extern size_t help_lineno;
+  extern map::Zone visible_zone;
   extern std::size_t screen_height;
   extern std::size_t screen_width;
   extern int fps;
-  extern renderer::Frame frame;
-  extern std::chrono::steady_clock::time_point last_render;
+  extern drawing::Snapshot snapshot;
+  extern std::chrono::steady_clock::time_point last_drawing;
   extern std::chrono::steady_clock::time_point last_message_displayed;
-  extern renderer::PointView empty_point_view;
-  extern renderer::PointView wall_point_view;
-  extern renderer::Style style;
-  extern std::mutex render_mtx;
+  extern drawing::PointView empty_point_view;
+  extern drawing::PointView wall_point_view;
+  extern drawing::Style style;
+  extern std::mutex drawing_mtx;
   
   // game_map.cpp
   extern map::Map game_map;

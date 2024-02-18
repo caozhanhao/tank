@@ -39,7 +39,6 @@ namespace czh::game
     TANK_STATUS,
     MAIN,
     HELP,
-    COMMAND
   };
   
   std::optional<map::Pos> get_available_pos();

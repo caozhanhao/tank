@@ -92,25 +92,6 @@ namespace czh::utils
     return ret;
   }
   
-  template<Container T>
-  T fit_to_screen(const T &container, int w)
-  {
-    T ret;
-    for (auto it = container.begin(); it < container.end(); ++it)
-    {
-      if (it->size() > w)
-      {
-        ret.insert(ret.end(), it->substr(0, w));
-        ret.insert(ret.end(), it->substr(w));
-      }
-      else
-      {
-        ret.insert(ret.end(), *it);
-      }
-    }
-    return ret;
-  }
-  
   void tank_assert(bool b, const std::string &detail_ = "Assertion failed.");
   
   template<typename T>

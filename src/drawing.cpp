@@ -15,8 +15,9 @@
 #include "tank/bullet.h"
 #include "tank/utils.h"
 #include "tank/term.h"
-#include "tank/renderer.h"
+#include "tank/drawing.h"
 #include "tank/globals.h"
+
 #include <mutex>
 #include <vector>
 #include <string>
@@ -25,23 +26,27 @@
 namespace czh::g
 {
   bool output_inited = false;
-  std::size_t screen_height = term::get_height();
-  std::size_t screen_width = term::get_width();
+  std::size_t screen_height = 0;
+  std::size_t screen_width = 0;
   size_t tank_focus = 0;
   game::Page curr_page = game::Page::MAIN;
-  size_t help_page = 0;
-  map::Zone render_zone = {-128, 128, -128, 128};
-  renderer::Frame frame{};
+  size_t help_lineno = 1;
+  std::vector<std::string> help_text;
+  map::Zone visible_zone = {-128, 128, -128, 128};
+  drawing::Snapshot snapshot{};
   int fps = 60;
-  renderer::PointView empty_point_view{.status = map::Status::END, .tank_id = -1, .text = ""};
-  renderer::PointView wall_point_view{.status = map::Status::WALL, .tank_id = -1, .text = ""};
-  std::chrono::steady_clock::time_point last_render = std::chrono::steady_clock::now();
+  drawing::PointView empty_point_view{.status = map::Status::END, .tank_id = -1, .text = ""};
+  drawing::PointView wall_point_view{.status = map::Status::WALL, .tank_id = -1, .text = ""};
+  std::chrono::steady_clock::time_point last_drawing = std::chrono::steady_clock::now();
   std::chrono::steady_clock::time_point last_message_displayed = std::chrono::steady_clock::now();
-  renderer::Style style{.background = 15, .wall = 9, .default_tank = 10};
-  std::mutex render_mtx;
+  drawing::Style style{.background = 15, .wall = 9, .tanks =
+      {
+          10, 3, 4, 5, 6, 11, 12, 13, 14, 57, 100, 214
+      }};
+  std::mutex drawing_mtx;
 }
 
-namespace czh::renderer
+namespace czh::drawing
 {
   const PointView &generate(const map::Pos &i, size_t seed)
   {
@@ -77,7 +82,7 @@ namespace czh::renderer
     {
       return view.at(i);
     }
-    return renderer::generate(i, seed);
+    return drawing::generate(i, seed);
   }
   
   bool MapView::is_empty() const
@@ -159,78 +164,53 @@ namespace czh::renderer
   
   std::optional<TankView> view_id_at(size_t id)
   {
-    auto it = g::frame.tanks.find(id);
-    if (it == g::frame.tanks.end()) return std::nullopt;
+    auto it = g::snapshot.tanks.find(id);
+    if (it == g::snapshot.tanks.end()) return std::nullopt;
     return it->second;
-  }
-  
-  const std::vector<int> &get_available_colors()
-  {
-    static std::vector<int> available_colors;
-    if (available_colors.empty())
-    {
-      available_colors.emplace_back(g::style.default_tank);
-      for (int i = 0; i < 16; ++i)
-      {
-        if (i == g::style.background
-            || i == g::style.wall
-            || i == g::style.default_tank
-            || i == 0 // Black
-            || i == 1 // Maroon
-            )
-        {
-          continue;
-        }
-        available_colors.emplace_back(i);
-      }
-    }
-    return available_colors;
   }
   
   std::string colorify_text(size_t id, const std::string &str)
   {
-    const auto &avail = get_available_colors();
     std::string ret = "\033[38;5;";
     int color;
     if (id == 0)
     {
-      color = avail[0];
+      color = g::style.tanks[0];
     }
     else
     {
-      color = avail[id % avail.size()];
+      color = g::style.tanks[id % g::style.tanks.size()];
     }
     return utils::color_256_fg(str, color);
   }
   
   std::string colorify_tank(size_t id, const std::string &str)
   {
-    const auto &avail = get_available_colors();
     std::string ret = "\033[38;5;";
     int color;
     if (id == 0)
     {
-      color = avail[0];
+      color = g::style.tanks[0];
     }
     else
     {
-      color = avail[id % avail.size()];
+      color = g::style.tanks[id % g::style.tanks.size()];
     }
     return utils::color_256_bg(str, color);
   }
   
   void update_point(const map::Pos &pos)
   {
-    term::move_cursor({static_cast<size_t>((pos.x - g::render_zone.x_min) * 2),
-                       static_cast<size_t>(g::render_zone.y_max - pos.y - 1)});
-    switch (g::frame.map.at(pos).status)
+    term::move_cursor({static_cast<size_t>((pos.x - g::visible_zone.x_min) * 2),
+                       static_cast<size_t>(g::visible_zone.y_max - pos.y - 1)});
+    switch (g::snapshot.map.at(pos).status)
     {
       case map::Status::TANK:
-        term::output(colorify_tank(g::frame.map.at(pos).tank_id, "  "));
+        term::output(colorify_tank(g::snapshot.map.at(pos).tank_id, "  "));
         break;
       case map::Status::BULLET:
-        term::output(utils::color_256_bg(colorify_text(g::frame.map.at(pos).tank_id,
-                                                       g::frame.map.at(pos).text), g::style.background));
+        term::output(utils::color_256_bg(colorify_text(g::snapshot.map.at(pos).tank_id,
+                                                       g::snapshot.map.at(pos).text), g::style.background));
         break;
       case map::Status::WALL:
         term::output(utils::color_256_bg("  ", g::style.wall));
@@ -280,29 +260,29 @@ namespace czh::renderer
   }
   
   
-  std::set<map::Pos> get_render_changes(const map::Direction &move)
+  std::set<map::Pos> get_screen_changes(const map::Direction &move)
   {
     std::set<map::Pos> ret;
-    // When the render zone moves, every point in the screen doesn't move, but its corresponding pos map_changes.
-    // so we need to do something to get the correct map_changes:
+    // When the visible zone moves, every point in the screen doesn't move, but its corresponding pos changes.
+    // so we need to do something to get the correct changes:
     // 1.  if there's no difference in the two point in the moving direction, ignore.
     // 2.  move the map's map_changes to its corresponding screen position.
-    auto zone = g::render_zone.bigger_zone(2);
+    auto zone = g::visible_zone.bigger_zone(2);
     switch (move)
     {
       case map::Direction::UP:
-        for (int i = g::render_zone.x_min; i < g::render_zone.x_max; i++)
+        for (int i = g::visible_zone.x_min; i < g::visible_zone.x_max; i++)
         {
-          for (int j = g::render_zone.y_min - 1; j < g::render_zone.y_max + 1; j++)
+          for (int j = g::visible_zone.y_min - 1; j < g::visible_zone.y_max + 1; j++)
           {
-            if (!g::frame.map.at(i, j + 1).is_empty() || !g::frame.map.at(i, j).is_empty())
+            if (!g::snapshot.map.at(i, j + 1).is_empty() || !g::snapshot.map.at(i, j).is_empty())
             {
               ret.insert(map::Pos(i, j));
               ret.insert(map::Pos(i, j + 1));
             }
           }
         }
-        for (auto &p: g::frame.changes)
+        for (auto &p: g::snapshot.changes)
         {
           if (zone.contains(p))
           {
@@ -311,18 +291,18 @@ namespace czh::renderer
         }
         break;
       case map::Direction::DOWN:
-        for (int i = g::render_zone.x_min; i < g::render_zone.x_max; i++)
+        for (int i = g::visible_zone.x_min; i < g::visible_zone.x_max; i++)
         {
-          for (int j = g::render_zone.y_min - 1; j < g::render_zone.y_max + 1; j++)
+          for (int j = g::visible_zone.y_min - 1; j < g::visible_zone.y_max + 1; j++)
           {
-            if (!g::frame.map.at(i, j - 1).is_empty() || !g::frame.map.at(i, j).is_empty())
+            if (!g::snapshot.map.at(i, j - 1).is_empty() || !g::snapshot.map.at(i, j).is_empty())
             {
               ret.insert(map::Pos(i, j));
               ret.insert(map::Pos(i, j - 1));
             }
           }
         }
-        for (auto &p: g::frame.changes)
+        for (auto &p: g::snapshot.changes)
         {
           if (zone.contains(p))
           {
@@ -331,18 +311,18 @@ namespace czh::renderer
         }
         break;
       case map::Direction::LEFT:
-        for (int i = g::render_zone.x_min - 1; i < g::render_zone.x_max + 1; i++)
+        for (int i = g::visible_zone.x_min - 1; i < g::visible_zone.x_max + 1; i++)
         {
-          for (int j = g::render_zone.y_min; j < g::render_zone.y_max; j++)
+          for (int j = g::visible_zone.y_min; j < g::visible_zone.y_max; j++)
           {
-            if (!g::frame.map.at(i - 1, j).is_empty() || !g::frame.map.at(i, j).is_empty())
+            if (!g::snapshot.map.at(i - 1, j).is_empty() || !g::snapshot.map.at(i, j).is_empty())
             {
               ret.insert(map::Pos(i, j));
               ret.insert(map::Pos(i - 1, j));
             }
           }
         }
-        for (auto &p: g::frame.changes)
+        for (auto &p: g::snapshot.changes)
         {
           if (zone.contains(p))
           {
@@ -351,18 +331,18 @@ namespace czh::renderer
         }
         break;
       case map::Direction::RIGHT:
-        for (int i = g::render_zone.x_min - 1; i < g::render_zone.x_max + 1; i++)
+        for (int i = g::visible_zone.x_min - 1; i < g::visible_zone.x_max + 1; i++)
         {
-          for (int j = g::render_zone.y_min; j < g::render_zone.y_max; j++)
+          for (int j = g::visible_zone.y_min; j < g::visible_zone.y_max; j++)
           {
-            if (!g::frame.map.at(i + 1, j).is_empty() || !g::frame.map.at(i, j).is_empty())
+            if (!g::snapshot.map.at(i + 1, j).is_empty() || !g::snapshot.map.at(i, j).is_empty())
             {
               ret.insert(map::Pos(i, j));
               ret.insert(map::Pos(i + 1, j));
             }
           }
         }
-        for (auto &p: g::frame.changes)
+        for (auto &p: g::snapshot.changes)
         {
           if (zone.contains(p))
           {
@@ -371,7 +351,7 @@ namespace czh::renderer
         }
         break;
       case map::Direction::END:
-        for (auto &p: g::frame.changes)
+        for (auto &p: g::snapshot.changes)
         {
           if (zone.contains(p))
           {
@@ -380,7 +360,7 @@ namespace czh::renderer
         }
         break;
     }
-    g::frame.changes.clear();
+    g::snapshot.changes.clear();
     return ret;
   }
   
@@ -389,20 +369,20 @@ namespace czh::renderer
     switch (direction)
     {
       case map::Direction::UP:
-        g::render_zone.y_max++;
-        g::render_zone.y_min++;
+        g::visible_zone.y_max++;
+        g::visible_zone.y_min++;
         break;
       case map::Direction::DOWN:
-        g::render_zone.y_max--;
-        g::render_zone.y_min--;
+        g::visible_zone.y_max--;
+        g::visible_zone.y_min--;
         break;
       case map::Direction::LEFT:
-        g::render_zone.x_max--;
-        g::render_zone.x_min--;
+        g::visible_zone.x_max--;
+        g::visible_zone.x_min--;
         break;
       case map::Direction::RIGHT:
-        g::render_zone.x_max++;
-        g::render_zone.x_min++;
+        g::visible_zone.x_max++;
+        g::visible_zone.x_min++;
         break;
       default:
         break;
@@ -413,29 +393,29 @@ namespace czh::renderer
   {
     auto pos = view_id_at(id)->pos;
     return
-        ((g::render_zone.x_min + 5 > pos.x)
-         || (g::render_zone.x_max - 5 <= pos.x)
-         || (g::render_zone.y_min + 5 > pos.y)
-         || (g::render_zone.y_max - 5 <= pos.y));
+        ((g::visible_zone.x_min + 5 > pos.x)
+         || (g::visible_zone.x_max - 5 <= pos.x)
+         || (g::visible_zone.y_min + 5 > pos.y)
+         || (g::visible_zone.y_max - 5 <= pos.y));
   }
   
   bool completely_out_of_zone(size_t id)
   {
     auto pos = view_id_at(id)->pos;
     return
-        ((g::render_zone.x_min > pos.x)
-         || (g::render_zone.x_max <= pos.x)
-         || (g::render_zone.y_min > pos.y)
-         || (g::render_zone.y_max <= pos.y));
+        ((g::visible_zone.x_min > pos.x)
+         || (g::visible_zone.x_max <= pos.x)
+         || (g::visible_zone.y_min > pos.y)
+         || (g::visible_zone.y_max <= pos.y));
   }
   
-  int update_frame()
+  int update_snapshot()
   {
     if (g::game_mode == czh::game::GameMode::SERVER || g::game_mode == czh::game::GameMode::NATIVE)
     {
-      g::frame.map = extract_map(g::render_zone.bigger_zone(10));
-      g::frame.tanks = extract_tanks();
-      g::frame.changes = g::userdata[g::user_id].map_changes;
+      g::snapshot.map = extract_map(g::visible_zone.bigger_zone(10));
+      g::snapshot.tanks = extract_tanks();
+      g::snapshot.changes = g::userdata[g::user_id].map_changes;
       g::userdata[g::user_id].map_changes.clear();
       return 0;
     }
@@ -457,294 +437,23 @@ namespace czh::renderer
     return -1;
   }
   
-  void render()
+  void draw()
   {
     term::hide_cursor();
     std::lock_guard<std::mutex> l1(g::mainloop_mtx);
-    std::lock_guard<std::mutex> l2(g::render_mtx);
+    std::lock_guard<std::mutex> l2(g::drawing_mtx);
     if (g::screen_height != term::get_height() || g::screen_width != term::get_width())
     {
       term::clear();
-      g::help_page = 1;
+      g::help_lineno = 1;
       g::output_inited = false;
       g::screen_height = term::get_height();
       g::screen_width = term::get_width();
-    }
-    switch (g::curr_page)
-    {
-      case game::Page::GAME:
-      case game::Page::COMMAND:
-      {
-        // check focus
-        size_t focus = g::tank_focus;
-        if (auto t = view_id_at(focus); t == std::nullopt || !t->is_alive)
-        {
-          focus = 0;
-          t = view_id_at(focus);
-          while (t == std::nullopt || !t->is_alive)
-          {
-            ++focus;
-            if (focus >= g::frame.tanks.size())
-            {
-              focus = g::tank_focus;
-              break;
-            }
-            t = view_id_at(focus);
-          }
-        }
-        
-        // check zone
-        if (!check_zone_size(g::render_zone))
-        {
-          g::render_zone = get_visible_zone(g::tank_focus);
-          g::output_inited = false;
-          return;
-        }
-        
-        auto move = map::Direction::END;
-        
-        
-        if (out_of_zone(focus))
-        {
-          if (completely_out_of_zone(focus))
-          {
-            g::render_zone = get_visible_zone(focus);
-            g::output_inited = false;
-            int r = update_frame();
-            if (r != 0) return;
-          }
-          else
-          {
-            move = view_id_at(focus)->direction;
-            next_zone(move);
-          }
-        }
-        
-        // output
-        if (!g::output_inited)
-        {
-          term::move_cursor({0, 0});
-          for (int j = g::render_zone.y_max - 1; j >= g::render_zone.y_min; j--)
-          {
-            for (int i = g::render_zone.x_min; i < g::render_zone.x_max; i++)
-            {
-              update_point(map::Pos(i, j));
-            }
-          }
-          g::output_inited = true;
-        }
-        else
-        {
-          auto changes = get_render_changes(move);
-          for (auto &p: changes)
-          {
-            if (g::render_zone.contains(p))
-            {
-              update_point(p);
-            }
-          }
-        }
-        
-        auto now = std::chrono::steady_clock::now();
-        auto delta_time = std::chrono::duration_cast<std::chrono::milliseconds>(now - g::last_render);
-        if (delta_time.count() != 0)
-        {
-          double curr_fps = 1.0 / (static_cast<double>(delta_time.count()) / 1000.0);
-          g::fps = static_cast<int>((static_cast<double>(g::fps) + 0.01 * curr_fps) / 1.01);
-        }
-        g::last_render = now;
-        
-        // status bar
-        term::move_cursor(term::TermPos(0, g::screen_height - 2));
-        auto &focus_tank = g::frame.tanks[focus];
-        std::string left = colorify_text(focus_tank.info.id, focus_tank.info.name)
-                           + " HP: " + std::to_string(focus_tank.hp) + "/" + std::to_string(focus_tank.info.max_hp)
-                           + " Pos: (" + std::to_string(focus_tank.pos.x) + ", " + std::to_string(focus_tank.pos.y) +
-                           ")";
-        std::string right = std::to_string(g::fps) + "fps ";
-        
-        if (g::delay < 50)
-        {
-          right += utils::color_256_fg(std::to_string(g::delay) + " ms", 2);
-        }
-        else if (g::delay < 100)
-        {
-          right += utils::color_256_fg(std::to_string(g::delay) + " ms", 11);
-        }
-        else
-        {
-          right += utils::color_256_fg(std::to_string(g::delay) + " ms", 9);
-        }
-        
-        int a = static_cast<int>(g::screen_width) - static_cast<int>(utils::escape_code_len(left, right));
-        if (a > 0)
-        {
-          term::output(left, std::string(a, ' '), right);
-        }
-        else
-        {
-          term::output((left + right).substr(0, left.size() + right.size() + a));
-        }
-        
-        // command
-        if (g::curr_page == game::Page::COMMAND)
-        {
-          term::move_cursor({g::cmd_pos + 1, g::screen_height - 1});
-          term::show_cursor();
-        }
-          // msg
-        else
-        {
-          term::move_cursor(term::TermPos(0, g::screen_height - 1));
-          auto d2 = std::chrono::duration_cast<std::chrono::milliseconds>(now - g::last_message_displayed);
-          if (d2 > g::msg_ttl)
-          {
-            if (!g::userdata[g::user_id].messages.empty())
-            {
-              auto msg = g::userdata[g::user_id].messages.top();
-              g::userdata[g::user_id].messages.pop();
-              std::string str = ((msg.from == -1) ? "" : std::to_string(msg.from) + ": ") + msg.content;
-              int a2 = static_cast<int>(g::screen_width) - static_cast<int>(utils::escape_code_len(str));
-              if (a2 > 0)
-              {
-                term::output(str, std::string(a2, ' '));
-              }
-              else
-              {
-                term::output(str.substr(0, str.size() + a));
-              }
-              g::last_message_displayed = now;
-            }
-            else
-            {
-              term::output(std::string(g::screen_width, ' '));
-            }
-          }
-        }
-      }
-        break;
-      case game::Page::TANK_STATUS:
-      {
-        term::clear();
-        std::size_t cursor_y = 0;
-        term::mvoutput({g::screen_width / 2 - 10, cursor_y++}, "Tank");
-        size_t gap = 2;
-        size_t id_x = gap;
-        size_t name_x = id_x + gap + std::to_string((*std::max_element(g::frame.tanks.begin(), g::frame.tanks.end(),
-                                                                       [](auto &&a, auto &&b)
-                                                                       {
-                                                                         return a.second.info.id <
-                                                                                b.second.info.id;
-                                                                       })).second.info.id).size();
-        auto pos_size = [](const map::Pos &p)
-        {
-          return std::to_string(p.x).size() + std::to_string(p.y).size() + 3;
-        };
-        size_t pos_x = name_x + gap + (*std::max_element(g::frame.tanks.begin(), g::frame.tanks.end(),
-                                                         [](auto &&a, auto &&b)
-                                                         {
-                                                           return a.second.info.name.size() <
-                                                                  b.second.info.name.size();
-                                                         })).second.info.name.size();
-        size_t hp_x = pos_x + gap + pos_size((*std::max_element(g::frame.tanks.begin(), g::frame.tanks.end(),
-                                                                [&pos_size](auto &&a, auto &&b)
-                                                                {
-                                                                  return pos_size(a.second.pos) <
-                                                                         pos_size(b.second.pos);
-                                                                }
-        )).second.pos);
-        
-        size_t lethality_x =
-            hp_x + gap + std::to_string((*std::max_element(g::frame.tanks.begin(), g::frame.tanks.end(),
-                                                           [](auto &&a, auto &&b)
-                                                           {
-                                                             return a.second.hp <
-                                                                    b.second.hp;
-                                                           })).second.hp).size();
-        
-        size_t auto_tank_gap_x =
-            lethality_x + gap + std::to_string((*std::max_element(g::frame.tanks.begin(), g::frame.tanks.end(),
-                                                                  [](auto &&a, auto &&b)
-                                                                  {
-                                                                    return
-                                                                        a.second.info.bullet.lethality
-                                                                        <
-                                                                        b.second.info.bullet.lethality;
-                                                                  })).second.info.bullet.lethality).size();
-        
-        
-        term::mvoutput({id_x, cursor_y}, "ID");
-        term::mvoutput({name_x, cursor_y}, "Name");
-        term::mvoutput({pos_x, cursor_y}, "Pos");
-        term::mvoutput({hp_x, cursor_y}, "HP");
-        term::mvoutput({lethality_x, cursor_y}, "ATK");
-        term::mvoutput({auto_tank_gap_x, cursor_y}, "Gap");
-        cursor_y++;
-        for (auto it = g::frame.tanks.begin(); it != g::frame.tanks.end(); ++it)
-        {
-          auto tank = it->second;
-          std::string x = std::to_string(tank.pos.x);
-          std::string y = std::to_string(tank.pos.y);
-          term::mvoutput({id_x, cursor_y}, tank.info.id);
-          term::mvoutput({name_x, cursor_y}, colorify_text(tank.info.id, tank.info.name));
-          term::mvoutput({pos_x, cursor_y}, "(", x, ",", y, ")");
-          term::mvoutput({hp_x, cursor_y}, tank.hp);
-          term::mvoutput({lethality_x, cursor_y}, tank.info.bullet.lethality);
-          if (tank.is_auto)
-          {
-            term::mvoutput({auto_tank_gap_x, cursor_y}, tank.info.gap);
-          }
-          else
-          {
-            term::mvoutput({auto_tank_gap_x, cursor_y}, "-");
-          }
-          
-          cursor_y++;
-          if (cursor_y == g::screen_height - 1)
-          {
-            size_t offset = pos_x - name_x;
-            id_x += offset;
-            name_x += offset;
-            pos_x += offset;
-            hp_x += offset;
-            lethality_x += offset;
-            cursor_y = 1;
-          }
-        }
-      }
-        break;
-      case game::Page::MAIN:
-      {
-        if (!g::output_inited)
-        {
-          constexpr std::string_view tank = R"(
-  _____  _    _   _ _  __
- |_   _|/ \  | \ | | |/ /
-   | | / _ \ |  \| | ' /
-   | |/ ___ \| |\  | . \
-   |_/_/   \_\_| \_|_|\_\
-)";
-          static const auto splitted = utils::split<std::vector<std::string_view>>(tank, "\n");
-          auto s = utils::fit_to_screen(splitted, g::screen_width);
-          size_t x = g::screen_width / 2 - 12;
-          size_t y = 2;
-          term::clear();
-          for (size_t i = 0; i < s.size(); ++i)
-          {
-            term::mvoutput({x, y++}, s[i]);
-          }
-          term::mvoutput({x + 5, y + 3}, ">>> Enter <<<");
-          term::mvoutput({x + 1, y + 4}, "Type '/help' to get help.");
-          g::output_inited = true;
-        }
-      }
-        break;
-      case game::Page::HELP:
-      {
-        static const std::string help =
-            R"(
+      
+      static const std::string help =
+          R"(
 Intro:
-In Tank, you will take control of a powerful tank in a maze, showcasing your strategic skills on the infinite map and overcome unpredictable obstacles. You can play solo or team up with friends.
+  In Tank, you will take control of a powerful tank in a maze, showcasing your strategic skills on the infinite map and overcome unpredictable obstacles. You can play solo or team up with friends.
 
 Control:
   Move: WASD or direction keys
@@ -760,7 +469,7 @@ Tank:
     The higher level the tank is, the faster it moves.
     
 Command:
-  help [page]
+  help [line]
     - Get this help.
     - Use 'Enter' to return game.
 
@@ -841,23 +550,336 @@ Command:
   disconnect
     - Disconnect from the Server.
 )";
-        static auto splitted = utils::split<std::vector<std::string_view>>(help, "\n");
-        auto s = utils::fit_to_screen(splitted, g::screen_width);
-        size_t page_size = term::get_height() - 3;
+      static auto raw_lines = utils::split<std::vector<std::string_view>>(help, "\n");
+      g::help_text.clear();
+      for (auto &r: raw_lines)
+      {
+        if (r.size() > g::screen_width)
+        {
+          std::string indent, temp;
+          for (auto &i: r)
+          {
+            if (std::isspace(i))
+            {
+              indent += i;
+            }
+            else
+            {
+              break;
+            }
+          }
+          temp = indent;
+          for (size_t i = 0; i < r.size(); ++i)
+          {
+            if (temp.size() == indent.size() && std::isspace(r[i])) continue;
+            temp += r[i];
+            if (temp.size() == g::screen_width)
+            {
+              if (i + 1 < r.size() && std::isalpha(r[i + 1]) && std::isalpha(r[i]))
+              {
+                int j = i;
+                for (; j >= 0 && !std::isspace(r[j]); --j)
+                {
+                  temp.pop_back();
+                }
+                temp.insert(temp.end(), i - j, ' ');
+                g::help_text.emplace_back(temp);
+                temp = indent;
+                i = j;
+              }
+              else
+              {
+                g::help_text.emplace_back(temp);
+                temp = indent;
+              }
+            }
+          }
+          if (!temp.empty())
+          {
+            g::help_text.emplace_back(temp);
+          }
+        }
+        else
+        {
+          g::help_text.emplace_back(r);
+        }
+      }
+    }
+    switch (g::curr_page)
+    {
+      case game::Page::GAME:
+      {
+        // check zone
+        if (!check_zone_size(g::visible_zone))
+        {
+          g::visible_zone = get_visible_zone(g::tank_focus);
+          g::output_inited = false;
+          return;
+        }
+        
+        auto move = map::Direction::END;
+        
+        if (out_of_zone(g::tank_focus))
+        {
+          if (completely_out_of_zone(g::tank_focus))
+          {
+            g::visible_zone = get_visible_zone(g::tank_focus);
+            g::output_inited = false;
+            int r = update_snapshot();
+            if (r != 0) return;
+          }
+          else
+          {
+            move = view_id_at(g::tank_focus)->direction;
+            next_zone(move);
+          }
+        }
+        
+        // output
         if (!g::output_inited)
         {
-          std::size_t cursor_y = 0;
-          term::mvoutput({g::screen_width / 2 - 2, cursor_y++}, "Tank");
-          if ((g::help_page - 1) * page_size > s.size()) g::help_page = 1;
-          for (size_t i = (g::help_page - 1) * page_size; i < (std::min)(g::help_page * page_size, s.size()); ++i)
+          term::move_cursor({0, 0});
+          for (int j = g::visible_zone.y_max - 1; j >= g::visible_zone.y_min; j--)
           {
-            term::mvoutput({0, cursor_y++}, s[i]);
+            for (int i = g::visible_zone.x_min; i < g::visible_zone.x_max; i++)
+            {
+              update_point(map::Pos(i, j));
+            }
           }
-          term::mvoutput({g::screen_width / 2 - 3, cursor_y}, "Page ", g::help_page);
+          g::output_inited = true;
+        }
+        else
+        {
+          auto changes = get_screen_changes(move);
+          for (auto &p: changes)
+          {
+            if (g::visible_zone.contains(p))
+            {
+              update_point(p);
+            }
+          }
+        }
+        
+        auto now = std::chrono::steady_clock::now();
+        auto delta_time = std::chrono::duration_cast<std::chrono::milliseconds>(now - g::last_drawing);
+        if (delta_time.count() != 0)
+        {
+          double curr_fps = 1.0 / (static_cast<double>(delta_time.count()) / 1000.0);
+          g::fps = static_cast<int>((static_cast<double>(g::fps) + 0.01 * curr_fps) / 1.01);
+        }
+        g::last_drawing = now;
+        
+        // status bar
+        term::move_cursor(term::TermPos(0, g::screen_height - 2));
+        auto &focus_tank = g::snapshot.tanks[g::tank_focus];
+        std::string left = colorify_text(focus_tank.info.id, focus_tank.info.name)
+                           + " HP: " + std::to_string(focus_tank.hp) + "/" + std::to_string(focus_tank.info.max_hp)
+                           + " Pos: (" + std::to_string(focus_tank.pos.x) + ", " + std::to_string(focus_tank.pos.y) +
+                           ")";
+        std::string right = std::to_string(g::fps) + "fps ";
+        
+        if (g::delay < 50)
+        {
+          right += utils::color_256_fg(std::to_string(g::delay) + " ms", 2);
+        }
+        else if (g::delay < 100)
+        {
+          right += utils::color_256_fg(std::to_string(g::delay) + " ms", 11);
+        }
+        else
+        {
+          right += utils::color_256_fg(std::to_string(g::delay) + " ms", 9);
+        }
+        
+        int a = static_cast<int>(g::screen_width) - static_cast<int>(utils::escape_code_len(left, right));
+        if (a > 0)
+        {
+          term::output(left, std::string(a, ' '), right);
+        }
+        else
+        {
+          term::output((left + right).substr(0, left.size() + right.size() + a));
+        }
+      }
+        break;
+      case game::Page::TANK_STATUS:
+      {
+        term::clear();
+        std::size_t cursor_y = 0;
+        term::mvoutput({g::screen_width / 2 - 10, cursor_y++}, "Tank");
+        size_t gap = 2;
+        size_t id_x = gap;
+        size_t name_x =
+            id_x + gap + std::to_string((*std::max_element(g::snapshot.tanks.begin(), g::snapshot.tanks.end(),
+                                                           [](auto &&a, auto &&b)
+                                                           {
+                                                             return a.second.info.id <
+                                                                    b.second.info.id;
+                                                           })).second.info.id).size();
+        auto pos_size = [](const map::Pos &p)
+        {
+          return std::to_string(p.x).size() + std::to_string(p.y).size() + 3;
+        };
+        size_t pos_x = name_x + gap + (*std::max_element(g::snapshot.tanks.begin(), g::snapshot.tanks.end(),
+                                                         [](auto &&a, auto &&b)
+                                                         {
+                                                           return a.second.info.name.size() <
+                                                                  b.second.info.name.size();
+                                                         })).second.info.name.size();
+        size_t hp_x = pos_x + gap + pos_size((*std::max_element(g::snapshot.tanks.begin(), g::snapshot.tanks.end(),
+                                                                [&pos_size](auto &&a, auto &&b)
+                                                                {
+                                                                  return pos_size(a.second.pos) <
+                                                                         pos_size(b.second.pos);
+                                                                }
+        )).second.pos);
+        
+        size_t lethality_x =
+            hp_x + gap + std::to_string((*std::max_element(g::snapshot.tanks.begin(), g::snapshot.tanks.end(),
+                                                           [](auto &&a, auto &&b)
+                                                           {
+                                                             return a.second.hp <
+                                                                    b.second.hp;
+                                                           })).second.hp).size();
+        
+        size_t auto_tank_gap_x =
+            lethality_x + gap + std::to_string((*std::max_element(g::snapshot.tanks.begin(), g::snapshot.tanks.end(),
+                                                                  [](auto &&a, auto &&b)
+                                                                  {
+                                                                    return
+                                                                        a.second.info.bullet.lethality
+                                                                        <
+                                                                        b.second.info.bullet.lethality;
+                                                                  })).second.info.bullet.lethality).size();
+        
+        
+        term::mvoutput({id_x, cursor_y}, "ID");
+        term::mvoutput({name_x, cursor_y}, "Name");
+        term::mvoutput({pos_x, cursor_y}, "Pos");
+        term::mvoutput({hp_x, cursor_y}, "HP");
+        term::mvoutput({lethality_x, cursor_y}, "ATK");
+        term::mvoutput({auto_tank_gap_x, cursor_y}, "Gap");
+        cursor_y++;
+        for (auto it = g::snapshot.tanks.begin(); it != g::snapshot.tanks.end(); ++it)
+        {
+          auto tank = it->second;
+          std::string x = std::to_string(tank.pos.x);
+          std::string y = std::to_string(tank.pos.y);
+          term::mvoutput({id_x, cursor_y}, tank.info.id);
+          term::mvoutput({name_x, cursor_y}, colorify_text(tank.info.id, tank.info.name));
+          term::mvoutput({pos_x, cursor_y}, "(", x, ",", y, ")");
+          term::mvoutput({hp_x, cursor_y}, tank.hp);
+          term::mvoutput({lethality_x, cursor_y}, tank.info.bullet.lethality);
+          if (tank.is_auto)
+          {
+            term::mvoutput({auto_tank_gap_x, cursor_y}, tank.info.gap);
+          }
+          else
+          {
+            term::mvoutput({auto_tank_gap_x, cursor_y}, "-");
+          }
+          
+          cursor_y++;
+          if (cursor_y == g::screen_height - 2)
+          {
+            size_t offset = pos_x - name_x;
+            id_x += offset;
+            name_x += offset;
+            pos_x += offset;
+            hp_x += offset;
+            lethality_x += offset;
+            cursor_y = 1;
+          }
+        }
+      }
+        break;
+      case game::Page::MAIN:
+      {
+        if (!g::output_inited)
+        {
+          constexpr std::string_view tank = R"(
+ _____  _    _   _ _  __
+|_   _|/ \  | \ | | |/ /
+  | | / _ \ |  \| | ' /
+  | |/ ___ \| |\  | . \
+  |_/_/   \_\_| \_|_|\_\
+)";
+          size_t x = g::screen_width / 2 - 12;
+          size_t y = 2;
+          term::clear();
+          if (g::screen_width > 24)
+          {
+            std::vector<std::string_view> splitted = utils::split<std::vector<std::string_view>>(tank, "\n");
+            for (size_t i = 0; i < splitted.size(); ++i)
+            {
+              term::mvoutput({x, y++}, splitted[i]);
+            }
+          }
+          else
+          {
+            x = g::screen_width / 2 - 2;
+            term::mvoutput({x, y++}, "TANK");
+          }
+          
+          term::mvoutput({x + 5, y + 3}, ">>> Enter <<<");
+          term::mvoutput({x + 1, y + 4}, "Type '/help' to get help.");
           g::output_inited = true;
         }
       }
         break;
+      case game::Page::HELP:
+      {
+        if (!g::output_inited)
+        {
+          term::clear();
+          std::size_t cursor_y = 0;
+          term::mvoutput({g::screen_width / 2 - 2, cursor_y++}, "Tank");
+          if (g::help_lineno > g::help_text.size()) g::help_lineno = 1;
+          for (size_t i = g::help_lineno - 1;
+               i < (std::min)(g::help_lineno + g::screen_height - 4, g::help_text.size()); ++i)
+          {
+            term::mvoutput({0, cursor_y++}, g::help_text[i]);
+          }
+          term::mvoutput({g::screen_width / 2 - 3, g::screen_height - 2}, "Line ", g::help_lineno);
+          g::output_inited = true;
+        }
+      }
+        break;
+    }
+    // command
+    if (g::typing_command)
+    {
+      term::move_cursor({g::cmd_pos + 1, g::screen_height - 1});
+      term::show_cursor();
+    }
+    else
+    {
+      term::move_cursor(term::TermPos(0, g::screen_height - 1));
+      auto now = std::chrono::steady_clock::now();
+      auto d2 = std::chrono::duration_cast<std::chrono::milliseconds>(now - g::last_message_displayed);
+      if (d2 > g::msg_ttl)
+      {
+        if (!g::userdata[g::user_id].messages.empty())
+        {
+          auto msg = g::userdata[g::user_id].messages.top();
+          g::userdata[g::user_id].messages.pop();
+          std::string str = ((msg.from == -1) ? "" : std::to_string(msg.from) + ": ") + msg.content;
+          int a2 = static_cast<int>(g::screen_width) - static_cast<int>(utils::escape_code_len(str));
+          if (a2 > 0)
+          {
+            term::output(str, std::string(a2, ' '));
+          }
+          else
+          {
+            term::output(str.substr(0, str.size() + a2));
+          }
+          g::last_message_displayed = now;
+        }
+        else
+        {
+          term::output(std::string(g::screen_width, ' '));
+        }
+      }
     }
     term::flush();
   }

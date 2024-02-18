@@ -449,8 +449,33 @@ namespace czh::tank
   void AutoTank::react()
   {
     if (++gap_count < info.gap) return;
-    
     gap_count = 0;
+    
+    // retarget
+    if (has_arrived())
+    {
+      for (int i = get_pos().x - 15; i < get_pos().x + 15; ++i)
+      {
+        for (int j = get_pos().y - 15; j < get_pos().y + 15; ++j)
+        {
+          if (i == get_pos().x && j == get_pos().y)
+          {
+            continue;
+          }
+          
+          if (g::game_map.at(i, j).has(map::Status::TANK))
+          {
+            auto t = g::game_map.at(i, j).get_tank();
+            utils::tank_assert(t != nullptr);
+            if (t->is_alive())
+            {
+              target(t->get_id(), t->get_pos());
+              break;
+            }
+          }
+        }
+      }
+    }
     
     if (auto tp = game::id_at(target_id);
         tp != nullptr && tank::is_in_firing_line(info.bullet.range, pos, tp->get_pos()))
@@ -467,6 +492,7 @@ namespace czh::tank
       {
         generate_random_way();
       }
+      if (waypos >= way.size()) return;
       auto w = way[waypos];
       ++waypos;
       switch (w)
