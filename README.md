@@ -134,6 +134,19 @@ disconnect
 
 - Disconnect from the Server.
 
-### Note
+### Build
 
-- Requires C++ 20
+Requires C++ 20
+
+#### CMake
+
+```shell
+mkdir build && cd build
+cmake .. && make
+```
+
+#### G++
+
+```shell
+g++ src/* -I include -lpthread -O2 -std=c++20 -o tank
+```
