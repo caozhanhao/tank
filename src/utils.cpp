@@ -33,7 +33,7 @@ namespace czh::utils
     return {a};
   }
   
-  std::string utils::to_str(char a)
+  std::string to_str(char a)
   {
     return std::string(1, a);
   }
