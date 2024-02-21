@@ -25,6 +25,7 @@
 
 namespace czh::g
 {
+  std::atomic<bool> game_running = true;
   game::GameMode game_mode = game::GameMode::NATIVE;
   size_t user_id = 0;
   std::map<size_t, UserData> userdata{{0, UserData{.user_id = 0}}};
@@ -180,6 +181,8 @@ namespace czh::game
   
   void tank_react(std::size_t id, tank::NormalTankEvent event)
   {
+    if(!g::game_running) return;
+    
     std::lock_guard<std::mutex> l(g::tank_reacting_mtx);
     if (id_at(id)->is_alive())
     {
@@ -189,6 +192,8 @@ namespace czh::game
   
   void mainloop()
   {
+    if(!g::game_running) return;
+    
     std::lock_guard<std::mutex> l(g::mainloop_mtx);
     //normal tank
     for (auto &r: g::normal_tank_events)

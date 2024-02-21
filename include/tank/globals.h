@@ -45,6 +45,7 @@ namespace czh::g
   };
   
   // game.cpp
+  extern std::atomic<bool> game_running;
   extern game::GameMode game_mode;
   extern std::map<size_t, UserData> userdata;
   extern size_t user_id;

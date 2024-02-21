@@ -53,6 +53,10 @@ namespace czh::term
     
     ~KeyBoard();
     
+    void init();
+    
+    void deinit();
+    
     int kbhit();
     
     int getch();

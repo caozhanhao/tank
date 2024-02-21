@@ -32,6 +32,7 @@ namespace czh::input
     KEY_L,
     KEY_SLASH,
     KEY_CTRL_C,
+    KEY_CTRL_Z,
     KEY_ENTER,
     COMMAND
   };
@@ -60,6 +61,7 @@ namespace czh::input
     
     CTRL_W = 23,
     
+    CTRL_Z = 26,
     ESC = 27,
     
     BACKSPACE = 127

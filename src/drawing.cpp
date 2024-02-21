@@ -475,6 +475,12 @@ Command:
 
   quit
     - Quit Tank.
+    
+  pause
+    - Pause.
+
+  continue
+    - Continue.
 
   fill [Status] [A x,y] [B x,y optional]
     - Status: [0] Empty [1] Wall
@@ -716,23 +722,23 @@ Command:
                                                              return a.second.info.id <
                                                                     b.second.info.id;
                                                            })).second.info.id).size();
-        auto pos_size = [](const map::Pos &p)
-        {
-          return std::to_string(p.x).size() + std::to_string(p.y).size() + 3;
-        };
         size_t pos_x = name_x + gap + (*std::max_element(g::snapshot.tanks.begin(), g::snapshot.tanks.end(),
                                                          [](auto &&a, auto &&b)
                                                          {
                                                            return a.second.info.name.size() <
                                                                   b.second.info.name.size();
                                                          })).second.info.name.size();
+        auto pos_size = [](const map::Pos &p)
+        {
+          // (x, y)
+          return std::to_string(p.x).size() + std::to_string(p.y).size() + 4;
+        };
         size_t hp_x = pos_x + gap + pos_size((*std::max_element(g::snapshot.tanks.begin(), g::snapshot.tanks.end(),
                                                                 [&pos_size](auto &&a, auto &&b)
                                                                 {
                                                                   return pos_size(a.second.pos) <
                                                                          pos_size(b.second.pos);
-                                                                }
-        )).second.pos);
+                                                                })).second.pos);
         
         size_t lethality_x =
             hp_x + gap + std::to_string((*std::max_element(g::snapshot.tanks.begin(), g::snapshot.tanks.end(),
@@ -747,12 +753,10 @@ Command:
                                                                   [](auto &&a, auto &&b)
                                                                   {
                                                                     return
-                                                                        a.second.info.bullet.lethality
-                                                                        <
+                                                                        a.second.info.bullet.lethality <
                                                                         b.second.info.bullet.lethality;
                                                                   })).second.info.bullet.lethality).size();
-        
-        
+  
         term::mvoutput({id_x, cursor_y}, "ID");
         term::mvoutput({name_x, cursor_y}, "Name");
         term::mvoutput({pos_x, cursor_y}, "Pos");
@@ -782,13 +786,21 @@ Command:
           cursor_y++;
           if (cursor_y == g::screen_height - 2)
           {
-            size_t offset = pos_x - name_x;
+            size_t offset = auto_tank_gap_x + 3 - id_x + gap;
             id_x += offset;
             name_x += offset;
             pos_x += offset;
             hp_x += offset;
             lethality_x += offset;
+            auto_tank_gap_x += offset;
             cursor_y = 1;
+            term::mvoutput({id_x, cursor_y}, "ID");
+            term::mvoutput({name_x, cursor_y}, "Name");
+            term::mvoutput({pos_x, cursor_y}, "Pos");
+            term::mvoutput({hp_x, cursor_y}, "HP");
+            term::mvoutput({lethality_x, cursor_y}, "ATK");
+            term::mvoutput({auto_tank_gap_x, cursor_y}, "Gap");
+            cursor_y = 2;
           }
         }
       }

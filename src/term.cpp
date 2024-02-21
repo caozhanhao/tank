@@ -12,6 +12,7 @@
 //   See the License for the specific language governing permissions and
 //   limitations under the License.
 #include "tank/term.h"
+#include <string>
 #include <iostream>
 
 namespace czh::g
@@ -22,6 +23,11 @@ namespace czh::g
 namespace czh::term
 {
   KeyBoard::KeyBoard()
+  {
+    init();
+  }
+  
+  void KeyBoard::init()
   {
 #if defined(CZH_TANK_KEYBOARD_MODE_0)
     keyboard_mode = 0;
@@ -43,9 +49,15 @@ namespace czh::term
     tcsetattr(0, TCSANOW, &new_settings);
     peek_character = -1;
 #endif
+    output("\x1b[?1049h");
   }
   
   KeyBoard::~KeyBoard()
+  {
+    deinit();
+  }
+  
+  void KeyBoard::deinit()
   {
 #if defined(CZH_TANK_KEYBOARD_MODE_0)
     HANDLE handle = GetStdHandle(STD_INPUT_HANDLE);
@@ -53,6 +65,8 @@ namespace czh::term
 #elif defined(CZH_TANK_KEYBOARD_MODE_1)
     tcsetattr(0, TCSANOW, &initial_settings);
 #endif
+    output("\x1b[?1049l");
+    show_cursor();
   }
   
   int KeyBoard::kbhit()
@@ -96,7 +110,7 @@ namespace czh::term
   
   void move_cursor(const TermPos &pos)
   {
-    printf("%c[%d;%df", 0x1b, (int) pos.get_y() + 1, (int) pos.get_x() + 1);
+    output("\x1b[", pos.get_y() + 1, ";", pos.get_x() + 1, "f");
   }
   
   void flush()
@@ -134,16 +148,16 @@ namespace czh::term
   
   void clear()
   {
-    printf("\033[2J");
+    output("\x1b[2J");
   }
   
   void hide_cursor()
   {
-    printf("\x1b[?25l");
+    output("\x1b[?25l");
   }
   
   void show_cursor()
   {
-    printf("\x1b[?25h");
+    output("\x1b[?25h");
   }
 }

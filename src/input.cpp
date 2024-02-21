@@ -43,7 +43,7 @@ namespace czh::input
   
   bool is_special_key(int c)
   {
-    return (c >= 0 && c <= 6) || (c >= 8 && c <= 14) || c == 16 || c == 20 || c == 21 || c == 23 || c == 27 || c == 127;
+    return (c >= 0 && c <= 6) || (c >= 8 && c <= 14) || c == 16 || c == 20 || c == 21 || c == 23 || c == 26 || c == 27 || c == 127;
   }
   
   std::tuple<std::string, std::string> get_pattern()
@@ -373,6 +373,11 @@ namespace czh::input
               return Input::KEY_CTRL_C;
               continue;
               break;
+            case SpecialKey::CTRL_Z:
+              g::history.pop_back();
+              return Input::KEY_CTRL_Z;
+              continue;
+              break;
             case SpecialKey::CTRL_D:
               edit_delete();
               break;
@@ -605,6 +610,9 @@ namespace czh::input
           {
             case SpecialKey::CTRL_C:
               return Input::KEY_CTRL_C;
+              break;
+            case SpecialKey::CTRL_Z:
+              return Input::KEY_CTRL_Z;
               break;
             case SpecialKey::LINE_FEED:
             case SpecialKey::ENTER:

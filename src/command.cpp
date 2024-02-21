@@ -36,7 +36,9 @@ namespace czh::g
       {"server",     "start [port] (or stop)"},
       {"connect",    "[ip] [port]"},
       {"disconnect", ""},
-      {"tell",       "[id, optional], [msg]"}
+      {"tell",       "[id, optional], [msg]"},
+      {"pause", ""},
+      {"continue", ""}
   };
 }
 namespace czh::cmd
@@ -108,7 +110,7 @@ namespace czh::cmd
     if (g::game_mode == game::GameMode::CLIENT)
     {
       if (name == "fill" || name == "tp" || name == "kill" || name == "clear" || name == "summon"
-          || name == "revive" || name == "set" || name == "tell")
+          || name == "revive" || name == "set" || name == "tell" || name == "pause" || name == "continue")
       {
         g::online_client.run_command(str);
         return;
@@ -149,6 +151,16 @@ namespace czh::cmd
       term::flush();
       game::quit();
       std::exit(0);
+    }
+    else if (name == "pause")
+    {
+      g::game_running = false;
+      msg::info(user_id, "Stopped.");
+    }
+    else if (name == "continue")
+    {
+      g::game_running = true;
+      msg::info(user_id, "Continuing.");
     }
     else if (name == "fill")
     {

@@ -45,6 +45,14 @@ quit
 
 - Quit Tank.
 
+pause
+
+- Pause.
+
+continue
+
+- Continue.
+
 fill [Status] [A x,y] [B x,y optional]
 
 - Status: [0] Empty [1] Wall

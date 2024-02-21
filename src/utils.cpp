@@ -52,7 +52,7 @@ namespace czh::utils
     std::string n;
     for (auto it = beg; it < end; ++it)
     {
-      if (*it == '\033')
+      if (*it == '\x1b')
       {
         while (it < end && *it != 'm') ++it;
         continue;
@@ -70,25 +70,25 @@ namespace czh::utils
   
   std::string color_256_fg(const std::string &str, int color)
   {
-    return "\033[38;5;" + std::to_string(color) + "m" + str + "\033[0m";
+    return "\x1b[38;5;" + std::to_string(color) + "m" + str + "\x1b[0m";
   }
   
   std::string color_256_bg(const std::string &str, int color)
   {
-    return "\033[48;5;" + std::to_string(color) + "m" + str + "\033[0m";
+    return "\x1b[48;5;" + std::to_string(color) + "m" + str + "\x1b[0m";
   }
 //  std::string color_rgb_fg(const std::string &str, const RGB& rgb)
 //  {
-//    return "\033[38;2;" + std::to_string(rgb.r) + ";"
+//    return "\x1b[38;2;" + std::to_string(rgb.r) + ";"
 //           + std::to_string(rgb.g) + ";"
 //           + std::to_string(rgb.b) + "m"
-//           + str + "\033[0m";
+//           + str + "\x1b[0m";
 //  }
 //  std::string color_rgb_bg(const std::string &str, const RGB& rgb)
 //  {
-//    return "\033[48;2;" + std::to_string(rgb.r) + ";"
+//    return "\x1b[48;2;" + std::to_string(rgb.r) + ";"
 //           + std::to_string(rgb.g) + ";"
 //           + std::to_string(rgb.b) + "m"
-//           + str + "\033[0m";
+//           + str + "\x1b[0m";
 //  }
 }

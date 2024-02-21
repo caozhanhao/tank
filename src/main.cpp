@@ -21,6 +21,9 @@
 #include "tank/tank.h"
 #include <chrono>
 #include <thread>
+#include <string>
+#include <vector>
+#include <csignal>
 
 using namespace czh;
 
@@ -39,8 +42,15 @@ void react(tank::NormalTankEvent event)
   }
 }
 
+void sighandler(int)
+{
+  g::keyboard.init();
+  g::output_inited = false;
+}
+
 int main()
 {
+  signal(SIGCONT, sighandler);
   std::thread game_thread(
       []
       {
@@ -127,16 +137,8 @@ int main()
           react(czh::tank::NormalTankEvent::FIRE);
           break;
         case input::Input::KEY_O:
-          if (g::curr_page == game::Page::GAME)
-          {
-            g::curr_page = game::Page::TANK_STATUS;
-            g::output_inited = false;
-          }
-          else
-          {
-            g::curr_page = game::Page::GAME;
-            g::output_inited = false;
-          }
+          g::curr_page = game::Page::TANK_STATUS;
+          g::output_inited = false;
           break;
         case input::Input::KEY_L:
         {
@@ -173,6 +175,16 @@ int main()
           break;
       }
     }
+    else if(g::curr_page == czh::game::Page::TANK_STATUS)
+    {
+      switch (i)
+      {
+        case input::Input::KEY_O:
+          g::curr_page = game::Page::GAME;
+          g::output_inited = false;
+          break;
+      }
+    }
     switch (i)
     {
       case input::Input::KEY_SLASH:
@@ -195,6 +207,10 @@ int main()
       case input::Input::KEY_CTRL_C:
         game::quit();
         std::exit(0);
+        break;
+      case input::Input::KEY_CTRL_Z:
+        g::keyboard.deinit();
+        raise(SIGSTOP);
         break;
       default:
         break;
