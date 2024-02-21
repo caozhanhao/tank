@@ -6,7 +6,7 @@ Tank
 <strong>A Multiplayer Cross-platform Game</strong>
 </p>
 
-### Intro:
+### Intro
 
 In Tank, you will take control of a powerful tank in a maze, showcasing your strategic skills on the infinite map and
 overcome unpredictable obstacles. You can play solo or team up with friends.
@@ -29,9 +29,11 @@ overcome unpredictable obstacles. You can play solo or team up with friends.
 
 User's Tank:
 
-- HP: 10000, Lethality: 100
-- Auto Tank:
-- HP: (11 - level) * 150, Lethality: (11 - level) * 15
+- HP: 10000, ATK: 100
+
+Auto Tank:
+
+- HP: (11 - lvl) * 150, ATK: (11 - lvl) * 15
 - The higher level the tank is, the faster it moves.
 
 #### Command
@@ -99,10 +101,13 @@ set [A id] [key] [value]
 - max_hp (int): Max hp of A. This will take effect when A is revived.
 - hp (int): hp of A. This takes effect immediately but won't last when A is revived.
 - target (id, int): Auto Tank's target. Target should be alive.
-- name (string): Name of A. set [A id] bullet [key] [value]
+- name (string): Name of A.
+
+set [A id] bullet [key] [value]
+
 - hp (int): hp of A's bullet.
 - lethality (int): lethality of A's bullet. (negative to increase hp)
-- range (int): range of A's bullet.(default)
+- range (int): range of A's bullet.
 - e.g. set 0 max_hp 1000 | set 0 bullet lethality 10  
   Note:
   When a bullet hits the wall, its hp decreases by one. That means it can bounce "hp - 1" times.
@@ -113,7 +118,10 @@ set tick [tick]
 
 set msg_ttl [ttl]
 
-- ttl (int, milliseconds): a message's time to live. set seed [seed]
+- ttl (int, milliseconds): a message's time to live.
+
+set seed [seed]
+
 - seed (int): the game map's seed.
 
 tell [A id optional] [msg]
@@ -129,7 +137,10 @@ observe [A id]
 server start [port]
 
 - Start Tank Server.
-- port (int): the server's port. server stop
+- port (int): the server's port.
+
+server stop
+
 - Stop Tank Server.
 
 connect [ip] [port]

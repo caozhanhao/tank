@@ -537,7 +537,7 @@ Command:
   set [A id] bullet [key] [value]
       - hp (int): hp of A's bullet.
       - lethality (int): lethality of A's bullet. (negative to increase hp)
-      - range (int): range of A's bullet.(default)
+      - range (int): range of A's bullet.
       - e.g. set 0 max_hp 1000  |  set 0 bullet lethality 10
       Note:
         When a bullet hits the wall, its hp decreases by one. That means it can bounce "hp - 1" times.
