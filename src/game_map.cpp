@@ -20,7 +20,7 @@
 namespace czh::g
 {
   map::Map game_map;
-  size_t seed = utils::randnum<size_t>(100000, 1000000);
+  unsigned long long seed = utils::randnum<unsigned long long>(100000, 1000000);
   map::Point empty_point("used for empty point", {});
   map::Point wall_point("used for wall point", {map::Status::WALL});
 }
@@ -238,18 +238,16 @@ namespace czh::map
   
   const Point &generate(const Pos &i, size_t seed)
   {
-
 //    srand(i.x * i.y * i.x * i.y);
 //    if (rand() % 50 == 1)
 //      return g::wall_point;
-//    Using rand() to generate map may be unstable.
-//    When there is too many AutoTanks or connected to a Client,
-//    the value of rand() % 50 may unexpectedly change (I don't know why),
+//    Using this method to generate map may be unstable,
+//    because value of rand() % 50 may unexpectedly change,
 //    thus making the wall "suddenly disappears".
     
     if (auto a = i.x * i.y * i.x * i.y; a != 0)
     {
-      if (auto b = seed % a; b % 50 == 1)
+      if ((seed % a) % 49 == 1)
       {
         return g::wall_point;
       }

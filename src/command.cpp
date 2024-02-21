@@ -88,7 +88,20 @@ namespace czh::cmd
           }
           else
           {
-            args.emplace_back(temp);
+            bool stoull_success = true;
+            unsigned long long b = 0;
+            try
+            {
+              b = std::stoull(temp);
+            }
+            catch (...)
+            {
+              stoull_success = false;
+            }
+            if (stoull_success)
+              args.emplace_back(b);
+            else
+              args.emplace_back(temp);
           }
         }
         else
@@ -145,6 +158,7 @@ namespace czh::cmd
     }
     else if (name == "quit")
     {
+      std::lock_guard<std::mutex> l(g::mainloop_mtx);
       term::move_cursor({0, g::screen_height + 1});
       term::output("\033[?25h");
       msg::info(user_id, "Quitting.");
@@ -598,6 +612,21 @@ namespace czh::cmd
             invalid_arguments();
             return;
           }
+        }
+        else
+        {
+          msg::error(user_id, "Invalid option.");
+          return;
+        }
+      }
+      else if (args_is<std::string, unsigned long long>(args))
+      {
+        auto[option, arg] = args_get<std::string, unsigned long long>(args);
+        if (option == "seed")
+        {
+          g::seed = arg;
+          g::output_inited = false;
+          msg::info(user_id, "Seed was set to " + std::to_string(arg) + ".");
         }
         else
         {

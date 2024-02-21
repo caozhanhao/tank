@@ -33,6 +33,11 @@ namespace czh::utils
     return {a};
   }
   
+  std::string utils::to_str(char a)
+  {
+    return std::string(1, a);
+  }
+  
   bool begin_with(const std::string &a, const std::string &b)
   {
     if (a.size() < b.size()) return false;
@@ -77,6 +82,7 @@ namespace czh::utils
   {
     return "\x1b[48;5;" + std::to_string(color) + "m" + str + "\x1b[0m";
   }
+  
 //  std::string color_rgb_fg(const std::string &str, const RGB& rgb)
 //  {
 //    return "\x1b[38;2;" + std::to_string(rgb.r) + ";"

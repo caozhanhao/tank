@@ -50,6 +50,7 @@ namespace czh::term
     peek_character = -1;
 #endif
     output("\x1b[?1049h");
+    flush();
   }
   
   KeyBoard::~KeyBoard()
@@ -65,8 +66,9 @@ namespace czh::term
 #elif defined(CZH_TANK_KEYBOARD_MODE_1)
     tcsetattr(0, TCSANOW, &initial_settings);
 #endif
-    output("\x1b[?1049l");
     show_cursor();
+    output("\x1b[?1049l");
+    flush();
   }
   
   int KeyBoard::kbhit()

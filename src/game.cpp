@@ -26,6 +26,7 @@
 namespace czh::g
 {
   std::atomic<bool> game_running = true;
+  std::atomic<bool> game_suspend = false;
   game::GameMode game_mode = game::GameMode::NATIVE;
   size_t user_id = 0;
   std::map<size_t, UserData> userdata{{0, UserData{.user_id = 0}}};

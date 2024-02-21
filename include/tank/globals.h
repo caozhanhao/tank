@@ -45,7 +45,8 @@ namespace czh::g
   };
   
   // game.cpp
-  extern std::atomic<bool> game_running;
+  extern std::atomic<bool> game_running; // Tank Command: pause continue
+  extern std::atomic<bool> game_suspend; // CTRL-Z
   extern game::GameMode game_mode;
   extern std::map<size_t, UserData> userdata;
   extern size_t user_id;
@@ -79,6 +80,7 @@ namespace czh::g
   extern size_t tank_focus;
   extern game::Page curr_page;
   extern std::vector<std::string> help_text;
+  extern size_t status_lineno;
   extern size_t help_lineno;
   extern map::Zone visible_zone;
   extern std::size_t screen_height;
@@ -94,7 +96,7 @@ namespace czh::g
   
   // game_map.cpp
   extern map::Map game_map;
-  extern size_t seed;
+  extern unsigned long long seed;
   extern map::Point empty_point;
   extern map::Point wall_point;
   

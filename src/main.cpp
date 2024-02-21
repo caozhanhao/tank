@@ -42,15 +42,20 @@ void react(tank::NormalTankEvent event)
   }
 }
 
+#ifdef SIGCONT
 void sighandler(int)
 {
   g::keyboard.init();
   g::output_inited = false;
+  g::game_suspend = false;
 }
+#endif
 
 int main()
 {
+#ifdef SIGCONT
   signal(SIGCONT, sighandler);
+#endif
   std::thread game_thread(
       []
       {
@@ -167,7 +172,7 @@ int main()
           }
           break;
         case input::Input::DOWN:
-          if (g::help_lineno != g::help_text.size())
+          if (g::help_lineno < g::help_text.size())
           {
             g::help_lineno++;
             g::output_inited = false;
@@ -179,6 +184,14 @@ int main()
     {
       switch (i)
       {
+        case input::Input::UP:
+          if (g::status_lineno != 1)
+            g::status_lineno--;
+          break;
+        case input::Input::DOWN:
+          if (g::status_lineno < g::snapshot.tanks.size())
+            g::status_lineno++;
+          break;
         case input::Input::KEY_O:
           g::curr_page = game::Page::GAME;
           g::output_inited = false;
@@ -205,13 +218,45 @@ int main()
         g::output_inited = false;
         break;
       case input::Input::KEY_CTRL_C:
+      {
+        std::lock_guard<std::mutex> l(g::mainloop_mtx);
         game::quit();
         std::exit(0);
+      }
         break;
+#ifdef SIGCONT
       case input::Input::KEY_CTRL_Z:
+      {
+        std::lock_guard<std::mutex> l1(g::drawing_mtx);
+        std::lock_guard<std::mutex> l2(g::mainloop_mtx);
+        if (g::game_mode == game::GameMode::CLIENT)
+        {
+          g::online_client.disconnect();
+          g::user_id = 0;
+          g::tank_focus = g::user_id;
+          g::output_inited = false;
+          g::game_mode = game::GameMode::NATIVE;
+        }
+        else if (g::game_mode == game::GameMode::SERVER)
+        {
+          g::online_server.stop();
+          for (auto &r: g::userdata)
+          {
+            if (r.first == 0) continue;
+            g::tanks[r.first]->kill();
+            g::tanks[r.first]->clear();
+            delete g::tanks[r.first];
+            g::tanks.erase(r.first);
+          }
+          g::userdata = {{0, g::userdata[0]}};
+          g::game_mode = game::GameMode::NATIVE;
+        }
+        g::game_suspend = true;
         g::keyboard.deinit();
         raise(SIGSTOP);
+      }
         break;
+#endif
       default:
         break;
     }

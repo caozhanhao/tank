@@ -223,9 +223,12 @@ namespace czh::online
   private:
     bool running;
     std::function<void(const Req &, Res &)> router;
+    std::vector<Socket_t> sockets;
     Thpool thpool;
   public:
     TCPServer();
+    
+    ~TCPServer();
     
     explicit TCPServer(std::function<void(const Req &, Res &)> router_);
     

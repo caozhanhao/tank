@@ -50,7 +50,8 @@ namespace czh::online
     cond.notify_all();
     for (auto &th: pool)
     {
-      if (th.joinable()) th.join();
+      if (th.joinable())
+        th.join();
     }
   }
   
@@ -407,13 +408,14 @@ namespace czh::online
     TCPSocket socket;
     check(socket.bind(Addr{port}) == 0);
     check(socket.listen() == 0);
+    //sockets.emplace_back(socket.get_fd());
     while (running)
     {
       auto tmp = socket.accept();
       auto &[clnt_socket_, clnt_addr] = tmp;
       utils::tank_assert(clnt_socket_.get_fd() != -1, "socket accept failed");
       auto fd = clnt_socket_.release();
-      
+      sockets.emplace_back(fd);
       thpool.add_task(
           [this, fd]
           {
@@ -440,7 +442,21 @@ namespace czh::online
   
   void TCPServer::stop()
   {
+    for(auto& r : sockets)
+    {
+#ifdef _WIN32
+      shutdown(r, SD_BOTH);
+#else
+      ::shutdown(r, SHUT_RDWR);
+#endif
+    }
+    sockets.clear();
     running = false;
+  }
+  
+  TCPServer::~TCPServer()
+  {
+    stop();
   }
   
   TCPClient::~TCPClient()

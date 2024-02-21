@@ -106,6 +106,8 @@ namespace czh::utils
   
   std::string to_str(const char *&a);
   
+  std::string to_str(char a);
+  
   template<typename T, typename ...Args>
   std::string join(char, T &&arg)
   {
@@ -122,6 +124,24 @@ namespace czh::utils
   std::string join(char delim, Args &&...args)
   {
     return join(delim, std::forward<Args>(args)...);
+  }
+  
+  template<typename T, typename ...Args>
+  std::string contact(T &&arg)
+  {
+    return to_str(arg);
+  }
+  
+  template<typename T, typename ...Args>
+  std::string contact(T &&arg, Args &&...args)
+  {
+    return to_str(arg) + contact(std::forward<Args>(args)...);
+  }
+  
+  template<typename ...Args>
+  std::string contact(Args &&...args)
+  {
+    return contact(std::forward<Args>(args)...);
   }
   
   bool begin_with(const std::string &a, const std::string &b);

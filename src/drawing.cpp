@@ -31,6 +31,7 @@ namespace czh::g
   size_t tank_focus = 0;
   game::Page curr_page = game::Page::MAIN;
   size_t help_lineno = 1;
+  size_t status_lineno = 1;
   std::vector<std::string> help_text;
   map::Zone visible_zone = {-128, 128, -128, 128};
   drawing::Snapshot snapshot{};
@@ -388,25 +389,35 @@ namespace czh::drawing
         break;
     }
   }
+  bool completely_out_of_zone(size_t id)
+  {
+    auto pos = view_id_at(id)->pos;
+    int a = g::visible_zone.x_min;
+    int b = pos.x;
+    return
+        ((g::visible_zone.x_min - 1 > pos.x)
+         || (g::visible_zone.x_max + 1<= pos.x)
+         || (g::visible_zone.y_min - 1> pos.y)
+         || (g::visible_zone.y_max + 1<= pos.y));
+  }
   
   bool out_of_zone(size_t id)
   {
     auto pos = view_id_at(id)->pos;
+    int x_offset = 5;
+    int y_offset = 5;
+    if(g::screen_width < 25)
+      x_offset = 0;
+    if(g::screen_height < 15 || g::screen_width < 25)
+    {
+      x_offset = 0;
+      y_offset = 0;
+    }
     return
-        ((g::visible_zone.x_min + 5 > pos.x)
-         || (g::visible_zone.x_max - 5 <= pos.x)
-         || (g::visible_zone.y_min + 5 > pos.y)
-         || (g::visible_zone.y_max - 5 <= pos.y));
-  }
-  
-  bool completely_out_of_zone(size_t id)
-  {
-    auto pos = view_id_at(id)->pos;
-    return
-        ((g::visible_zone.x_min > pos.x)
-         || (g::visible_zone.x_max <= pos.x)
-         || (g::visible_zone.y_min > pos.y)
-         || (g::visible_zone.y_max <= pos.y));
+        ((g::visible_zone.x_min + x_offset > pos.x)
+         || (g::visible_zone.x_max - x_offset <= pos.x)
+         || (g::visible_zone.y_min + y_offset > pos.y)
+         || (g::visible_zone.y_max - y_offset <= pos.y));
   }
   
   int update_snapshot()
@@ -439,6 +450,7 @@ namespace czh::drawing
   
   void draw()
   {
+    if(g::game_suspend) return;
     term::hide_cursor();
     std::lock_guard<std::mutex> l1(g::mainloop_mtx);
     std::lock_guard<std::mutex> l2(g::drawing_mtx);
@@ -696,7 +708,7 @@ Command:
         {
           right += utils::color_256_fg(std::to_string(g::delay) + " ms", 9);
         }
-        
+  
         int a = static_cast<int>(g::screen_width) - static_cast<int>(utils::escape_code_len(left, right));
         if (a > 0)
         {
@@ -704,105 +716,108 @@ Command:
         }
         else
         {
-          term::output((left + right).substr(0, left.size() + right.size() + a));
+          int b = static_cast<int>(g::screen_width) - static_cast<int>(utils::escape_code_len(left));
+          if(b > 0)
+          {
+            term::output(left, std::string(b, ' '));
+          }
+          else
+          {
+            term::output(left.substr(0, static_cast<int>(left.size()) + b));
+          }
         }
       }
         break;
       case game::Page::TANK_STATUS:
       {
-        term::clear();
-        std::size_t cursor_y = 0;
-        term::mvoutput({g::screen_width / 2 - 10, cursor_y++}, "Tank");
-        size_t gap = 2;
-        size_t id_x = gap;
-        size_t name_x =
-            id_x + gap + std::to_string((*std::max_element(g::snapshot.tanks.begin(), g::snapshot.tanks.end(),
+        if(!g::output_inited)
+        {
+          term::clear();
+          g::output_inited = true;
+        }
+        term::mvoutput({g::screen_width / 2 - 5, 0}, "Tank Status");
+        size_t id_size = std::to_string((*std::max_element(g::snapshot.tanks.begin(), g::snapshot.tanks.end(),
                                                            [](auto &&a, auto &&b)
                                                            {
                                                              return a.second.info.id <
                                                                     b.second.info.id;
                                                            })).second.info.id).size();
-        size_t pos_x = name_x + gap + (*std::max_element(g::snapshot.tanks.begin(), g::snapshot.tanks.end(),
-                                                         [](auto &&a, auto &&b)
-                                                         {
-                                                           return a.second.info.name.size() <
-                                                                  b.second.info.name.size();
-                                                         })).second.info.name.size();
-        auto pos_size = [](const map::Pos &p)
+        size_t name_size = (*std::max_element(g::snapshot.tanks.begin(), g::snapshot.tanks.end(),
+                                              [](auto &&a, auto &&b)
+                                              {
+                                                return a.second.info.name.size() <
+                                                       b.second.info.name.size();
+                                              })).second.info.name.size();
+        auto get_pos_size = [](const map::Pos &p)
         {
           // (x, y)
           return std::to_string(p.x).size() + std::to_string(p.y).size() + 4;
         };
-        size_t hp_x = pos_x + gap + pos_size((*std::max_element(g::snapshot.tanks.begin(), g::snapshot.tanks.end(),
-                                                                [&pos_size](auto &&a, auto &&b)
-                                                                {
-                                                                  return pos_size(a.second.pos) <
-                                                                         pos_size(b.second.pos);
-                                                                })).second.pos);
-        
-        size_t lethality_x =
-            hp_x + gap + std::to_string((*std::max_element(g::snapshot.tanks.begin(), g::snapshot.tanks.end(),
+        size_t pos_size = get_pos_size((*std::max_element(g::snapshot.tanks.begin(), g::snapshot.tanks.end(),
+                                                          [&get_pos_size](auto &&a, auto &&b)
+                                                          {
+                                                            return get_pos_size(a.second.pos) <
+                                                                   get_pos_size(b.second.pos);
+                                                          })).second.pos);
+        size_t hp_size = std::to_string((*std::max_element(g::snapshot.tanks.begin(), g::snapshot.tanks.end(),
                                                            [](auto &&a, auto &&b)
                                                            {
                                                              return a.second.hp <
                                                                     b.second.hp;
                                                            })).second.hp).size();
-        
-        size_t auto_tank_gap_x =
-            lethality_x + gap + std::to_string((*std::max_element(g::snapshot.tanks.begin(), g::snapshot.tanks.end(),
-                                                                  [](auto &&a, auto &&b)
-                                                                  {
-                                                                    return
-                                                                        a.second.info.bullet.lethality <
-                                                                        b.second.info.bullet.lethality;
-                                                                  })).second.info.bullet.lethality).size();
+        size_t atk_size = std::to_string((*std::max_element(g::snapshot.tanks.begin(), g::snapshot.tanks.end(),
+                                                            [](auto &&a, auto &&b)
+                                                            {
+                                                              return
+                                                                  a.second.info.bullet.lethality <
+                                                                  b.second.info.bullet.lethality;
+                                                            })).second.info.bullet.lethality).size();
+        if (atk_size < 3) atk_size = 3;
+        size_t gap_size = g::screen_width - id_size - name_size - pos_size - hp_size - atk_size - 10;
+        term::move_cursor({0, 1});
+        term::output(std::left,
+                     std::setw(id_size), "ID", "  ",
+                     std::setw(name_size), "Name", "  ",
+                     std::setw(pos_size), "Pos", "  ",
+                     std::setw(hp_size), "HP", "  ",
+                     std::setw(atk_size), "ATK", "  ",
+                     std::setw(gap_size), "Gap");
+        size_t cursor_y = 2;
   
-        term::mvoutput({id_x, cursor_y}, "ID");
-        term::mvoutput({name_x, cursor_y}, "Name");
-        term::mvoutput({pos_x, cursor_y}, "Pos");
-        term::mvoutput({hp_x, cursor_y}, "HP");
-        term::mvoutput({lethality_x, cursor_y}, "ATK");
-        term::mvoutput({auto_tank_gap_x, cursor_y}, "Gap");
-        cursor_y++;
-        for (auto it = g::snapshot.tanks.begin(); it != g::snapshot.tanks.end(); ++it)
+        if (g::status_lineno > g::snapshot.tanks.size()) g::status_lineno = 1;
+        size_t start_pos = g::status_lineno - 1;
+        if(g::snapshot.tanks.size() < g::screen_height - 4)
+          start_pos = 0;
+        else if (g::snapshot.tanks.size() - g::status_lineno < g::screen_height - 4)
+          start_pos = g::snapshot.tanks.size() - g::screen_height + 4;
+        size_t pos = 0;
+        for (auto it = g::snapshot.tanks.begin(); it != g::snapshot.tanks.end()
+        && pos < start_pos + g::screen_height - 4; ++it, ++pos)
         {
-          auto tank = it->second;
-          std::string x = std::to_string(tank.pos.x);
-          std::string y = std::to_string(tank.pos.y);
-          term::mvoutput({id_x, cursor_y}, tank.info.id);
-          term::mvoutput({name_x, cursor_y}, colorify_text(tank.info.id, tank.info.name));
-          term::mvoutput({pos_x, cursor_y}, "(", x, ",", y, ")");
-          term::mvoutput({hp_x, cursor_y}, tank.hp);
-          term::mvoutput({lethality_x, cursor_y}, tank.info.bullet.lethality);
-          if (tank.is_auto)
+          if (pos >= start_pos)
           {
-            term::mvoutput({auto_tank_gap_x, cursor_y}, tank.info.gap);
-          }
-          else
-          {
-            term::mvoutput({auto_tank_gap_x, cursor_y}, "-");
-          }
-          
-          cursor_y++;
-          if (cursor_y == g::screen_height - 2)
-          {
-            size_t offset = auto_tank_gap_x + 3 - id_x + gap;
-            id_x += offset;
-            name_x += offset;
-            pos_x += offset;
-            hp_x += offset;
-            lethality_x += offset;
-            auto_tank_gap_x += offset;
-            cursor_y = 1;
-            term::mvoutput({id_x, cursor_y}, "ID");
-            term::mvoutput({name_x, cursor_y}, "Name");
-            term::mvoutput({pos_x, cursor_y}, "Pos");
-            term::mvoutput({hp_x, cursor_y}, "HP");
-            term::mvoutput({lethality_x, cursor_y}, "ATK");
-            term::mvoutput({auto_tank_gap_x, cursor_y}, "Gap");
-            cursor_y = 2;
+            auto tank = it->second;
+            term::move_cursor({0, cursor_y++});
+            if(pos == g::status_lineno - 1)
+              term::output("\x1b[48;5;8m");
+            term::output(std::setw(id_size), tank.info.id, "  ",
+                         std::setw(name_size), tank.info.name, "  ",
+                         std::setw(pos_size), utils::contact('(', tank.pos.x, ',', ' ', tank.pos.y, ')'), "  ",
+                         std::setw(hp_size), tank.hp, "  ",
+                         std::setw(atk_size), tank.info.bullet.lethality, "  ");
+            if (tank.is_auto)
+            {
+              term::output(std::setw(gap_size), tank.info.gap);
+            }
+            else
+            {
+              term::output(std::setw(gap_size), "-");
+            }
+            if(pos == g::status_lineno - 1)
+              term::output("\x1b[49m");
           }
         }
+        term::mvoutput({g::screen_width / 2 - 3, g::screen_height - 2}, "Line ", g::status_lineno);
       }
         break;
       case game::Page::MAIN:
@@ -845,12 +860,25 @@ Command:
         {
           term::clear();
           std::size_t cursor_y = 0;
-          term::mvoutput({g::screen_width / 2 - 2, cursor_y++}, "Tank");
+          term::mvoutput({g::screen_width / 2 - 4, cursor_y++}, "Tank Help");
+  
           if (g::help_lineno > g::help_text.size()) g::help_lineno = 1;
-          for (size_t i = g::help_lineno - 1;
-               i < (std::min)(g::help_lineno + g::screen_height - 4, g::help_text.size()); ++i)
+          size_t start_pos = g::help_lineno - 1;
+          if(g::help_text.size() < g::screen_height - 3)
+            start_pos = 0;
+          else if (g::help_text.size() - g::help_lineno < g::screen_height - 3)
+            start_pos = g::help_text.size() - g::screen_height + 3;
+          for (size_t i = start_pos; i < start_pos + g::screen_height - 3 && i < g::help_text.size(); ++i)
           {
-            term::mvoutput({0, cursor_y++}, g::help_text[i]);
+            if(i == g::help_lineno - 1)
+            {
+              term::mvoutput({0, cursor_y++}, "\x1b[48;5;8m", g::help_text[i],
+                             std::string(g::screen_width - g::help_text[i].size(), ' '), "\x1b[49m");
+            }
+            else
+            {
+              term::mvoutput({0, cursor_y++}, g::help_text[i]);
+            }
           }
           term::mvoutput({g::screen_width / 2 - 3, g::screen_height - 2}, "Line ", g::help_lineno);
           g::output_inited = true;
@@ -883,7 +911,7 @@ Command:
           }
           else
           {
-            term::output(str.substr(0, str.size() + a2));
+            term::output(str.substr(0, static_cast<int>(str.size()) + a2));
           }
           g::last_message_displayed = now;
         }
