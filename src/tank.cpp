@@ -452,7 +452,7 @@ namespace czh::tank
     gap_count = 0;
     
     // retarget
-    if (has_arrived())
+    if (waypos == way.size())
     {
       for (int i = get_pos().x - 15; i < get_pos().x + 15; ++i)
       {
@@ -478,12 +478,31 @@ namespace czh::tank
     }
     
     if (auto tp = game::id_at(target_id);
-        tp != nullptr && tank::is_in_firing_line(info.bullet.range, pos, tp->get_pos()))
+        tp != nullptr && tp->is_alive()
+        && tank::is_in_firing_line(info.bullet.range, pos, tp->get_pos()))
     {
       gap_count = info.gap - 5;
       waypos = 0;
       way.clear();
-      correct_direction(tp->get_pos());
+      // correct direction
+      int x = (int) get_pos().x - (int) tp->get_pos().x;
+      int y = (int) get_pos().y - (int) tp->get_pos().y;
+      if (x > 0)
+      {
+        get_direction() = map::Direction::LEFT;
+      }
+      else if (x < 0)
+      {
+        get_direction() = map::Direction::RIGHT;
+      }
+      else if (y < 0)
+      {
+        get_direction() = map::Direction::UP;
+      }
+      else if (y > 0)
+      {
+        get_direction() = map::Direction::DOWN;
+      }
       fire();
     }
     else
@@ -513,38 +532,6 @@ namespace czh::tank
           break;
       }
     }
-  }
-  
-  [[nodiscard]]bool AutoTank::has_arrived() const
-  {
-    return waypos == way.size();
-  }
-  
-  void AutoTank::correct_direction(const map::Pos &target)
-  {
-    int x = (int) get_pos().x - (int) target.x;
-    int y = (int) get_pos().y - (int) target.y;
-    if (x > 0)
-    {
-      get_direction() = map::Direction::LEFT;
-    }
-    else if (x < 0)
-    {
-      get_direction() = map::Direction::RIGHT;
-    }
-    else if (y < 0)
-    {
-      get_direction() = map::Direction::UP;
-    }
-    else if (y > 0)
-    {
-      get_direction() = map::Direction::DOWN;
-    }
-  }
-  
-  std::size_t &AutoTank::get_target_id()
-  {
-    return target_id;
   }
   
   Tank *build_tank(const map::TankData &data)

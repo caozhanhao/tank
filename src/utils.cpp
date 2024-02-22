@@ -82,7 +82,7 @@ namespace czh::utils
   {
     return "\x1b[48;5;" + std::to_string(color) + "m" + str + "\x1b[0m";
   }
-  
+
 //  std::string color_rgb_fg(const std::string &str, const RGB& rgb)
 //  {
 //    return "\x1b[38;2;" + std::to_string(rgb.r) + ";"

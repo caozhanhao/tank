@@ -177,12 +177,6 @@ namespace czh::tank
     
     void react();
     
-    std::size_t &get_target_id();
-    
-    void correct_direction(const map::Pos &target);
-    
-    [[nodiscard]]bool has_arrived() const;
-    
     void attacked(int lethality_) override;
     
     void generate_random_way();

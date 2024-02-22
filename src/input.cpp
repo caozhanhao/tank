@@ -43,7 +43,8 @@ namespace czh::input
   
   bool is_special_key(int c)
   {
-    return (c >= 0 && c <= 6) || (c >= 8 && c <= 14) || c == 16 || c == 20 || c == 21 || c == 23 || c == 26 || c == 27 || c == 127;
+    return (c >= 0 && c <= 6) || (c >= 8 && c <= 14) || c == 16 || c == 20 || c == 21 || c == 23 || c == 26 ||
+           c == 27 || c == 127;
   }
   
   std::tuple<std::string, std::string> get_pattern()

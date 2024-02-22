@@ -118,7 +118,7 @@ set msg_ttl [ttl]
 
 set seed [seed]
 
-- seed (int): 游戏地图的种子。
+- seed (unsigned long long): 游戏地图的种子。
 
 tell [A id optional] [msg]
 

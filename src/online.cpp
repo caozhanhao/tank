@@ -51,7 +51,9 @@ namespace czh::online
     for (auto &th: pool)
     {
       if (th.joinable())
+      {
         th.join();
+      }
     }
   }
   
@@ -442,7 +444,7 @@ namespace czh::online
   
   void TCPServer::stop()
   {
-    for(auto& r : sockets)
+    for (auto &r: sockets)
     {
 #ifdef _WIN32
       shutdown(r, SD_BOTH);

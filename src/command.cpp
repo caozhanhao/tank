@@ -37,8 +37,8 @@ namespace czh::g
       {"connect",    "[ip] [port]"},
       {"disconnect", ""},
       {"tell",       "[id, optional], [msg]"},
-      {"pause", ""},
-      {"continue", ""}
+      {"pause",      ""},
+      {"continue",   ""}
   };
 }
 namespace czh::cmd
@@ -99,9 +99,13 @@ namespace czh::cmd
               stoull_success = false;
             }
             if (stoull_success)
+            {
               args.emplace_back(b);
+            }
             else
+            {
               args.emplace_back(temp);
+            }
           }
         }
         else

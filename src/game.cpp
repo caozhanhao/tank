@@ -182,7 +182,7 @@ namespace czh::game
   
   void tank_react(std::size_t id, tank::NormalTankEvent event)
   {
-    if(!g::game_running) return;
+    if (!g::game_running) return;
     
     std::lock_guard<std::mutex> l(g::tank_reacting_mtx);
     if (id_at(id)->is_alive())
@@ -193,7 +193,7 @@ namespace czh::game
   
   void mainloop()
   {
-    if(!g::game_running) return;
+    if (!g::game_running) return;
     
     std::lock_guard<std::mutex> l(g::mainloop_mtx);
     //normal tank

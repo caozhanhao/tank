@@ -391,6 +391,7 @@ namespace czh::drawing
         break;
     }
   }
+  
   bool completely_out_of_zone(size_t id)
   {
     auto pos = view_id_at(id)->pos;
@@ -398,9 +399,9 @@ namespace czh::drawing
     int b = pos.x;
     return
         ((g::visible_zone.x_min - 1 > pos.x)
-         || (g::visible_zone.x_max + 1<= pos.x)
-         || (g::visible_zone.y_min - 1> pos.y)
-         || (g::visible_zone.y_max + 1<= pos.y));
+         || (g::visible_zone.x_max + 1 <= pos.x)
+         || (g::visible_zone.y_min - 1 > pos.y)
+         || (g::visible_zone.y_max + 1 <= pos.y));
   }
   
   bool out_of_zone(size_t id)
@@ -408,9 +409,11 @@ namespace czh::drawing
     auto pos = view_id_at(id)->pos;
     int x_offset = 5;
     int y_offset = 5;
-    if(g::screen_width < 25)
+    if (g::screen_width < 25)
+    {
       x_offset = 0;
-    if(g::screen_height < 15 || g::screen_width < 25)
+    }
+    if (g::screen_height < 15 || g::screen_width < 25)
     {
       x_offset = 0;
       y_offset = 0;
@@ -452,7 +455,7 @@ namespace czh::drawing
   
   void draw()
   {
-    if(g::game_suspend) return;
+    if (g::game_suspend) return;
     term::hide_cursor();
     std::lock_guard<std::mutex> l1(g::mainloop_mtx);
     std::lock_guard<std::mutex> l2(g::drawing_mtx);
@@ -546,7 +549,7 @@ Command:
   set msg_ttl [ttl]
       - ttl (int, milliseconds): a message's time to live.
   set seed [seed]
-      - seed (int): the game map's seed.
+      - seed (unsigned long long): the game map's seed.
   
   tell [A id optional] [msg]
     - Send a message to A.
@@ -710,7 +713,7 @@ Command:
         {
           right += utils::color_256_fg(std::to_string(g::delay) + " ms", 9);
         }
-  
+        
         int a = static_cast<int>(g::screen_width) - static_cast<int>(utils::escape_code_len(left, right));
         if (a > 0)
         {
@@ -719,7 +722,7 @@ Command:
         else
         {
           int b = static_cast<int>(g::screen_width) - static_cast<int>(utils::escape_code_len(left));
-          if(b > 0)
+          if (b > 0)
           {
             term::output(left, std::string(b, ' '));
           }
@@ -732,7 +735,7 @@ Command:
         break;
       case game::Page::TANK_STATUS:
       {
-        if(!g::output_inited)
+        if (!g::output_inited)
         {
           term::clear();
           g::output_inited = true;
@@ -785,23 +788,29 @@ Command:
                      std::setw(atk_size), "ATK", "  ",
                      std::setw(gap_size), "Gap");
         size_t cursor_y = 2;
-  
+        
         if (g::status_lineno > g::snapshot.tanks.size()) g::status_lineno = 1;
         size_t start_pos = g::status_lineno - 1;
-        if(g::snapshot.tanks.size() < g::screen_height - 4)
+        if (g::snapshot.tanks.size() < g::screen_height - 4)
+        {
           start_pos = 0;
+        }
         else if (g::snapshot.tanks.size() - g::status_lineno < g::screen_height - 4)
+        {
           start_pos = g::snapshot.tanks.size() - g::screen_height + 4;
+        }
         size_t pos = 0;
         for (auto it = g::snapshot.tanks.begin(); it != g::snapshot.tanks.end()
-        && pos < start_pos + g::screen_height - 4; ++it, ++pos)
+                                                  && pos < start_pos + g::screen_height - 4; ++it, ++pos)
         {
           if (pos >= start_pos)
           {
             auto tank = it->second;
             term::move_cursor({0, cursor_y++});
-            if(pos == g::status_lineno - 1)
+            if (pos == g::status_lineno - 1)
+            {
               term::output("\x1b[48;5;8m");
+            }
             term::output(std::setw(id_size), tank.info.id, "  ",
                          std::setw(name_size), tank.info.name, "  ",
                          std::setw(pos_size), utils::contact('(', tank.pos.x, ',', ' ', tank.pos.y, ')'), "  ",
@@ -815,8 +824,10 @@ Command:
             {
               term::output(std::setw(gap_size), "-");
             }
-            if(pos == g::status_lineno - 1)
+            if (pos == g::status_lineno - 1)
+            {
               term::output("\x1b[49m");
+            }
           }
         }
         term::mvoutput({g::screen_width / 2 - 3, g::screen_height - 2}, "Line ", g::status_lineno);
@@ -863,16 +874,20 @@ Command:
           term::clear();
           std::size_t cursor_y = 0;
           term::mvoutput({g::screen_width / 2 - 4, cursor_y++}, "Tank Help");
-  
+          
           if (g::help_lineno > g::help_text.size()) g::help_lineno = 1;
           size_t start_pos = g::help_lineno - 1;
-          if(g::help_text.size() < g::screen_height - 3)
+          if (g::help_text.size() < g::screen_height - 3)
+          {
             start_pos = 0;
+          }
           else if (g::help_text.size() - g::help_lineno < g::screen_height - 3)
+          {
             start_pos = g::help_text.size() - g::screen_height + 3;
+          }
           for (size_t i = start_pos; i < start_pos + g::screen_height - 3 && i < g::help_text.size(); ++i)
           {
-            if(i == g::help_lineno - 1)
+            if (i == g::help_lineno - 1)
             {
               term::mvoutput({0, cursor_y++}, "\x1b[48;5;8m", g::help_text[i],
                              std::string(g::screen_width - g::help_text[i].size(), ' '), "\x1b[49m");

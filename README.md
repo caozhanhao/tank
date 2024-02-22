@@ -3,7 +3,7 @@ Tank
 </h2> 
 
 <p align="center">
-<strong>A Multiplayer Cross-platform Game</strong>
+<strong>An Online Command-Line Game</strong>
 </p>
 
 ### Intro
@@ -122,7 +122,7 @@ set msg_ttl [ttl]
 
 set seed [seed]
 
-- seed (int): the game map's seed.
+- seed (unsigned long long): the game map's seed.
 
 tell [A id optional] [msg]
 
