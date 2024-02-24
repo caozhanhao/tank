@@ -20,6 +20,7 @@
 #include "tank/globals.h"
 #include "tank/drawing.h"
 #include "tank/utils.h"
+#include "tank/serialization.hpp"
 
 #include <string>
 #include <string_view>
@@ -147,72 +148,6 @@ namespace czh::online
     return a;
   }
 
-//  UDPSocket::UDPSocket() : fd(-1)
-//  {
-//    fd = socket(AF_INET, SOCK_DGRAM, IPPROTO_UDP);
-//    utils::tank_assert(fd != -1, "socket initialize failed.");
-//    int on = 1;
-//    setsockopt(fd, SOL_SOCKET, SO_REUSEADDR, reinterpret_cast<char *>(&on), sizeof(on));
-//    utils::tank_assert(fd != -1, "socket initialize failed.");
-//  }
-//
-//  UDPSocket::~UDPSocket()
-//  {
-//    if (fd != -1)
-//    {
-//      ::close(fd);
-//      fd = -1;
-//    }
-//  }
-//
-//
-//  int UDPSocket::send(Addr addr, const std::string &str) const
-//  {
-//    if (!check(::sendto(fd, str.data(), str.size(), 0, (sockaddr *) &addr.addr, addr.len) > 0))
-//      return -1;
-//    return 0;
-//  }
-//
-//  std::optional<std::tuple<Addr, std::string>> UDPSocket::recv() const
-//  {
-//    char buf[10240];
-//    Addr addr;
-//    if (!check(::recvfrom(fd, buf, sizeof(buf), 0,
-//                          (sockaddr *) &addr.addr,
-//                          reinterpret_cast<socklen_t *>(&addr.len)) > 0))
-//      return std::nullopt;
-//    return std::make_tuple(addr, std::string{buf});
-//  }
-//
-//  int UDPSocket::bind(Addr addr) const
-//  {
-//    if (!check(::bind(fd, (sockaddr *) &addr.addr, addr.len) == 0))
-//    {
-//      return -1;
-//    }
-//    return 0;
-//  }
-//
-//  std::optional<Addr> UDPSocket::get_peer_addr() const
-//  {
-//    struct sockaddr_in peer_addr{};
-//    decltype(Addr::len) peer_len;
-//    peer_len = sizeof(peer_addr);
-//    if (!check(getpeername(fd, (struct sockaddr *) &peer_addr, &peer_len) != -1))
-//    {
-//      return std::nullopt;
-//    }
-//    return Addr{peer_addr, peer_len};
-//  }
-//
-//  Socket_t UDPSocket::release()
-//  {
-//    int f = fd;
-//    fd = -1;
-//    return f;
-//  }
-//
-//
   TCPSocket::TCPSocket() : fd(-1)
   {
     init();
@@ -499,162 +434,11 @@ namespace czh::online
     socket.reset();
   }
   
-  std::string serialize_zone(const czh::map::Zone &b)
+  struct Content
   {
-    return utils::join(delim::zo, b.x_min, b.x_max, b.y_min, b.y_max);
-  }
-  
-  czh::map::Zone deserialize_zone(const std::string &str)
-  {
-    auto s = czh::utils::split<std::vector<std::string_view>>(str, delim::zo);
-    czh::map::Zone c;
-    c.x_min = std::stoi(std::string{s[0]});
-    c.x_max = std::stoi(std::string{s[1]});
-    c.y_min = std::stoi(std::string{s[2]});
-    c.y_max = std::stoi(std::string{s[3]});
-    return c;
-  }
-  
-  std::string serialize_changes(const std::set<map::Pos> &changes)
-  {
-    if (changes.empty()) return "e";
-    std::string ret;
-    for (auto &b: changes)
-    {
-      ret += utils::join(delim::c, b.x, b.y) + delim::cs;
-    }
-    return ret;
-  }
-  
-  std::set<map::Pos> deserialize_changes(const std::string &str)
-  {
-    if (str == "e") return {};
-    auto s1 = czh::utils::split<std::vector<std::string_view>>(str, delim::cs);
-    std::set<map::Pos> ret;
-    for (auto &r: s1)
-    {
-      auto s2 = czh::utils::split<std::vector<std::string_view>>(r, delim::c);
-      ret.insert({std::stoi(std::string{s2[0]}), std::stoi(std::string{s2[1]})});
-    }
-    return ret;
-  }
-  
-  std::string serialize_tanksview(const std::map<size_t, drawing::TankView> &view)
-  {
-    if (view.empty()) return "e";
-    std::string ret;
-    for (auto &b: view)
-    {
-      ret += utils::join(delim::tv,
-                         b.second.info.name,
-                         b.second.info.bullet.hp,
-                         b.second.info.bullet.lethality,
-                         b.second.info.bullet.range,
-                         b.second.info.gap,
-                         b.second.info.id,
-                         b.second.info.max_hp,
-                         static_cast<int>(b.second.info.type),
-                         b.second.hp,
-                         b.second.is_alive,
-                         b.second.is_auto,
-                         static_cast<int>(b.second.direction),
-                         b.second.pos.x,
-                         b.second.pos.y) + delim::tvs;
-    }
-    return ret;
-  }
-  
-  std::map<size_t, drawing::TankView> deserialize_tanksview(const std::string &str)
-  {
-    if (str == "e") return {};
-    auto s1 = czh::utils::split<std::vector<std::string_view>>(str, delim::tvs);
-    std::map<size_t, drawing::TankView> ret;
-    for (auto &r: s1)
-    {
-      auto s2 = czh::utils::split<std::vector<std::string_view>>(r, delim::tv);
-      drawing::TankView c;
-      c.info.name = s2[0];
-      c.info.bullet.hp = std::stoi(std::string{s2[1]});
-      c.info.bullet.lethality = std::stoi(std::string{s2[2]});
-      c.info.bullet.range = std::stoi(std::string{s2[3]});
-      c.info.gap = std::stoi(std::string{s2[4]});
-      c.info.id = std::stoi(std::string{s2[5]});
-      c.info.max_hp = std::stoi(std::string{s2[6]});
-      c.info.type = static_cast<info::TankType>(std::stoi(std::string{s2[7]}));
-      c.hp = std::stoi(std::string{s2[8]});
-      c.is_alive = static_cast<bool>(std::stoi(std::string{s2[9]}));
-      c.is_auto = static_cast<bool>(std::stoi(std::string{s2[10]}));
-      c.direction = static_cast<map::Direction>(std::stoi(std::string{s2[11]}));
-      c.pos.x = std::stoi(std::string{s2[12]});
-      c.pos.y = std::stoi(std::string{s2[13]});
-      
-      ret.insert({c.info.id, c});
-    }
-    return ret;
-  }
-  
-  std::string serialize_mapview(const drawing::MapView &view)
-  {
-    std::string ret = std::to_string(view.seed) + delim::mv;
-    for (auto &b: view.view)
-    {
-      ret += utils::join(delim::pv,
-                         b.first.x,
-                         b.first.y,
-                         b.second.tank_id,
-                         (b.second.text.empty() ? "et" : b.second.text),
-                         static_cast<int>(b.second.status)) + delim::mv;
-    }
-    return ret;
-  }
-  
-  drawing::MapView deserialize_mapview(const std::string &str)
-  {
-    auto s1 = czh::utils::split<std::vector<std::string_view>>(str, delim::mv);
-    drawing::MapView ret;
-    ret.seed = std::stoul(std::string{s1[0]});
-    for (size_t i = 1; i < s1.size(); ++i)
-    {
-      auto s2 = czh::utils::split<std::vector<std::string_view>>(s1[i], delim::pv);
-      czh::drawing::PointView c;
-      int x = std::stoi(std::string{s2[0]});
-      int y = std::stoi(std::string{s2[1]});
-      c.tank_id = std::stoi(std::string{s2[2]});
-      c.text = s2[3] == "et" ? "" : std::string{s2[3]};
-      c.status = static_cast<czh::map::Status>(std::stoi(std::string{s2[4]}));
-      ret.view.insert({map::Pos{x, y}, c});
-    }
-    return ret;
-  }
-  
-  std::string serialize_and_clear_messages(std::priority_queue<msg::Message> &msg)
-  {
-    if (msg.empty()) return "e";
-    std::string ret;
-    while (!msg.empty())
-    {
-      ret += utils::join(delim::m, msg.top().from, msg.top().content, msg.top().priority) + delim::ms;
-      msg.pop();
-    }
-    return ret;
-  }
-  
-  std::priority_queue<msg::Message> deserialize_messages(const std::string &str)
-  {
-    if (str == "e") return {};
-    auto s1 = czh::utils::split<std::vector<std::string_view>>(str, delim::ms);
-    std::priority_queue<msg::Message> ret;
-    for (auto &r: s1)
-    {
-      auto s2 = czh::utils::split<std::vector<std::string_view>>(r, delim::m);
-      msg::Message c;
-      c.from = std::stoi(std::string{s2[0]});
-      c.content = std::string{s2[1]};
-      c.priority = std::stoi(std::string{s2[2]});
-      ret.push(c);
-    }
-    return ret;
-  }
+    std::string cmd;
+    std::vector<std::string> args;
+  };
   
   void TankServer::init()
   {
@@ -666,20 +450,20 @@ namespace czh::online
     svr = new TCPServer{};
     svr->init([](const Req &req, Res &res)
               {
-                auto s = utils::split<std::vector<std::string_view>>(req.get_content(), delim::req);
-                if (s[0] == "tank_react")
+                auto [cmd, args] = ser::deserialize<Content>(req.get_content());
+                if(cmd == "tank_react")
                 {
-                  size_t id = std::stoi(std::string{s[1]});
+                  size_t id = std::stoi(std::string{args[0]});
                   tank::NormalTankEvent event =
-                      static_cast<tank::NormalTankEvent>(std::stoi(std::string{s[2]}));
+                      static_cast<tank::NormalTankEvent>(std::stoi(args[1]));
                   game::tank_react(id, event);
                 }
-                else if (s[0] == "update")
+                else if (cmd == "update")
                 {
                   auto beg = std::chrono::steady_clock::now();
                   std::lock_guard<std::mutex> l(g::mainloop_mtx);
-                  size_t id = std::stoi(std::string{s[1]});
-                  map::Zone zone = deserialize_zone(std::string{s[2]});
+                  size_t id = std::stoi(args[0]);
+                  map::Zone zone = ser::deserialize<map::Zone>(args[1]);
                   std::set<map::Pos> changes;
                   for (auto &r: g::userdata[id].map_changes)
                   {
@@ -690,35 +474,36 @@ namespace czh::online
                   }
                   auto d = std::chrono::duration_cast<std::chrono::milliseconds>
                       (std::chrono::steady_clock::now() - beg);
-                  res.set_content(utils::join(delim::res,
-                                              "update_res",
-                                              d.count(),
-                                              serialize_changes(changes),
-                                              serialize_tanksview(drawing::extract_tanks()),
-                                              serialize_and_clear_messages(g::userdata[id].messages),
-                                              serialize_mapview(drawing::extract_map(zone))));
+                  res.set_content(ser::serialize(
+                      Content{.cmd = "update_res",
+                                  .args = {   std::to_string(d.count()),
+                                              ser::serialize(changes),
+                                              ser::serialize(drawing::extract_tanks()),
+                                              ser::serialize(g::userdata[id].messages),
+                                              ser::serialize(drawing::extract_map(zone))}}));
+                  g::userdata[id].messages = decltype(g::userdata[id].messages){};
                   g::userdata[id].map_changes.clear();
                   g::userdata[id].last_update = std::chrono::steady_clock::now();
                 }
-                else if (s[0] == "register")
+                else if (cmd == "register")
                 {
                   std::lock_guard<std::mutex> l(g::mainloop_mtx);
                   auto id = game::add_tank();
                   g::userdata[id] = g::UserData{
                       .user_id = g::user_id,
                       .ip = req.get_addr().ip(),
-                      .port = std::stoi(std::string{s[1]}),
-                      .screen_width = std::stoul(std::string{s[2]}),
-                      .screen_height = std::stoul(std::string{s[3]})
+                      .port = std::stoi(args[0]),
+                      .screen_width = std::stoul(args[1]),
+                      .screen_height = std::stoul(args[2])
                   };
                   g::userdata[id].last_update = std::chrono::steady_clock::now();
                   msg::info(-1, req.get_addr().ip() + " connected as " + std::to_string(id));
-                  res.set_content(utils::join(delim::res, "register_res", id));
+                  res.set_content(ser::serialize(Content{.cmd = "register_res", .args = {std::to_string(id)}}));
                 }
-                else if (s[0] == "deregister")
+                else if (cmd == "deregister")
                 {
                   std::lock_guard<std::mutex> l(g::mainloop_mtx);
-                  int id = std::stoi(std::string{s[1]});
+                  int id = std::stoi(args[0]);
                   msg::info(-1, req.get_addr().ip() + " (" + std::to_string(id) + ") disconnected.");
                   g::tanks[id]->kill();
                   g::tanks[id]->clear();
@@ -726,18 +511,18 @@ namespace czh::online
                   g::tanks.erase(id);
                   g::userdata.erase(id);
                 }
-                else if (s[0] == "add_auto_tank")
+                else if (cmd == "add_auto_tank")
                 {
                   std::lock_guard<std::mutex> l(g::mainloop_mtx);
-                  int lvl = std::stoi(std::string{s[1]});
-                  int pos_x = std::stoi(std::string{s[2]});
-                  int pos_y = std::stoi(std::string{s[3]});
+                  int lvl = std::stoi(args[0]);
+                  int pos_x = std::stoi(args[1]);
+                  int pos_y = std::stoi(args[2]);
                   game::add_auto_tank(lvl, {pos_x, pos_y});
                 }
-                else if (s[0] == "run_command")
+                else if (cmd == "run_command")
                 {
-                  int id = std::stoi(std::string{s[1]});
-                  std::string command = std::string{s[2]};
+                  int id = std::stoi(args[0]);
+                  std::string command = args[1];
                   cmd::run_command(id, command);
                 }
               });
@@ -774,27 +559,27 @@ namespace czh::online
       return std::nullopt;
     }
     
-    std::string content = utils::join(delim::req, "register", 8080, g::screen_width, g::screen_height);
+    std::string content = ser::serialize(Content{.cmd = "register", .args = {"8080", std::to_string(g::screen_width), std::to_string(g::screen_height)}});
     auto ret = cli->send_and_recv(content);
     if (!ret.has_value())
     {
       cli->reset();
       return std::nullopt;
     }
-    if (!utils::begin_with(*ret, "register_res"))
+    auto [cmd, args] = ser::deserialize<Content>(*ret);
+    if (cmd != "register_res")
     {
       msg::warn(g::user_id, "Received unexpected data.");
       cli->reset();
       return std::nullopt;
     }
-    auto s = utils::split<std::vector<std::string_view>>(*ret, delim::res);
-    return std::stoul(std::string{s[1]});
+    return std::stoul(args[0]);
   }
   
   void TankClient::disconnect()
   {
     std::lock_guard<std::mutex> l(g::online_mtx);
-    std::string content = utils::join(delim::req, "deregister", g::user_id);
+    std::string content = ser::serialize(Content{.cmd = "deregister", .args = {std::to_string(g::user_id)}});
     cli->send(content);
     cli->disconnect();
     cli->reset();
@@ -805,7 +590,7 @@ namespace czh::online
   int TankClient::tank_react(tank::NormalTankEvent e)
   {
     std::lock_guard<std::mutex> l(g::online_mtx);
-    std::string content = utils::join(delim::req, "tank_react", g::user_id, static_cast<int>(e));
+    std::string content = ser::serialize(Content{.cmd = "tank_react", .args = {std::to_string(g::user_id), std::to_string(static_cast<int>(e))}});
     return cli->send(content);
   }
   
@@ -813,8 +598,8 @@ namespace czh::online
   {
     std::lock_guard<std::mutex> l(g::online_mtx);
     auto beg = std::chrono::steady_clock::now();
-    std::string content = utils::join(delim::req, "update", g::user_id,
-                                      serialize_zone(g::visible_zone.bigger_zone(10)));
+    std::string content = ser::serialize(
+        Content{.cmd = "update", .args = {std::to_string(g::user_id), ser::serialize<map::Zone>(g::visible_zone.bigger_zone(10))}});
     auto ret = cli->send_and_recv(content);
     if (!ret.has_value())
     {
@@ -822,27 +607,27 @@ namespace czh::online
       g::output_inited = false;
       return -1;
     }
-    if (!utils::begin_with(*ret, "update_res"))
+    auto [cmd, args] = ser::deserialize<Content>(*ret);
+    if (cmd != "update_res")
     {
       msg::warn(g::user_id, "Received unexpected data.");
       return -1;
     }
-    auto s = utils::split<std::vector<std::string_view>>(*ret, delim::res);
     int curr_delay = std::chrono::duration_cast<std::chrono::milliseconds>
-                         (std::chrono::steady_clock::now() - beg).count() - std::stoi(std::string{s[1]});
+                         (std::chrono::steady_clock::now() - beg).count() - std::stoi(args[0]);
     g::delay = static_cast<int>((g::delay + 0.1 * curr_delay) / 1.1);
     
-    auto msgs = deserialize_messages(std::string{s[4]});
+    auto msgs = ser::deserialize<std::priority_queue<msg::Message>>(args[3]);
     while (!msgs.empty())
     {
       g::userdata[g::user_id].messages.push(msgs.top());
       msgs.pop();
     }
-    auto mv = deserialize_mapview(std::string{s[5]});
+    auto mv = ser::deserialize<drawing::MapView>(args[4]);
     if (mv.seed != g::snapshot.map.seed) g::output_inited = false;
     g::snapshot.map = mv;
-    g::snapshot.tanks = deserialize_tanksview(std::string{s[3]});
-    g::snapshot.changes = deserialize_changes(std::string{s[2]});
+    g::snapshot.tanks = ser::deserialize<std::map<size_t, drawing::TankView>>(args[2]);
+    g::snapshot.changes = ser::deserialize<std::set<map::Pos>>(args[1]);
     return 0;
   }
   
@@ -855,14 +640,20 @@ namespace czh::online
       msg::error(g::user_id, "No available space.");
       return -1;
     }
-    std::string content = utils::join(delim::req, "add_auto_tank", g::user_id, pos->x, pos->y, lvl);
+    std::string content = ser::serialize(
+        Content{.cmd = "add_auto_tank", .args = {std::to_string(g::user_id),
+                                                 std::to_string(pos->x),
+                                                 std::to_string(pos->y),
+                                                 std::to_string(lvl)}});
     return cli->send(content);
   }
   
   int TankClient::run_command(const std::string &str)
   {
     std::lock_guard<std::mutex> l(g::online_mtx);
-    std::string content = utils::join(delim::req, "run_command", g::user_id, str);
+    std::string content = ser::serialize(
+        Content{.cmd = "run_command", .args = {std::to_string(g::user_id),
+                                               str}});
     return cli->send(content);
   }
   

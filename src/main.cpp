@@ -105,9 +105,9 @@ int main()
               msg::critical(g::user_id, "Disconnected due to network issues.");
             }
           }
-          auto frame = drawing::update_snapshot();
-          if (frame == 0) drawing::draw();
-          
+          auto ret = drawing::update_snapshot();
+          if (ret == 0) drawing::draw();
+
           end = std::chrono::steady_clock::now();
           cost = std::chrono::duration_cast<std::chrono::milliseconds>(end - beg);
           if (g::tick > cost)

@@ -27,17 +27,53 @@
 
 namespace czh::tank
 {
-  class Tank;
+  enum class NormalTankEvent
+  {
+    UP, DOWN, LEFT, RIGHT, FIRE
+  };
+  enum class AutoTankEvent
+  {
+    UP, DOWN, LEFT, RIGHT, FIRE, PASS
+  };
   
-  Tank *build_tank(const map::TankData &data);
+  struct NormalTankData
+  {
+  };
+  struct AutoTankData
+  {
+    std::size_t target_id;
+    map::Pos target_pos;
+    map::Pos destination_pos;
+    std::vector<tank::AutoTankEvent> way;
+    std::size_t waypos;
+    int gap_count;
+  };
   
-  map::TankData get_tank_data(Tank *);
+  struct TankData
+  {
+    info::TankInfo info;
+    int hp;
+    map::Pos pos;
+    map::Direction direction;
+    bool hascleared;
+    
+    std::variant<NormalTankData, AutoTankData> data;
+    
+    [[nodiscard]] bool is_auto() const
+    {
+      return data.index() == 1;
+    }
+  };
+  
+  Tank *build_tank(const TankData &data);
+  
+  TankData get_tank_data(Tank *);
   
   class Tank
   {
-    friend Tank *build_tank(const map::TankData &data);
+    friend Tank *build_tank(const TankData &data);
     
-    friend map::TankData get_tank_data(Tank *);
+    friend TankData get_tank_data(Tank *);
   
   protected:
     info::TankInfo info;
@@ -104,9 +140,9 @@ namespace czh::tank
   
   class NormalTank : public Tank
   {
-    friend Tank *build_tank(const map::TankData &data);
+    friend Tank *build_tank(const TankData &data);
     
-    friend map::TankData get_tank_data(Tank *);
+    friend TankData get_tank_data(Tank *);
   
   public:
     NormalTank(info::TankInfo info_, map::Pos pos_)
@@ -154,9 +190,9 @@ namespace czh::tank
   
   class AutoTank : public Tank
   {
-    friend Tank *build_tank(const map::TankData &data);
+    friend Tank *build_tank(const TankData &data);
     
-    friend map::TankData get_tank_data(Tank *);
+    friend TankData get_tank_data(Tank *);
   
   private:
     std::size_t target_id;

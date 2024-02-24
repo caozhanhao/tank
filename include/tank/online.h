@@ -53,21 +53,6 @@
 
 namespace czh::online
 {
-  namespace delim
-  {
-    constexpr char req = '<'; // Request
-    constexpr char res = '>'; // Response
-    constexpr char pv = '!'; // PointView
-    constexpr char mv = '@'; // MapView
-    constexpr char tv = '$'; // TankView
-    constexpr char tvs = '%'; // TankViews
-    constexpr char zo = '^'; // Zone
-    constexpr char c = '&'; // Change
-    constexpr char cs = '*'; // Changes
-    constexpr char m = '{'; // Msg
-    constexpr char ms = '}'; // Msgs
-  }
-  
   constexpr int HEADER_MAGIC = 0x18273645;
 
 #ifdef _WIN32
@@ -130,30 +115,6 @@ namespace czh::online
 #else
   using Socket_t = int;
 #endif
-
-//  class UDPSocket
-//  {
-//  private:
-//    Socket_t fd;
-//    Addr addr;
-//  public:
-//    UDPSocket();
-//
-//    UDPSocket(const UDPSocket &) = delete;
-//
-//    ~UDPSocket();
-//
-//    Socket_t release();
-//
-//    int send(Addr to, const std::string &str) const;
-//
-//    std::optional<std::tuple<Addr, std::string>>  recv() const;
-//
-//    int bind(Addr addr) const;
-//
-//    std::optional<Addr> get_peer_addr() const;
-//
-//  };
   
   class TCPSocket
   {

@@ -24,7 +24,9 @@ namespace czh::g
 {
   std::vector<cmd::CommandInfo> commands{
       {"help",       "[line]"},
-      {"quit",       ""},
+      {"server",     "start [port] (or stop)"},
+      {"connect",    "[ip] [port]"},
+      {"disconnect", ""},
       {"fill",       "[status] [A x,y] [B x,y optional]"},
       {"tp",         "[A id] ([B id] or [B x,y])"},
       {"revive",     "id"},
@@ -33,12 +35,10 @@ namespace czh::g
       {"kill",       "[id optional]"},
       {"clear",      "[id optional] (or death)"},
       {"set",        "[id] (bullet) [attr] [value]"},
-      {"server",     "start [port] (or stop)"},
-      {"connect",    "[ip] [port]"},
-      {"disconnect", ""},
       {"tell",       "[id, optional], [msg]"},
       {"pause",      ""},
-      {"continue",   ""}
+      {"continue",   ""},
+      {"quit",       ""}
   };
 }
 namespace czh::cmd
@@ -256,7 +256,7 @@ namespace czh::cmd
         int to_id;
         std::tie(id, to_id) = args_get<int, int>(args);
         
-        if (game::id_at(id) == nullptr || game::id_at(to_id) == nullptr || !game::id_at(to_id)->is_alive())
+        if (game::id_at(id) == nullptr || game::id_at(to_id) == nullptr || !game::id_at(id)->is_alive())
         {
           msg::error(user_id, "Invalid tank.");
           return;

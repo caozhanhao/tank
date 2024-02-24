@@ -534,7 +534,7 @@ namespace czh::tank
     }
   }
   
-  Tank *build_tank(const map::TankData &data)
+  Tank *build_tank(const TankData &data)
   {
     if (data.is_auto())
     {
@@ -543,7 +543,7 @@ namespace czh::tank
       ret->direction = data.direction;
       ret->hascleared = data.hascleared;
       
-      auto &d = std::get<map::AutoTankData>(data.data);
+      auto &d = std::get<AutoTankData>(data.data);
       ret->target_id = d.target_id;
       ret->target_pos = d.target_pos;
       ret->destination_pos = d.destination_pos;
@@ -566,9 +566,9 @@ namespace czh::tank
     return nullptr;
   }
   
-  map::TankData get_tank_data(Tank *t)
+  TankData get_tank_data(Tank *t)
   {
-    map::TankData ret;
+    TankData ret;
     ret.info = t->info;
     ret.pos = t->pos;
     ret.hp = t->hp;
@@ -577,7 +577,7 @@ namespace czh::tank
     if (t->is_auto())
     {
       auto tank = dynamic_cast<tank::AutoTank *>(t);
-      map::AutoTankData data;
+      AutoTankData data;
       
       data.target_id = tank->target_id;
       data.target_pos = tank->target_pos;
@@ -587,13 +587,13 @@ namespace czh::tank
       data.waypos = tank->waypos;
       
       data.gap_count = tank->gap_count;
-      ret.data.emplace<map::AutoTankData>(data);
+      ret.data.emplace<AutoTankData>(data);
     }
     else
     {
       // auto tank = dynamic_cast<tank::NormalTank *>(t);
-      map::NormalTankData data;
-      ret.data.emplace<map::NormalTankData>(data);
+      NormalTankData data;
+      ret.data.emplace<NormalTankData>(data);
     }
     return ret;
   }

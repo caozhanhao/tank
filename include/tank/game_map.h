@@ -28,15 +28,6 @@
 
 namespace czh::tank
 {
-  enum class NormalTankEvent
-  {
-    UP, DOWN, LEFT, RIGHT, FIRE
-  };
-  enum class AutoTankEvent
-  {
-    UP, DOWN, LEFT, RIGHT, FIRE, PASS
-  };
-  
   class Tank;
 }
 namespace czh::bullet
@@ -72,43 +63,6 @@ namespace czh::map
   bool operator<(const Pos &pos1, const Pos &pos2);
   
   std::size_t get_distance(const map::Pos &from, const map::Pos &to);
-  
-  struct BulletData
-  {
-    map::Pos pos;
-    map::Direction direction;
-    int from_tank_id;
-    info::BulletInfo info;
-  };
-  
-  struct NormalTankData
-  {
-  };
-  struct AutoTankData
-  {
-    std::size_t target_id;
-    map::Pos target_pos;
-    map::Pos destination_pos;
-    std::vector<tank::AutoTankEvent> way;
-    std::size_t waypos;
-    int gap_count;
-  };
-  
-  struct TankData
-  {
-    info::TankInfo info;
-    int hp;
-    map::Pos pos;
-    map::Direction direction;
-    bool hascleared;
-    
-    std::variant<NormalTankData, AutoTankData> data;
-    
-    [[nodiscard]] bool is_auto() const
-    {
-      return data.index() == 1;
-    }
-  };
   
   struct Zone // [X min, X max)   [Y min, Y max)
   {
@@ -208,7 +162,7 @@ namespace czh::map
     [[nodiscard]] const Point &at(const Pos &i) const;
     
     [[nodiscard]] const Point &at(int x, int y) const;
-  
+    
   private:
     int tank_move(const Pos &pos, int direction);
     

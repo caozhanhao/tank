@@ -20,18 +20,26 @@
 
 namespace czh::bullet
 {
+  struct BulletData
+  {
+    map::Pos pos;
+    map::Direction direction;
+    int from_tank_id;
+    info::BulletInfo info;
+  };
+  
   class Bullet;
   
-  Bullet *build_bullet(const map::BulletData &data);
+  Bullet *build_bullet(const BulletData &data);
   
-  map::BulletData get_bullet_data(Bullet *);
+  BulletData get_bullet_data(Bullet *);
   
   
   class Bullet
   {
-    friend Bullet *build_bullet(const map::BulletData &data);
+    friend Bullet *build_bullet(const BulletData &data);
     
-    friend map::BulletData get_bullet_data(Bullet *);
+    friend BulletData get_bullet_data(Bullet *);
   
   private:
     map::Pos pos;

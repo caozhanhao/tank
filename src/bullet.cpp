@@ -127,15 +127,15 @@ namespace czh::bullet
     return info.lethality;
   }
   
-  Bullet *build_bullet(const map::BulletData &data)
+  Bullet *build_bullet(const BulletData &data)
   {
     auto ret = new Bullet(data.info, data.from_tank_id, data.pos, data.direction);
     return ret;
   }
   
-  map::BulletData get_bullet_data(Bullet *b)
+  BulletData get_bullet_data(Bullet *b)
   {
-    return map::BulletData
+    return BulletData
         {
             .pos = b->pos,
             .direction = b->direction,
