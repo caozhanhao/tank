@@ -18,6 +18,7 @@
 #include "tank/input.h"
 #include "tank/utils.h"
 #include "tank/tank.h"
+#include "tank/serialization.hpp"
 #include <chrono>
 #include <thread>
 #include <string>
@@ -107,7 +108,7 @@ int main()
           }
           auto ret = drawing::update_snapshot();
           if (ret == 0) drawing::draw();
-
+          
           end = std::chrono::steady_clock::now();
           cost = std::chrono::duration_cast<std::chrono::milliseconds>(end - beg);
           if (g::tick > cost)

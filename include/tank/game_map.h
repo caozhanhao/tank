@@ -48,13 +48,9 @@ namespace czh::map
   class Pos
   {
   public:
-    int x;
-    int y;
+    int x = 0;
+    int y = 0;
   public:
-    Pos() : x(0), y(0) {}
-    
-    Pos(int x_, int y_) : x(x_), y(y_) {}
-    
     bool operator==(const Pos &pos) const;
     
     bool operator!=(const Pos &pos) const;
@@ -162,7 +158,7 @@ namespace czh::map
     [[nodiscard]] const Point &at(const Pos &i) const;
     
     [[nodiscard]] const Point &at(int x, int y) const;
-    
+  
   private:
     int tank_move(const Pos &pos, int direction);
     

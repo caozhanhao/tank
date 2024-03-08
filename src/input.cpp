@@ -100,27 +100,27 @@ namespace czh::input
     }
     
     // more hint for debug :)
-    if(before_pattern == "connect" && pattern == "1")
+    if (before_pattern == "connect" && pattern == "1")
     {
       g::hint = "27.0.0.1";
       g::hint_applicable = true;
       return;
     }
-    if(before_pattern == "connect 127.0.0.1" && pattern.empty())
+    if (before_pattern == "connect 127.0.0.1" && pattern.empty())
     {
       g::hint = "8080";
       g::hint_applicable = true;
       return;
     }
     
-    if(before_pattern == "server" && pattern == "s")
+    if (before_pattern == "server" && pattern == "s")
     {
       g::hint = "tart";
       g::hint_applicable = true;
       return;
     }
-  
-    if(before_pattern == "server start" && pattern.empty())
+    
+    if (before_pattern == "server start" && pattern.empty())
     {
       g::hint = "8080";
       g::hint_applicable = true;

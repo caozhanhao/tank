@@ -147,7 +147,7 @@ namespace czh::online
     }
     return a;
   }
-
+  
   TCPSocket::TCPSocket() : fd(-1)
   {
     init();
@@ -434,11 +434,18 @@ namespace czh::online
     socket.reset();
   }
   
-  struct Content
+  
+  template<typename ...Args>
+  std::string make_request(const std::string &cmd, Args &&...args)
   {
-    std::string cmd;
-    std::vector<std::string> args;
-  };
+    return ser::serialize(cmd, ser::serialize(std::forward<Args>(args)...));
+  }
+  
+  template<typename ...Args>
+  std::string make_response(Args &&...args)
+  {
+    return ser::serialize(std::forward<Args>(args)...);
+  }
   
   void TankServer::init()
   {
@@ -450,20 +457,17 @@ namespace czh::online
     svr = new TCPServer{};
     svr->init([](const Req &req, Res &res)
               {
-                auto [cmd, args] = ser::deserialize<Content>(req.get_content());
-                if(cmd == "tank_react")
+                auto[cmd, args] = ser::deserialize<std::string, std::string>(req.get_content());
+                if (cmd == "tank_react")
                 {
-                  size_t id = std::stoi(std::string{args[0]});
-                  tank::NormalTankEvent event =
-                      static_cast<tank::NormalTankEvent>(std::stoi(args[1]));
+                  auto[id, event] = ser::deserialize<size_t, tank::NormalTankEvent>(args);
                   game::tank_react(id, event);
                 }
                 else if (cmd == "update")
                 {
+                  auto[id, zone] = ser::deserialize<size_t, map::Zone>(args);
                   auto beg = std::chrono::steady_clock::now();
                   std::lock_guard<std::mutex> l(g::mainloop_mtx);
-                  size_t id = std::stoi(args[0]);
-                  map::Zone zone = ser::deserialize<map::Zone>(args[1]);
                   std::set<map::Pos> changes;
                   for (auto &r: g::userdata[id].map_changes)
                   {
@@ -474,36 +478,33 @@ namespace czh::online
                   }
                   auto d = std::chrono::duration_cast<std::chrono::milliseconds>
                       (std::chrono::steady_clock::now() - beg);
-                  res.set_content(ser::serialize(
-                      Content{.cmd = "update_res",
-                                  .args = {   std::to_string(d.count()),
-                                              ser::serialize(changes),
-                                              ser::serialize(drawing::extract_tanks()),
-                                              ser::serialize(g::userdata[id].messages),
-                                              ser::serialize(drawing::extract_map(zone))}}));
+                  res.set_content(make_response(d.count(), changes, drawing::extract_tanks(),
+                                                g::userdata[id].messages, drawing::extract_map(zone)));
                   g::userdata[id].messages = decltype(g::userdata[id].messages){};
                   g::userdata[id].map_changes.clear();
                   g::userdata[id].last_update = std::chrono::steady_clock::now();
                 }
                 else if (cmd == "register")
                 {
+                  auto[port, screen_width, screen_height] =
+                  ser::deserialize<int, size_t, size_t>(args);
                   std::lock_guard<std::mutex> l(g::mainloop_mtx);
                   auto id = game::add_tank();
                   g::userdata[id] = g::UserData{
                       .user_id = g::user_id,
                       .ip = req.get_addr().ip(),
-                      .port = std::stoi(args[0]),
-                      .screen_width = std::stoul(args[1]),
-                      .screen_height = std::stoul(args[2])
+                      .port = port,
+                      .screen_width = screen_width,
+                      .screen_height = screen_height
                   };
                   g::userdata[id].last_update = std::chrono::steady_clock::now();
                   msg::info(-1, req.get_addr().ip() + " connected as " + std::to_string(id));
-                  res.set_content(ser::serialize(Content{.cmd = "register_res", .args = {std::to_string(id)}}));
+                  res.set_content(make_response(id));
                 }
                 else if (cmd == "deregister")
                 {
+                  auto id = ser::deserialize<size_t>(args);
                   std::lock_guard<std::mutex> l(g::mainloop_mtx);
-                  int id = std::stoi(args[0]);
                   msg::info(-1, req.get_addr().ip() + " (" + std::to_string(id) + ") disconnected.");
                   g::tanks[id]->kill();
                   g::tanks[id]->clear();
@@ -513,16 +514,13 @@ namespace czh::online
                 }
                 else if (cmd == "add_auto_tank")
                 {
+                  auto[lvl, pos] = ser::deserialize<int, map::Pos>(args);
                   std::lock_guard<std::mutex> l(g::mainloop_mtx);
-                  int lvl = std::stoi(args[0]);
-                  int pos_x = std::stoi(args[1]);
-                  int pos_y = std::stoi(args[2]);
-                  game::add_auto_tank(lvl, {pos_x, pos_y});
+                  game::add_auto_tank(lvl, pos);
                 }
                 else if (cmd == "run_command")
                 {
-                  int id = std::stoi(args[0]);
-                  std::string command = args[1];
+                  auto[id, command] = ser::deserialize<size_t, std::string>(args);
                   cmd::run_command(id, command);
                 }
               });
@@ -559,27 +557,21 @@ namespace czh::online
       return std::nullopt;
     }
     
-    std::string content = ser::serialize(Content{.cmd = "register", .args = {"8080", std::to_string(g::screen_width), std::to_string(g::screen_height)}});
+    std::string content = make_request("register", 8080, g::screen_width, g::screen_height);
     auto ret = cli->send_and_recv(content);
     if (!ret.has_value())
     {
       cli->reset();
       return std::nullopt;
     }
-    auto [cmd, args] = ser::deserialize<Content>(*ret);
-    if (cmd != "register_res")
-    {
-      msg::warn(g::user_id, "Received unexpected data.");
-      cli->reset();
-      return std::nullopt;
-    }
-    return std::stoul(args[0]);
+    auto id = ser::deserialize<size_t>(*ret);
+    return id;
   }
   
   void TankClient::disconnect()
   {
     std::lock_guard<std::mutex> l(g::online_mtx);
-    std::string content = ser::serialize(Content{.cmd = "deregister", .args = {std::to_string(g::user_id)}});
+    std::string content = make_request("deregister", g::user_id);
     cli->send(content);
     cli->disconnect();
     cli->reset();
@@ -590,7 +582,7 @@ namespace czh::online
   int TankClient::tank_react(tank::NormalTankEvent e)
   {
     std::lock_guard<std::mutex> l(g::online_mtx);
-    std::string content = ser::serialize(Content{.cmd = "tank_react", .args = {std::to_string(g::user_id), std::to_string(static_cast<int>(e))}});
+    std::string content = make_request("tank_react", g::user_id, e);
     return cli->send(content);
   }
   
@@ -598,8 +590,7 @@ namespace czh::online
   {
     std::lock_guard<std::mutex> l(g::online_mtx);
     auto beg = std::chrono::steady_clock::now();
-    std::string content = ser::serialize(
-        Content{.cmd = "update", .args = {std::to_string(g::user_id), ser::serialize<map::Zone>(g::visible_zone.bigger_zone(10))}});
+    std::string content = make_request("update", g::user_id, g::visible_zone.bigger_zone(10));
     auto ret = cli->send_and_recv(content);
     if (!ret.has_value())
     {
@@ -607,27 +598,22 @@ namespace czh::online
       g::output_inited = false;
       return -1;
     }
-    auto [cmd, args] = ser::deserialize<Content>(*ret);
-    if (cmd != "update_res")
-    {
-      msg::warn(g::user_id, "Received unexpected data.");
-      return -1;
-    }
+    int delay;
+    auto old_seed = g::snapshot.map.seed;
+    std::priority_queue<msg::Message> msgs;
+    std::tie(delay, g::snapshot.changes, g::snapshot.tanks, msgs, g::snapshot.map)
+        = ser::deserialize<int, std::set<map::Pos>, std::map<size_t, drawing::TankView>,
+        std::priority_queue<msg::Message>,
+        drawing::MapView>(*ret);
     int curr_delay = std::chrono::duration_cast<std::chrono::milliseconds>
-                         (std::chrono::steady_clock::now() - beg).count() - std::stoi(args[0]);
+                         (std::chrono::steady_clock::now() - beg).count() - delay;
     g::delay = static_cast<int>((g::delay + 0.1 * curr_delay) / 1.1);
-    
-    auto msgs = ser::deserialize<std::priority_queue<msg::Message>>(args[3]);
     while (!msgs.empty())
     {
       g::userdata[g::user_id].messages.push(msgs.top());
       msgs.pop();
     }
-    auto mv = ser::deserialize<drawing::MapView>(args[4]);
-    if (mv.seed != g::snapshot.map.seed) g::output_inited = false;
-    g::snapshot.map = mv;
-    g::snapshot.tanks = ser::deserialize<std::map<size_t, drawing::TankView>>(args[2]);
-    g::snapshot.changes = ser::deserialize<std::set<map::Pos>>(args[1]);
+    if (old_seed != g::snapshot.map.seed) g::output_inited = false;
     return 0;
   }
   
@@ -640,20 +626,14 @@ namespace czh::online
       msg::error(g::user_id, "No available space.");
       return -1;
     }
-    std::string content = ser::serialize(
-        Content{.cmd = "add_auto_tank", .args = {std::to_string(g::user_id),
-                                                 std::to_string(pos->x),
-                                                 std::to_string(pos->y),
-                                                 std::to_string(lvl)}});
+    std::string content = make_request("add_auto_tank", g::user_id, pos, lvl);
     return cli->send(content);
   }
   
   int TankClient::run_command(const std::string &str)
   {
     std::lock_guard<std::mutex> l(g::online_mtx);
-    std::string content = ser::serialize(
-        Content{.cmd = "run_command", .args = {std::to_string(g::user_id),
-                                               str}});
+    std::string content = make_request("run_command", g::user_id, str);
     return cli->send(content);
   }
   
