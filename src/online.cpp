@@ -20,7 +20,7 @@
 #include "tank/globals.h"
 #include "tank/drawing.h"
 #include "tank/utils.h"
-#include "tank/serialization.hpp"
+#include "tank/serialization.h"
 
 #include <string>
 #include <string_view>

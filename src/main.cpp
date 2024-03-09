@@ -18,7 +18,7 @@
 #include "tank/input.h"
 #include "tank/utils.h"
 #include "tank/tank.h"
-#include "tank/serialization.hpp"
+#include "tank/serialization.h"
 #include <chrono>
 #include <thread>
 #include <string>
