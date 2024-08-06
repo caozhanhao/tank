@@ -22,7 +22,7 @@
 #include "term.h"
 #include <functional>
 #include <string>
-#include <condition_variable>
+#include <set>
 #include <atomic>
 #include <map>
 #include <mutex>
@@ -73,8 +73,9 @@ namespace czh::g
   extern bool hint_applicable;
   
   // command.cpp
-  extern std::vector<cmd::CommandInfo> commands;
-  
+  extern const std::set<std::string> client_cmds;
+  extern const std::vector<cmd::CommandInfo> commands;
+
   // drawing.cpp
   extern bool output_inited;
   extern size_t tank_focus;

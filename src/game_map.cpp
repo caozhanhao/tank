@@ -20,7 +20,7 @@
 namespace czh::g
 {
   map::Map game_map;
-  unsigned long long seed = utils::randnum<unsigned long long>(100000, 1000000);
+  unsigned long long seed = utils::randnum<unsigned long long>(1, 20);
   map::Point empty_point("used for empty point", {});
   map::Point wall_point("used for wall point", {map::Status::WALL});
 }
@@ -238,23 +238,39 @@ namespace czh::map
   
   const Point &generate(const Pos &i, size_t seed)
   {
-//    srand(i.x * i.y * i.x * i.y);
-//    if (rand() % 50 == 1)
-//      return g::wall_point;
-//    Using this method to generate map may be unstable,
-//    because value of rand() % 50 may unexpectedly change,
-//    thus making the wall "suddenly disappears".
-    
-    if (auto a = i.x * i.y * i.x * i.y; a != 0)
-    {
-      if ((seed % a) % 49 == 1)
-      {
-        return g::wall_point;
-      }
-    }
+    constexpr int magic = 9;
+    //   if(i.x / magic == 0 || i. y / magic == 0)
+    //     return g::empty_point;
+    //
+    //   if (i.x % magic != 0 && i.y % magic == 0)
+    //   {
+    //     int a = (i.x / magic) * i.y;
+    //     if(a < 0) a = -a * 2;
+    //     if(seed * a % 7 == 1)
+    //       return g::wall_point;
+    //   }
+    //
+    //   if (i.x % magic == 0 && i.y % magic != 0)
+    //   {
+    //     int a = i.x * (i.y / magic);
+    //     if(a < 0) a = -a * 2;
+    //     if(seed * a % 5 == 1)
+    //       return g::wall_point;
+    //   }
+
+    int a = i.x * (i.y / magic);
+    if(a < 0) a = -a * 2;
+    if(seed * a % 37 == 1)
+      return g::wall_point;
+
+    a = (i.x / magic) * i.y;
+    if(a < 0) a = -a * 2;
+    if(seed * a % 37 == 1)
+      return g::wall_point;
+
     return g::empty_point;
   }
-  
+
   const Point &generate(int x, int y, size_t seed)
   {
     return generate(Pos(x, y), seed);
